@@ -242,7 +242,3 @@ For the complete API specification including request and response schemas see [d
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
-
-## Contributors
-
-- Alex — Lead Developer
