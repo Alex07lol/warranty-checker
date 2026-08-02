@@ -1,0 +1,9 @@
+PORT=5000
+NODE_ENV=development
+MONGO_URI=mongodb+srv://<user>:<password>@cluster0.mongodb.net/warrantyvault_db
+JWT_SECRET=<your-long-random-secret>
+JWT_EXPIRES_IN=7d
+CLOUDINARY_CLOUD_NAME=<your-cloud-name>
+CLOUDINARY_API_KEY=<your-api-key>
+CLOUDINARY_API_SECRET=<your-api-secret>
+CLIENT_URL=http://localhost
