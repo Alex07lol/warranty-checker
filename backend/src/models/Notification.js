@@ -34,8 +34,12 @@ const notificationSchema = new mongoose.Schema({
     default: false
   },
   scheduledAt: Date,
-  sentAt: Date
-}, { timestamps: true });
+  sentAt: Date,
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
 
 notificationSchema.index({ userId: 1, isRead: 1 });
 notificationSchema.index({ productId: 1, notificationType: 1, scheduledAt: 1 });
