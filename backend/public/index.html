@@ -713,6 +713,181 @@
       margin: 3px auto 0;
     }
 
+    /* ---- QUICK ACTIONS ---- */
+    .detail-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .detail-action-btn {
+      flex: 1;
+      border: none;
+      border-radius: 14px;
+      padding: 14px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .detail-action-btn:active {
+      transform: scale(0.96);
+    }
+
+    .detail-action-btn.repair {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .detail-action-btn.scan {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .detail-action-btn svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    /* ---- LOGIN VIEW ---- */
+    .login-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 32px 28px;
+      background: #f5f5f7;
+    }
+
+    .login-logo {
+      font-size: 32px;
+      margin-bottom: 6px;
+    }
+
+    .login-title {
+      font-size: 26px;
+      font-weight: 700;
+      color: #111;
+      letter-spacing: -0.5px;
+    }
+
+    .login-sub {
+      font-size: 13px;
+      color: #888;
+      margin-top: 4px;
+      margin-bottom: 32px;
+    }
+
+    .login-tab-row {
+      display: flex;
+      background: #e8e8ea;
+      border-radius: 12px;
+      padding: 3px;
+      margin-bottom: 24px;
+    }
+
+    .login-tab {
+      flex: 1;
+      text-align: center;
+      padding: 8px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #888;
+      transition: background 0.2s, color 0.2s;
+      border: none;
+      background: none;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .login-tab.active {
+      background: #fff;
+      color: #111;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    .login-field {
+      margin-bottom: 14px;
+    }
+
+    .login-field label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #555;
+      letter-spacing: 0.3px;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .login-field input {
+      width: 100%;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      color: #111;
+      background: #fff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .login-field input:focus {
+      border-color: #111;
+    }
+
+    .login-btn {
+      width: 100%;
+      background: #111;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 15px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s, transform 0.15s;
+    }
+
+    .login-btn:active {
+      transform: scale(0.98);
+      background: #333;
+    }
+
+    .login-err {
+      font-size: 12px;
+      color: #c62828;
+      text-align: center;
+      margin-top: 10px;
+      min-height: 16px;
+    }
+
+    .login-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 18px 0;
+      color: #ccc;
+      font-size: 12px;
+    }
+
+    .login-divider::before,
+    .login-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e0e0e0;
+    }
+
     /* Utility */
     input[type="file"] { display: none; }
   </style>
@@ -744,11 +919,60 @@
   <!-- Screen -->
   <div class="screen">
 
+    <!-- ======================== LOGIN VIEW ======================== -->
+    <div class="view active" id="view-login">
+      <div class="login-screen">
+        <div class="login-logo">🔒</div>
+        <div class="login-title">WarrantyVault</div>
+        <div class="login-sub">Your digital ownership companion</div>
+
+        <div class="login-tab-row">
+          <button class="login-tab active" id="tab-login" onclick="switchAuthTab('login')">Sign In</button>
+          <button class="login-tab" id="tab-register" onclick="switchAuthTab('register')">Register</button>
+        </div>
+
+        <!-- Sign In form -->
+        <div id="form-login">
+          <div class="login-field">
+            <label>Email</label>
+            <input type="email" id="login-email" placeholder="you@example.com" />
+          </div>
+          <div class="login-field">
+            <label>Password</label>
+            <input type="password" id="login-password" placeholder="••••••••" />
+          </div>
+          <button class="login-btn" onclick="doLogin()">Sign In</button>
+          <div class="login-err" id="login-err"></div>
+        </div>
+
+        <!-- Register form -->
+        <div id="form-register" style="display:none;">
+          <div class="login-field">
+            <label>Full Name</label>
+            <input type="text" id="reg-name" placeholder="Aakash Sharma" />
+          </div>
+          <div class="login-field">
+            <label>Email</label>
+            <input type="email" id="reg-email" placeholder="you@example.com" />
+          </div>
+          <div class="login-field">
+            <label>Password</label>
+            <input type="password" id="reg-password" placeholder="Min. 6 characters" />
+          </div>
+          <button class="login-btn" onclick="doRegister()">Create Account</button>
+          <div class="login-err" id="reg-err"></div>
+        </div>
+
+        <div class="login-divider">or continue as</div>
+        <button class="login-btn" style="background:#f5f5f7;color:#111;border:1.5px solid #e0e0e0;" onclick="doGuest()">👤 Guest (Demo Mode)</button>
+      </div>
+    </div>
+
     <!-- ======================== HOME VIEW ======================== -->
-    <div class="view active" id="view-home">
+    <div class="view" id="view-home">
       <div class="home-header">
         <div class="greeting">Good morning,</div>
-        <div class="greeting-name">Aakash</div>
+        <div class="greeting-name" id="greeting-name">Aakash</div>
       </div>
       <div class="view-scroll">
 
@@ -835,6 +1059,22 @@
 
         <div class="detail-section-title">Product Details</div>
         <div id="detail-specs"></div>
+
+        <div class="detail-section-title">Quick Actions</div>
+        <div class="detail-actions">
+          <button class="detail-action-btn repair" id="detail-repair-btn">
+            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            Find Repair Center
+          </button>
+          <button class="detail-action-btn scan" id="detail-scan-btn">
+            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+            </svg>
+            Scan / OCR
+          </button>
+        </div>
 
         <div class="detail-section-title">Documents</div>
         <div class="doc-chip-row" id="detail-docs"></div>
@@ -1092,6 +1332,19 @@
     currentProductId = null;
   });
 
+  // Quick action buttons inside detail overlay → navigate to the right view
+  document.getElementById('detail-repair-btn').addEventListener('click', () => {
+    document.getElementById('detail-overlay').classList.remove('open');
+    currentProductId = null;
+    switchView('repair');
+  });
+
+  document.getElementById('detail-scan-btn').addEventListener('click', () => {
+    document.getElementById('detail-overlay').classList.remove('open');
+    currentProductId = null;
+    switchView('camera');
+  });
+
   // Photo upload
   document.getElementById('detail-upload-btn').addEventListener('click', () => {
     document.getElementById('photo-upload-input').click();
@@ -1114,21 +1367,113 @@
     e.target.value = '';
   });
 
+  // ─── Shared view switcher ─────────────────────────────────────────────────
+  function switchView(target) {
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    const navBtn = document.querySelector(`.nav-item[data-view="${target}"]`);
+    if (navBtn) navBtn.classList.add('active');
+
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const viewEl = document.getElementById('view-' + target);
+    if (viewEl) viewEl.classList.add('active');
+  }
+
   // ─── Bottom navigation ────────────────────────────────────────────────────
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => {
-      const target = btn.getAttribute('data-view');
-
-      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-      document.getElementById('view-' + target).classList.add('active');
+      switchView(btn.getAttribute('data-view'));
     });
   });
 
+  // ─── Auth helpers ─────────────────────────────────────────────────────────
+  function switchAuthTab(tab) {
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    document.getElementById('form-login').style.display = tab === 'login' ? '' : 'none';
+    document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
+    document.getElementById('login-err').textContent = '';
+    document.getElementById('reg-err').textContent = '';
+  }
+
+  function enterApp(name) {
+    // Hide bottom nav login-blocking overlay is gone, show home
+    document.querySelector('.bottom-nav').style.display = '';
+    document.getElementById('greeting-name').textContent = name || 'User';
+    renderHome();
+    switchView('home');
+  }
+
+  function doLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const pass  = document.getElementById('login-password').value;
+    const err   = document.getElementById('login-err');
+    if (!email || !pass) { err.textContent = 'Please fill in all fields.'; return; }
+
+    // Try API first, fall back to demo mode
+    fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        localStorage.setItem('wv_token', data.data.token);
+        enterApp(data.data.user?.name || email.split('@')[0]);
+      } else {
+        err.textContent = data.message || 'Invalid credentials.';
+      }
+    })
+    .catch(() => {
+      // Offline / no DB — demo mode login
+      if (email && pass.length >= 3) {
+        enterApp(email.split('@')[0]);
+      } else {
+        err.textContent = 'Enter a valid email and password.';
+      }
+    });
+  }
+
+  function doRegister() {
+    const name  = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const pass  = document.getElementById('reg-password').value;
+    const err   = document.getElementById('reg-err');
+    if (!name || !email || !pass) { err.textContent = 'Please fill in all fields.'; return; }
+    if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
+
+    fetch('/api/v1/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password: pass })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        localStorage.setItem('wv_token', data.data.token);
+        enterApp(name);
+      } else {
+        err.textContent = data.message || 'Registration failed.';
+      }
+    })
+    .catch(() => {
+      // Offline demo mode
+      enterApp(name);
+    });
+  }
+
+  function doGuest() {
+    enterApp('Aakash');
+  }
+
   // ─── Initial render ───────────────────────────────────────────────────────
-  renderHome();
+  // Hide nav until logged in
+  document.querySelector('.bottom-nav').style.display = 'none';
+  // Show login screen by default (view-login is already .active from HTML)
+  // If already have a token (e.g. returning user), skip login
+  if (localStorage.getItem('wv_token')) {
+    enterApp(localStorage.getItem('wv_username') || 'Aakash');
+  }
 </script>
 </body>
 </html>
