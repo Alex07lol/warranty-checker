@@ -5,7 +5,6 @@ const registerSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().min(8).required(),
   confirmPassword: Joi.any().valid(Joi.ref("password")).required()
-    .messages({ "any.only": "Passwords do not match", "any.required": "Confirm password is required" })
 });
 
 const loginSchema = Joi.object({
@@ -17,7 +16,6 @@ const changePasswordSchema = Joi.object({
   currentPassword: Joi.string().required(),
   newPassword: Joi.string().min(8).required(),
   confirmNewPassword: Joi.any().valid(Joi.ref("newPassword")).required()
-    .messages({ "any.only": "Passwords do not match", "any.required": "Confirm new password is required" })
 });
 
 module.exports = {
