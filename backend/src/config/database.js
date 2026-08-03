@@ -4,7 +4,7 @@ const { MONGO_URI } = require("./env");
 async function connectDatabase() {
   await mongoose.connect(MONGO_URI, {
     dbName: "warrantyvault_db",
-    serverSelectionTimeoutMS: 2000
+    serverSelectionTimeoutMS: 3000
   });
 }
 
