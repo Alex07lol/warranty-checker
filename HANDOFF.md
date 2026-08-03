@@ -57,11 +57,11 @@ Steps:
 2. Fill in `MONGO_URI` with your MongoDB Atlas connection string
 3. Fill in `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
 4. Fill in `JWT_SECRET` with a long random string (minimum 32 characters)
-5. Run `npm install --legacy-peer-deps` inside `backend/`
+5. Run `npm install` inside `backend/`
 6. Run `npm run dev` to start the development server on port 5000
 7. Test every endpoint in Postman using `docs/api-design.md` as the reference
 
-The `multer-storage-cloudinary` package requires `--legacy-peer-deps` because it has a peer dependency on `cloudinary@^1.x` while the installed version is `cloudinary@^2.x`. The API is compatible at runtime.
+Cloudinary uploads are handled by the official `cloudinary` SDK after Multer parses the multipart file in memory. To verify credentials without running the full app, run `npm run check:cloudinary` inside `backend/`; it uploads and deletes a tiny test image.
 
 ### Priority 2 — Flutter Project Initialization
 The Flutter source is inside the zip file at `mobile/warranty_vault/lib/` and `mobile/warranty_vault/pubspec.yaml`.
@@ -164,9 +164,9 @@ Never break this contract. Flutter and the web client both depend on it.
 - Never force-push `main` unless correcting author history
 
 ### Dependency Notes
-- The backend dependency tree has a peer conflict between `cloudinary@2.x` and `multer-storage-cloudinary@4.x`
-- Always run `npm install --legacy-peer-deps` for the backend
-- This is a known acceptable conflict — the APIs used are compatible at runtime
+- Run `npm install` for the backend.
+- The backend uses `multer` plus the official `cloudinary` SDK directly.
+- `multer-storage-cloudinary` is intentionally not used, avoiding the old peer dependency conflict with Cloudinary SDK 2.x.
 
 ### Database Notes
 - Never hard-delete product records — use the `isDeleted` soft-delete flag
