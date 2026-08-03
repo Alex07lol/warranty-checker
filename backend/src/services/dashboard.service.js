@@ -28,7 +28,7 @@ async function getDashboardData(userId) {
     Product.find({
       ...base,
       warrantyExpiryDate: { $gte: now, $lte: expiryLimit }
-    }).sort({ warrantyExpiryDate: 1 }).limit(10)
+    }).sort({ warrantyExpiryDate: 1 })
   ]);
 
   return {
