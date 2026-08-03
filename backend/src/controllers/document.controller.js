@@ -1,6 +1,5 @@
 const documentService = require("../services/document.service");
 const { sendSuccess } = require("../utils/response");
-const AppError = require("../utils/AppError");
 
 async function getDocuments(req, res, next) {
   try {
@@ -30,7 +29,7 @@ async function getDocumentById(req, res, next) {
   try {
     const data = await documentService.getDocumentById(req.params.documentId, req.user.userId);
     if (data.productId.toString() !== req.params.productId) {
-      return next(new AppError("Forbidden", 403));
+      return next(new Error("Forbidden"));
     }
     return sendSuccess(res, data, "Document retrieved");
   } catch (error) {
@@ -40,11 +39,11 @@ async function getDocumentById(req, res, next) {
 
 async function deleteDocument(req, res, next) {
   try {
-    const document = await documentService.getDocumentById(req.params.documentId, req.user.userId);
-    if (document.productId.toString() !== req.params.productId) {
-      return next(new AppError("Forbidden", 403));
+    const data = await documentService.getDocumentById(req.params.documentId, req.user.userId);
+    if (data.productId.toString() !== req.params.productId) {
+      return next(new Error("Forbidden"));
     }
-    await documentService.deleteDocumentRecord(document);
+    await documentService.deleteDocument(req.params.documentId, req.user.userId);
     return sendSuccess(res, null, "Document deleted");
   } catch (error) {
     return next(error);
