@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "check:cloudinary": "node scripts/check-cloudinary.js",
     "test": "jest --runInBand"
   },
   "engines": {
@@ -24,7 +25,6 @@
     "mongoose": "^8.18.0",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
-    "multer-storage-cloudinary": "^4.0.0",
     "node-cron": "^4.6.0"
   },
   "devDependencies": {
