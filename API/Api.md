@@ -220,10 +220,13 @@ The `backend/scripts/api-smoke.js` I added is literally a run-through of the who
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  This is using the following stuff:
----------------------------------------------------------------------------------------------------------------------------------------------------------
+
  a standard JWT-secured REST API with layered Express architecture,
+ 
  full CRUD on products/documents/service-history, 
+ 
  a multi-query dashboard, 
+ 
  notification consumption endpoints,
+ 
  a Flutter client that mirrors every path with the two deliberate gaps being the unscheduled notification generator and unverified live runs (no bash on this machine).
----------------------------------------------------------------------------------------------------------------------------------------------------------
