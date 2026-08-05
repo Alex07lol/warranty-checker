@@ -43,7 +43,19 @@ const documentSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  notes: String
+  notes: String,
+  ocrStatus: {
+    type: String,
+    enum: ["pending", "processing", "done", "failed", "skipped"],
+    default: "pending"
+  },
+  ocrText: String,
+  parsedData: {
+    warrantyExpiryDate: Date,
+    purchasePrice: Number,
+    serialNumber: String
+  },
+  ocrError: String
 });
 
 module.exports = mongoose.model("Document", documentSchema);
