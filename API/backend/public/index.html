@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WarrantyVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #e8e8e8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Phone shell */
+    .phone {
+      width: 375px;
+      height: 812px;
+      background: #f5f5f7;
+      border-radius: 48px;
+      box-shadow:
+        0 0 0 10px #1a1a1a,
+        0 30px 80px rgba(0,0,0,0.4);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Status bar */
+    .status-bar {
+      height: 44px;
+      background: #f5f5f7;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .status-time {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .status-icons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .status-icons svg {
+      color: #1a1a1a;
+    }
+
+    /* Screen area */
+    .screen {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Individual view */
+    .view {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .view.active {
+      display: flex;
+      animation: slideUp 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Scrollable inner content — leaves room for nav */
+    .view-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 20px 100px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .view-scroll::-webkit-scrollbar { display: none; }
+
+    /* ---- HOME VIEW ---- */
+    .home-header {
+      padding: 20px 20px 0;
+      flex-shrink: 0;
+    }
+
+    .greeting {
+      font-size: 13px;
+      color: #888;
+      font-weight: 400;
+      letter-spacing: 0.2px;
+    }
+
+    .greeting-name {
+      font-size: 24px;
+      font-weight: 700;
+      color: #111;
+      margin-top: 2px;
+      letter-spacing: -0.5px;
+    }
+
+    .attention-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #888;
+      margin: 24px 0 12px;
+    }
+
+    /* Alert strip */
+    .alert-strip {
+      background: #fff0f0;
+      border-left: 3px solid #e53935;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .alert-strip .alert-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: #c62828;
+    }
+
+    .alert-strip .alert-sub {
+      font-size: 11px;
+      color: #e57373;
+      margin-top: 2px;
+    }
+
+    .alert-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #e53935;
+      flex-shrink: 0;
+      margin-left: 10px;
+    }
+
+    .warn-strip {
+      background: #fff8e1;
+      border-left: 3px solid #f9a825;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .warn-strip .alert-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: #e65100;
+    }
+
+    .warn-strip .alert-sub {
+      font-size: 11px;
+      color: #ffa726;
+      margin-top: 2px;
+    }
+
+    .warn-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #f9a825;
+      flex-shrink: 0;
+      margin-left: 10px;
+    }
+
+    /* Product card on Home attention items */
+    .product-attention-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: transform 0.15s ease;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .product-attention-card:active {
+      transform: scale(0.98);
+    }
+
+    .product-img {
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      object-fit: cover;
+      background: #eee;
+      flex-shrink: 0;
+    }
+
+    .product-img-placeholder {
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #e0e0e0, #f5f5f5);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #bbb;
+      font-size: 22px;
+    }
+
+    .product-info {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .product-info-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #111;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .product-info-brand {
+      font-size: 12px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .product-warranty-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 20px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .badge-expired {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .badge-critical {
+      background: #fff3e0;
+      color: #e65100;
+    }
+
+    .badge-soon {
+      background: #fffde7;
+      color: #f57f17;
+    }
+
+    .all-good {
+      padding: 40px 0;
+      text-align: center;
+      color: #bbb;
+    }
+
+    .all-good-icon {
+      font-size: 40px;
+      margin-bottom: 10px;
+    }
+
+    .all-good-text {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    /* ---- PRODUCTS VIEW (Camera Placeholder) ---- */
+    .camera-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      gap: 20px;
+      padding: 40px;
+    }
+
+    .camera-viewfinder {
+      width: 260px;
+      height: 260px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .camera-viewfinder::before,
+    .camera-viewfinder::after {
+      content: '';
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-color: #fff;
+      border-style: solid;
+    }
+
+    .camera-viewfinder::before {
+      top: -2px;
+      left: -2px;
+      border-width: 3px 0 0 3px;
+      border-radius: 6px 0 0 0;
+    }
+
+    .camera-viewfinder::after {
+      bottom: -2px;
+      right: -2px;
+      border-width: 0 3px 3px 0;
+      border-radius: 0 0 6px 0;
+    }
+
+    .camera-instruction {
+      font-size: 14px;
+      color: rgba(255,255,255,0.6);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .camera-label {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .camera-shutter {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      border: 4px solid rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    .camera-shutter-inner {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .camera-coming-soon {
+      font-size: 11px;
+      color: rgba(255,255,255,0.3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ---- REPAIR / SERVICE VIEW ---- */
+    .repair-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #f5f5f7;
+      gap: 14px;
+      padding: 40px;
+    }
+
+    .repair-map-placeholder {
+      width: 300px;
+      height: 220px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #e8eaf6, #e3f2fd);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #e0e0e0;
+    }
+
+    .map-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px);
+      background-size: 30px 30px;
+    }
+
+    .map-pin {
+      position: absolute;
+      font-size: 32px;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+    }
+
+    .map-pin:nth-child(2) { top: 30%; left: 40%; }
+    .map-pin:nth-child(3) { top: 50%; left: 65%; font-size: 24px; color: #666; }
+    .map-pin:nth-child(4) { top: 20%; left: 20%; font-size: 24px; color: #666; }
+
+    .repair-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #111;
+      letter-spacing: -0.3px;
+    }
+
+    .repair-sub {
+      font-size: 13px;
+      color: #888;
+      text-align: center;
+      line-height: 1.6;
+      max-width: 240px;
+    }
+
+    .repair-coming-soon-badge {
+      background: #111;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    /* ---- PRODUCT DETAIL OVERLAY ---- */
+    .detail-overlay {
+      position: absolute;
+      inset: 0;
+      background: #f5f5f7;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    .detail-overlay.open {
+      transform: translateX(0);
+    }
+
+    .detail-image-area {
+      height: 240px;
+      position: relative;
+      flex-shrink: 0;
+      background: #e0e0e0;
+    }
+
+    .detail-image-area img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .detail-back {
+      position: absolute;
+      top: 52px;
+      left: 16px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: none;
+      z-index: 5;
+    }
+
+    .detail-upload-btn {
+      position: absolute;
+      top: 52px;
+      right: 16px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: none;
+      z-index: 5;
+    }
+
+    .detail-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 20px 100px;
+      scrollbar-width: none;
+    }
+    .detail-body::-webkit-scrollbar { display: none; }
+
+    .detail-product-name {
+      font-size: 22px;
+      font-weight: 700;
+      color: #111;
+      letter-spacing: -0.4px;
+    }
+
+    .detail-product-brand {
+      font-size: 14px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    .detail-warranty-block {
+      margin-top: 20px;
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .detail-warranty-block.expired {
+      background: #ffebee;
+    }
+    .detail-warranty-block.critical {
+      background: #fff3e0;
+    }
+    .detail-warranty-block.safe {
+      background: #e8f5e9;
+    }
+
+    .detail-warranty-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #666;
+    }
+
+    .detail-warranty-value {
+      font-size: 18px;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    .detail-warranty-value.expired { color: #c62828; }
+    .detail-warranty-value.critical { color: #e65100; }
+    .detail-warranty-value.safe { color: #2e7d32; }
+
+    .detail-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: #aaa;
+      margin: 24px 0 12px;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .detail-row-label {
+      font-size: 13px;
+      color: #888;
+    }
+
+    .detail-row-value {
+      font-size: 13px;
+      font-weight: 500;
+      color: #111;
+      text-align: right;
+      max-width: 200px;
+      word-break: break-word;
+    }
+
+    /* Docs section */
+    .doc-chip-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .doc-chip {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #333;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .add-doc-chip {
+      background: #f5f5f7;
+      border: 1.5px dashed #ccc;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #999;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ---- BOTTOM NAV ---- */
+    .bottom-nav {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 280px;
+      height: 62px;
+      border-radius: 32px;
+      background: rgba(25, 25, 30, 0.72);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 10px;
+      z-index: 30;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 8px 14px;
+      border-radius: 20px;
+      transition: background 0.2s ease;
+      border: none;
+      background: none;
+      color: rgba(255,255,255,0.5);
+      flex: 1;
+    }
+
+    .nav-item:hover {
+      background: rgba(255,255,255,0.07);
+    }
+
+    .nav-item.active {
+      color: #fff;
+    }
+
+    .nav-item svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .nav-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+    }
+
+    /* Active indicator dot */
+    .nav-item.active .nav-label::after {
+      content: '';
+      display: block;
+      width: 4px;
+      height: 4px;
+      background: #fff;
+      border-radius: 50%;
+      margin: 3px auto 0;
+    }
+
+    /* ---- QUICK ACTIONS ---- */
+    .detail-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .detail-action-btn {
+      flex: 1;
+      border: none;
+      border-radius: 14px;
+      padding: 14px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .detail-action-btn:active {
+      transform: scale(0.96);
+    }
+
+    .detail-action-btn.repair {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .detail-action-btn.scan {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .detail-action-btn svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    /* ---- LOGIN VIEW ---- */
+    .login-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 32px 28px;
+      background: #f5f5f7;
+    }
+
+    .login-logo {
+      font-size: 32px;
+      margin-bottom: 6px;
+    }
+
+    .login-title {
+      font-size: 26px;
+      font-weight: 700;
+      color: #111;
+      letter-spacing: -0.5px;
+    }
+
+    .login-sub {
+      font-size: 13px;
+      color: #888;
+      margin-top: 4px;
+      margin-bottom: 32px;
+    }
+
+    .login-tab-row {
+      display: flex;
+      background: #e8e8ea;
+      border-radius: 12px;
+      padding: 3px;
+      margin-bottom: 24px;
+    }
+
+    .login-tab {
+      flex: 1;
+      text-align: center;
+      padding: 8px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #888;
+      transition: background 0.2s, color 0.2s;
+      border: none;
+      background: none;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .login-tab.active {
+      background: #fff;
+      color: #111;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    .login-field {
+      margin-bottom: 14px;
+    }
+
+    .login-field label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #555;
+      letter-spacing: 0.3px;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .login-field input {
+      width: 100%;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      color: #111;
+      background: #fff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .login-field input:focus {
+      border-color: #111;
+    }
+
+    .login-btn {
+      width: 100%;
+      background: #111;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 15px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s, transform 0.15s;
+    }
+
+    .login-btn:active {
+      transform: scale(0.98);
+      background: #333;
+    }
+
+    .login-err {
+      font-size: 12px;
+      color: #c62828;
+      text-align: center;
+      margin-top: 10px;
+      min-height: 16px;
+    }
+
+    .login-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 18px 0;
+      color: #ccc;
+      font-size: 12px;
+    }
+
+    .login-divider::before,
+    .login-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e0e0e0;
+    }
+
+    /* Utility */
+    input[type="file"] { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="phone">
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="status-time" id="statusTime">9:41</span>
+    <div class="status-icons">
+      <!-- Signal -->
+      <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor">
+        <rect x="0" y="7" width="3" height="5" rx="1"/>
+        <rect x="4.5" y="5" width="3" height="7" rx="1"/>
+        <rect x="9" y="2" width="3" height="10" rx="1"/>
+        <rect x="13.5" y="0" width="3" height="12" rx="1"/>
+      </svg>
+      <!-- Battery -->
+      <svg width="25" height="12" viewBox="0 0 25 12" fill="currentColor">
+        <rect x="0" y="1" width="21" height="10" rx="2.5" stroke="currentColor" stroke-width="1" fill="none"/>
+        <rect x="22" y="3.5" width="3" height="5" rx="1"/>
+        <rect x="1.5" y="2.5" width="16" height="7" rx="1.5" fill="currentColor"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Screen -->
+  <div class="screen">
+
+    <!-- ======================== LOGIN VIEW ======================== -->
+    <div class="view active" id="view-login">
+      <div class="login-screen">
+        <div class="login-logo">🔒</div>
+        <div class="login-title">WarrantyVault</div>
+        <div class="login-sub">Your digital ownership companion</div>
+
+        <div class="login-tab-row">
+          <button class="login-tab active" id="tab-login" onclick="switchAuthTab('login')">Sign In</button>
+          <button class="login-tab" id="tab-register" onclick="switchAuthTab('register')">Register</button>
+        </div>
+
+        <!-- Sign In form -->
+        <div id="form-login">
+          <div class="login-field">
+            <label>Email</label>
+            <input type="email" id="login-email" placeholder="you@example.com" />
+          </div>
+          <div class="login-field">
+            <label>Password</label>
+            <input type="password" id="login-password" placeholder="••••••••" />
+          </div>
+          <button class="login-btn" onclick="doLogin()">Sign In</button>
+          <div class="login-err" id="login-err"></div>
+        </div>
+
+        <!-- Register form -->
+        <div id="form-register" style="display:none;">
+          <div class="login-field">
+            <label>Full Name</label>
+            <input type="text" id="reg-name" placeholder="Aakash Sharma" />
+          </div>
+          <div class="login-field">
+            <label>Email</label>
+            <input type="email" id="reg-email" placeholder="you@example.com" />
+          </div>
+          <div class="login-field">
+            <label>Password</label>
+            <input type="password" id="reg-password" placeholder="Min. 6 characters" />
+          </div>
+          <button class="login-btn" onclick="doRegister()">Create Account</button>
+          <div class="login-err" id="reg-err"></div>
+        </div>
+
+        <div class="login-divider">or continue as</div>
+        <button class="login-btn" style="background:#f5f5f7;color:#111;border:1.5px solid #e0e0e0;" onclick="doGuest()">👤 Guest (Demo Mode)</button>
+      </div>
+    </div>
+
+    <!-- ======================== HOME VIEW ======================== -->
+    <div class="view" id="view-home">
+      <div class="home-header">
+        <div class="greeting">Good morning,</div>
+        <div class="greeting-name" id="greeting-name">Aakash</div>
+      </div>
+      <div class="view-scroll">
+
+        <div class="attention-label">Needs Attention</div>
+
+        <!-- Attention product cards (expiring / expired only) -->
+        <div id="attention-list"></div>
+
+        <div class="attention-label" style="margin-top: 28px;">Recent Products</div>
+        <div id="recent-list"></div>
+
+      </div>
+    </div>
+
+    <!-- ======================== CAMERA VIEW ======================== -->
+    <div class="view" id="view-camera">
+      <div class="camera-screen">
+        <div class="camera-label">Scan Receipt or Warranty</div>
+        <div class="camera-viewfinder">
+          <svg width="48" height="48" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M3 9h18M9 21V9"/>
+          </svg>
+        </div>
+        <div class="camera-instruction">
+          Point your camera at a receipt, warranty card,<br/>or product manual to auto-fill product details.
+        </div>
+        <div class="camera-shutter" id="cameraShutter">
+          <div class="camera-shutter-inner"></div>
+        </div>
+        <div class="camera-coming-soon">OCR — Coming Soon</div>
+      </div>
+    </div>
+
+    <!-- ======================== REPAIR / SERVICE VIEW ======================== -->
+    <div class="view" id="view-repair">
+      <div class="repair-screen">
+        <div class="repair-map-placeholder">
+          <div class="map-grid"></div>
+          <span class="map-pin">📍</span>
+          <span class="map-pin">📍</span>
+          <span class="map-pin">📍</span>
+        </div>
+        <div class="repair-title">Repair & Service Centers</div>
+        <div class="repair-sub">
+          Find authorized service centers nearest to your location for any of your registered products.
+        </div>
+        <div class="repair-coming-soon-badge">Coming Soon</div>
+      </div>
+    </div>
+
+    <!-- ======================== PRODUCT DETAIL OVERLAY ======================== -->
+    <div class="detail-overlay" id="detail-overlay">
+      <div class="detail-image-area" id="detail-image-area">
+        <img id="detail-img" src="" alt="" />
+        <button class="detail-back" id="detail-back-btn">
+          <svg width="18" height="18" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <button class="detail-upload-btn" id="detail-upload-btn" title="Upload your own photo">
+          <svg width="18" height="18" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </button>
+        <input type="file" id="photo-upload-input" accept="image/*" />
+      </div>
+
+      <div class="detail-body">
+        <div class="detail-product-name" id="detail-name"></div>
+        <div class="detail-product-brand" id="detail-brand"></div>
+
+        <div class="detail-warranty-block" id="detail-warranty-block">
+          <div>
+            <div class="detail-warranty-label">Warranty Status</div>
+            <div class="detail-warranty-value" id="detail-warranty-value"></div>
+          </div>
+          <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="opacity:0.4;">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+
+        <div class="detail-section-title">Product Details</div>
+        <div id="detail-specs"></div>
+
+        <div class="detail-section-title">Quick Actions</div>
+        <div class="detail-actions">
+          <button class="detail-action-btn repair" id="detail-repair-btn">
+            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            Find Repair Center
+          </button>
+          <button class="detail-action-btn scan" id="detail-scan-btn">
+            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+            </svg>
+            Scan / OCR
+          </button>
+        </div>
+
+        <div class="detail-section-title">Documents</div>
+        <div class="doc-chip-row" id="detail-docs"></div>
+      </div>
+    </div>
+
+    <!-- ======================== BOTTOM NAV ======================== -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" id="nav-home" data-view="home">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span class="nav-label">Home</span>
+      </button>
+
+      <button class="nav-item" id="nav-camera" data-view="camera">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <span class="nav-label">Scan</span>
+      </button>
+
+      <button class="nav-item" id="nav-repair" data-view="repair">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+        <span class="nav-label">Repair</span>
+      </button>
+    </nav>
+
+  </div><!-- /screen -->
+</div><!-- /phone -->
+
+<script>
+  // ─── Live status bar clock ───────────────────────────────────────────────
+  function updateClock() {
+    const now = new Date();
+    let h = now.getHours(), m = now.getMinutes();
+    document.getElementById('statusTime').textContent =
+      h + ':' + (m < 10 ? '0' + m : m);
+  }
+  updateClock();
+  setInterval(updateClock, 10000);
+
+  // ─── Product data (localStorage-backed) ──────────────────────────────────
+  const SEED = [
+    {
+      id: 'p1',
+      name: 'MacBook Pro M2',
+      brand: 'Apple',
+      model: 'A2779',
+      category: 'Laptop',
+      purchaseDate: '2023-09-15',
+      warrantyMonths: 12,
+      price: 184900,
+      store: 'Apple Premium Reseller',
+      serial: 'C02JG7ZKGH7L',
+      notes: 'Primary dev machine.',
+      docs: ['Receipt.pdf', 'Warranty Card.jpg'],
+      customPhoto: null
+    },
+    {
+      id: 'p2',
+      name: 'Sony WH-1000XM5',
+      brand: 'Sony',
+      model: 'WH1000XM5',
+      category: 'Headphones',
+      purchaseDate: '2026-06-01',
+      warrantyMonths: 12,
+      price: 29999,
+      store: 'Reliance Digital',
+      serial: 'SN50091823',
+      notes: 'Noise cancelling headphones.',
+      docs: ['Receipt.pdf'],
+      customPhoto: null
+    },
+    {
+      id: 'p3',
+      name: 'Samsung 55" QLED TV',
+      brand: 'Samsung',
+      model: 'QA55Q70C',
+      category: 'Television',
+      purchaseDate: '2022-01-10',
+      warrantyMonths: 12,
+      price: 89000,
+      store: 'Croma',
+      serial: 'SAM293810',
+      notes: '',
+      docs: ['Invoice.pdf', 'Warranty Card.jpg'],
+      customPhoto: null
+    },
+    {
+      id: 'p4',
+      name: 'Bosch Cordless Drill',
+      brand: 'Bosch',
+      model: 'GSR 120-LI',
+      category: 'Tools',
+      purchaseDate: '2023-03-20',
+      warrantyMonths: 6,
+      price: 5499,
+      store: 'Hardware Store',
+      serial: 'BS73918029',
+      notes: '',
+      docs: [],
+      customPhoto: null
+    }
+  ];
+
+  let products = JSON.parse(localStorage.getItem('wv_products_v2') || 'null') || SEED;
+
+  function save() {
+    localStorage.setItem('wv_products_v2', JSON.stringify(products));
+  }
+
+  // ─── Warranty calculation ────────────────────────────────────────────────
+  function warrantyInfo(p) {
+    const start = new Date(p.purchaseDate);
+    const expiry = new Date(start);
+    expiry.setMonth(expiry.getMonth() + Number(p.warrantyMonths));
+    const today = new Date();
+    const days = Math.ceil((expiry - today) / 86400000);
+
+    if (days <= 0) return { days, status: 'expired', label: 'Expired', badgeClass: 'badge-expired', blockClass: 'expired', valueClass: 'expired' };
+    if (days <= 7) return { days, status: 'critical', label: `${days}d left`, badgeClass: 'badge-critical', blockClass: 'critical', valueClass: 'critical' };
+    if (days <= 30) return { days, status: 'soon', label: `${days} days left`, badgeClass: 'badge-soon', blockClass: 'critical', valueClass: 'critical' };
+    return { days, status: 'safe', label: `${days} days left`, badgeClass: '', blockClass: 'safe', valueClass: 'safe' };
+  }
+
+  // ─── Product image resolution ────────────────────────────────────────────
+  // Uses Unsplash Source as a free realistic placeholder keyed to brand+name
+  function imageUrl(p) {
+    if (p.customPhoto) return p.customPhoto;
+    const q = encodeURIComponent(p.brand + ' ' + p.category);
+    return `https://source.unsplash.com/120x120/?${q}`;
+  }
+
+  function largeImageUrl(p) {
+    if (p.customPhoto) return p.customPhoto;
+    const q = encodeURIComponent(p.brand + ' ' + p.name);
+    return `https://source.unsplash.com/800x500/?${q}`;
+  }
+
+  // ─── Build product attention card DOM ────────────────────────────────────
+  function makeAttentionCard(p) {
+    const info = warrantyInfo(p);
+    const card = document.createElement('div');
+    card.className = 'product-attention-card';
+    card.onclick = () => openDetail(p.id);
+    card.innerHTML = `
+      <img class="product-img" src="${imageUrl(p)}" alt="${p.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+      <div class="product-img-placeholder" style="display:none;">📦</div>
+      <div class="product-info">
+        <div class="product-info-name">${p.name}</div>
+        <div class="product-info-brand">${p.brand} · ${p.category}</div>
+      </div>
+      <span class="product-warranty-badge ${info.badgeClass}">${info.label}</span>
+    `;
+    return card;
+  }
+
+  // ─── Render home view ────────────────────────────────────────────────────
+  function renderHome() {
+    const attentionList = document.getElementById('attention-list');
+    const recentList = document.getElementById('recent-list');
+    attentionList.innerHTML = '';
+    recentList.innerHTML = '';
+
+    const needsAttention = products.filter(p => {
+      const info = warrantyInfo(p);
+      return info.status !== 'safe';
+    }).sort((a, b) => warrantyInfo(a).days - warrantyInfo(b).days);
+
+    if (needsAttention.length === 0) {
+      attentionList.innerHTML = `
+        <div class="all-good">
+          <div class="all-good-icon">✅</div>
+          <div class="all-good-text">All warranties are in good standing.</div>
+        </div>`;
+    } else {
+      needsAttention.forEach(p => attentionList.appendChild(makeAttentionCard(p)));
+    }
+
+    // Recent: last 3 products with safe warranty (sorted by purchase date)
+    const recent = [...products]
+      .filter(p => warrantyInfo(p).status === 'safe')
+      .sort((a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate))
+      .slice(0, 3);
+
+    if (recent.length === 0) {
+      recentList.innerHTML = `<div style="color:#bbb;font-size:13px;padding:12px 0;">No other products registered.</div>`;
+    } else {
+      recent.forEach(p => recentList.appendChild(makeAttentionCard(p)));
+    }
+  }
+
+  // ─── Product detail overlay ───────────────────────────────────────────────
+  let currentProductId = null;
+
+  function openDetail(id) {
+    const p = products.find(x => x.id === id);
+    if (!p) return;
+    currentProductId = id;
+    const info = warrantyInfo(p);
+
+    document.getElementById('detail-name').textContent = p.name;
+    document.getElementById('detail-brand').textContent = p.brand + ' · ' + p.model;
+
+    const img = document.getElementById('detail-img');
+    img.src = largeImageUrl(p);
+    img.alt = p.name;
+
+    const wb = document.getElementById('detail-warranty-block');
+    wb.className = 'detail-warranty-block ' + info.blockClass;
+
+    const wv = document.getElementById('detail-warranty-value');
+    wv.className = 'detail-warranty-value ' + info.valueClass;
+    wv.textContent = info.status === 'expired' ? 'Warranty Expired' : `Expires in ${info.label}`;
+
+    // Specs
+    const specs = document.getElementById('detail-specs');
+    const rows = [
+      ['Category', p.category],
+      ['Purchase Date', p.purchaseDate],
+      ['Store', p.store || '—'],
+      ['Price', p.price ? '₹' + Number(p.price).toLocaleString('en-IN') : '—'],
+      ['Serial Number', p.serial || '—'],
+      ['Notes', p.notes || '—']
+    ];
+    specs.innerHTML = rows.map(([label, val]) => `
+      <div class="detail-row">
+        <span class="detail-row-label">${label}</span>
+        <span class="detail-row-value">${val}</span>
+      </div>`).join('');
+
+    // Docs
+    const docsEl = document.getElementById('detail-docs');
+    docsEl.innerHTML = (p.docs || []).map(d => `
+      <div class="doc-chip">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        ${d}
+      </div>`).join('') + `
+      <div class="add-doc-chip">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add File
+      </div>`;
+
+    document.getElementById('detail-overlay').classList.add('open');
+  }
+
+  document.getElementById('detail-back-btn').addEventListener('click', () => {
+    document.getElementById('detail-overlay').classList.remove('open');
+    currentProductId = null;
+  });
+
+  // Quick action buttons inside detail overlay → navigate to the right view
+  document.getElementById('detail-repair-btn').addEventListener('click', () => {
+    document.getElementById('detail-overlay').classList.remove('open');
+    currentProductId = null;
+    switchView('repair');
+  });
+
+  document.getElementById('detail-scan-btn').addEventListener('click', () => {
+    document.getElementById('detail-overlay').classList.remove('open');
+    currentProductId = null;
+    switchView('camera');
+  });
+
+  // Photo upload
+  document.getElementById('detail-upload-btn').addEventListener('click', () => {
+    document.getElementById('photo-upload-input').click();
+  });
+
+  document.getElementById('photo-upload-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file || !currentProductId) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const p = products.find(x => x.id === currentProductId);
+      if (p) {
+        p.customPhoto = evt.target.result;
+        save();
+        document.getElementById('detail-img').src = evt.target.result;
+        renderHome();
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  });
+
+  // ─── Shared view switcher ─────────────────────────────────────────────────
+  function switchView(target) {
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    const navBtn = document.querySelector(`.nav-item[data-view="${target}"]`);
+    if (navBtn) navBtn.classList.add('active');
+
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const viewEl = document.getElementById('view-' + target);
+    if (viewEl) viewEl.classList.add('active');
+  }
+
+  // ─── Bottom navigation ────────────────────────────────────────────────────
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      switchView(btn.getAttribute('data-view'));
+    });
+  });
+
+  // ─── Auth helpers ─────────────────────────────────────────────────────────
+  function switchAuthTab(tab) {
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    document.getElementById('form-login').style.display = tab === 'login' ? '' : 'none';
+    document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
+    document.getElementById('login-err').textContent = '';
+    document.getElementById('reg-err').textContent = '';
+  }
+
+  function enterApp(name) {
+    // Hide bottom nav login-blocking overlay is gone, show home
+    document.querySelector('.bottom-nav').style.display = '';
+    document.getElementById('greeting-name').textContent = name || 'User';
+    renderHome();
+    switchView('home');
+  }
+
+  function doLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const pass  = document.getElementById('login-password').value;
+    const err   = document.getElementById('login-err');
+    if (!email || !pass) { err.textContent = 'Please fill in all fields.'; return; }
+
+    // Try API first, fall back to demo mode
+    fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        localStorage.setItem('wv_token', data.data.token);
+        enterApp(data.data.user?.name || email.split('@')[0]);
+      } else {
+        err.textContent = data.message || 'Invalid credentials.';
+      }
+    })
+    .catch(() => {
+      // Offline / no DB — demo mode login
+      if (email && pass.length >= 3) {
+        enterApp(email.split('@')[0]);
+      } else {
+        err.textContent = 'Enter a valid email and password.';
+      }
+    });
+  }
+
+  function doRegister() {
+    const name  = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const pass  = document.getElementById('reg-password').value;
+    const err   = document.getElementById('reg-err');
+    if (!name || !email || !pass) { err.textContent = 'Please fill in all fields.'; return; }
+    if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
+
+    fetch('/api/v1/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password: pass })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        localStorage.setItem('wv_token', data.data.token);
+        enterApp(name);
+      } else {
+        err.textContent = data.message || 'Registration failed.';
+      }
+    })
+    .catch(() => {
+      // Offline demo mode
+      enterApp(name);
+    });
+  }
+
+  function doGuest() {
+    enterApp('Aakash');
+  }
+
+  // ─── Initial render ───────────────────────────────────────────────────────
+  // Hide nav until logged in
+  document.querySelector('.bottom-nav').style.display = 'none';
+  // Show login screen by default (view-login is already .active from HTML)
+  // If already have a token (e.g. returning user), skip login
+  if (localStorage.getItem('wv_token')) {
+    enterApp(localStorage.getItem('wv_username') || 'Aakash');
+  }
+</script>
+</body>
+</html>
