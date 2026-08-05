@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Intent Detection Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="glow-bg"></div>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-area">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+                <h1>Cognitive<span>Intent</span></h1>
+            </div>
+            <div class="status-badge">
+                <span class="status-indicator online"></span>
+                <span>Ollama Llama3.1 Connected</span>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="workspace">
+            <!-- Left Panel: Input & Controls -->
+            <section class="control-panel card">
+                <div class="panel-header">
+                    <h2>Input Message</h2>
+                    <p class="subtitle">Enter natural language to detect and parse intents</p>
+                </div>
+                
+                <div class="input-wrapper">
+                    <textarea id="userInput" placeholder="e.g., Send an email to Alice about the marketing updates, schedule a meeting with her tomorrow at 10 AM, and create a ticket to track it..."></textarea>
+                    <div class="char-counter"><span id="charCount">0</span> characters</div>
+                </div>
+
+                <div class="action-bar">
+                    <button id="clearBtn" class="btn btn-secondary">Clear</button>
+                    <button id="analyzeBtn" class="btn btn-primary">
+                        <span>Analyze Message</span>
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="suggestions-section">
+                    <h3>Quick Test Cases</h3>
+                    <div class="suggestions-grid">
+                        <button class="suggest-chip" data-text="Email John the draft report and schedule a meeting with the design team at 2pm on Friday.">
+                            Multi-action: Email & Meeting
+                        </button>
+                        <button class="suggest-chip" data-text="Can you summarize the attached project roadmap and create a Jira ticket for the database migration?">
+                            Task: Summarize & Ticket
+                        </button>
+                        <button class="suggest-chip" data-text="Hey, do we have any documentation on our API security? Search the KB.">
+                            Search: Knowledge Base
+                        </button>
+                        <button class="suggest-chip" data-text="Remind me to call Marcus tomorrow morning at 9am about the server config.">
+                            Reminder & Call
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Results & Visualization -->
+            <section class="results-panel">
+                <!-- Tab Controls -->
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="visual">Visual Dashboard</button>
+                    <button class="tab-btn" data-tab="raw">Raw JSON</button>
+                </div>
+
+                <!-- Tab Content: Visual Dashboard -->
+                <div class="tab-content active" id="visualTab">
+                    <!-- Default state / Loading state -->
+                    <div id="resultPlaceholder" class="placeholder-state">
+                        <svg class="placeholder-icon animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <p>Waiting for analysis...</p>
+                        <span class="subtext">Enter a message and click Analyze to view parsed intents.</span>
+                    </div>
+
+                    <!-- Actual Dashboard -->
+                    <div id="visualDashboard" class="dashboard-content hidden">
+                        <!-- Overview Stats -->
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <span class="stat-label">Total Intents</span>
+                                <span id="statTotalIntents" class="stat-value">0</span>
+                            </div>
+                            <div class="stat-card">
+                                <span class="stat-label">Execution Order</span>
+                                <div id="statExecutionOrder" class="execution-flow"></div>
+                            </div>
+                        </div>
+
+                        <!-- Clarification Warning -->
+                        <div id="clarificationAlert" class="alert-box warning hidden">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="alert-icon">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                <line x1="12" y1="9" x2="12" y2="13"></line>
+                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                            </svg>
+                            <div class="alert-text">
+                                <strong class="alert-title">Clarification Needed</strong>
+                                <span id="clarificationMsg">This message has ambiguous intents.</span>
+                            </div>
+                        </div>
+
+                        <!-- Intents List -->
+                        <div class="section-title-wrapper">
+                            <h3>Detected Intents</h3>
+                        </div>
+                        <div id="intentsContainer" class="intents-grid"></div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Raw JSON -->
+                <div class="tab-content" id="rawTab">
+                    <div class="json-viewer-wrapper card">
+                        <div class="json-header">
+                            <span>JSON Response</span>
+                            <button id="copyJsonBtn" class="btn-icon-only" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <pre><code id="jsonOutput">{}</code></pre>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <div id="toast" class="toast hidden">Copied to clipboard!</div>
+</body>
+</html>
