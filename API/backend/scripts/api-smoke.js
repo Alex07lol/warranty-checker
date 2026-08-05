@@ -20,6 +20,8 @@
  */
 
 const BASE_URL = (process.env.BASE_URL || "http://localhost:5000/api/v1").replace(/\/+$/, "");
+// The health route lives at the root, not under /api/v1.
+const ROOT_URL = BASE_URL.replace(/\/api\/v1\/?$/, "");
 const EMAIL = process.env.EMAIL || `smoke-${Date.now()}@example.com`;
 const PASSWORD = process.env.PASSWORD || "password123";
 const NEW_PASSWORD = process.env.NEW_PASSWORD || "newpassword123";
@@ -36,7 +38,7 @@ function record(name, ok, detail = "") {
   console.log(`  ${ok ? "✔" : "✘"} [${mark}] ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
-async function request(method, path, { body, formData, auth = true, expected = 200 } = {}) {
+async function request(method, path, { body, formData, auth = true, expected = 200, base = BASE_URL } = {}) {
   const headers = {};
   if (auth && token) headers.Authorization = `Bearer ${token}`;
 
@@ -48,7 +50,7 @@ async function request(method, path, { body, formData, auth = true, expected = 2
     payload = JSON.stringify(body);
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, { method, headers, body: payload });
+  const res = await fetch(`${base}${path}`, { method, headers, body: payload });
   let json = null;
   try {
     json = await res.json();
@@ -78,7 +80,7 @@ async function main() {
 
   // 1. Health -------------------------------------------------------------
   try {
-    const { res, json, ok } = await request("GET", "/health", { auth: false, expected: 200 });
+    const { res, json, ok } = await request("GET", "/health", { auth: false, expected: 200, base: ROOT_URL });
     record("GET /health", ok && json?.success === true, json?.message || `HTTP ${res.status}`);
   } catch (err) {
     record("GET /health", false, `server unreachable: ${err.message}`);

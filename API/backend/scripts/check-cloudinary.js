@@ -1,3 +1,13 @@
+#!/usr/bin/env node
+/**
+ * Verify Cloudinary credentials end to end: authenticates, uploads a 1px PNG
+ * to a health-check folder, then deletes it. Exits non-zero on any failure.
+ *
+ * Usage:
+ *   node scripts/check-cloudinary.js
+ *   npm run check:cloudinary
+ */
+
 const cloudinary = require("../src/config/cloudinary");
 
 const ONE_PIXEL_PNG = Buffer.from(
@@ -31,7 +41,7 @@ function uploadBuffer(buffer) {
 async function main() {
   if (!cloudinary.isConfigured()) {
     throw new Error(
-      "Cloudinary credentials are not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in backend/.env."
+      "Cloudinary credentials are not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in API/backend/.env."
     );
   }
 

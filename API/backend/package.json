@@ -7,7 +7,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "jest --runInBand",
-    "smoke": "node scripts/api-smoke.js"
+    "smoke": "node scripts/api-smoke.js",
+    "check:cloudinary": "node scripts/check-cloudinary.js"
   },
   "engines": {
     "node": ">=20"
@@ -25,7 +26,8 @@
     "mongoose": "^8.18.0",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
-    "multer-storage-cloudinary": "^4.0.0"
+    "multer-storage-cloudinary": "^4.0.0",
+    "node-cron": "^4.6.0"
   },
   "devDependencies": {
     "jest": "^30.0.5",

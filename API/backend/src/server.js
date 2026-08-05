@@ -13,6 +13,8 @@ const documentRoutes = require("./routes/document.routes");
 const serviceHistoryRoutes = require("./routes/serviceHistory.routes");
 const notificationRoutes = require("./routes/notification.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
+const cron = require("node-cron");
+const { createExpiryNotifications } = require("./services/notification.service");
 
 const app = express();
 
@@ -66,6 +68,17 @@ if (NODE_ENV !== "test") {
     .then(() => {
       app.listen(PORT, () => {
         process.stdout.write(`WarrantyVault API listening on port ${PORT}\n`);
+      });
+
+      // Daily at midnight: scan for warranties expiring on the configured
+      // reminder days and create notifications for each user.
+      cron.schedule("0 0 * * *", async () => {
+        try {
+          const count = await createExpiryNotifications();
+          process.stdout.write(`Expiry notifications created: ${count}\n`);
+        } catch (err) {
+          process.stderr.write(`Notification cron error: ${err.message}\n`);
+        }
       });
     })
     .catch((error) => {

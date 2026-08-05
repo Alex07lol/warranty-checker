@@ -1,5 +1,6 @@
 const Notification = require("../src/models/Notification");
 const Product = require("../src/models/Product");
+const { createExpiryNotifications } = require("../src/services/notification.service");
 const { app, request, startDb, stopDb, registerUser } = require("./helpers/setup");
 
 describe("Notifications API", () => {
@@ -97,5 +98,32 @@ describe("Notifications API", () => {
       .get("/api/v1/notifications")
       .set("Authorization", `Bearer ${token}`);
     expect(after.body.data.length).toBe(0);
+  });
+
+  test("creates warranty expiry notifications for products expiring on a reminder day", async () => {
+    // Expiry 30 days out at noon local time — guaranteed to land inside the
+    // service's [00:00, 23:59:59.999] window for reminder day 30.
+    const expiry = new Date();
+    expiry.setHours(12, 0, 0, 0);
+    expiry.setDate(expiry.getDate() + 30);
+
+    const product = await Product.create({
+      userId,
+      productName: "Expiry Test Laptop",
+      purchaseDate: new Date("2024-01-01"),
+      warrantyExpiryDate: expiry
+    });
+
+    const count = await createExpiryNotifications();
+    expect(count).toBeGreaterThanOrEqual(1);
+
+    const notification = await Notification.findOne({
+      userId,
+      productId: product._id,
+      notificationType: "warranty_expiry"
+    });
+    expect(notification).not.toBeNull();
+    expect(notification.title).toBe("Warranty expires in 30 days");
+    expect(notification.message).toContain("Expiry Test Laptop");
   });
 });
