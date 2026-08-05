@@ -22,6 +22,17 @@ jest.mock("../src/middleware/upload", () => ({
   }
 }));
 
+// Uploading a receipt now fires background OCR (processDocument) asynchronously.
+// Mock tesseract.js and stub global.fetch so that background OCR never touches
+// the real network in this suite.
+jest.mock("tesseract.js", () => ({
+  createWorker: jest.fn(async () => ({
+    recognize: jest.fn(async () => ({ data: { text: "ACME STORE\nTotal $899.99\n" } }))
+  }))
+}));
+
+const originalFetch = global.fetch;
+
 const { app, request, startDb, stopDb, registerUser } = require("./helpers/setup");
 
 describe("Document API", () => {
@@ -29,6 +40,7 @@ describe("Document API", () => {
   let productId;
 
   beforeAll(async () => {
+    global.fetch = jest.fn(async () => ({ arrayBuffer: async () => new ArrayBuffer(8) }));
     await startDb();
     const user = await registerUser("Doc User", `doc_${Date.now()}@example.com`);
     token = user.token;
@@ -40,6 +52,7 @@ describe("Document API", () => {
   });
 
   afterAll(async () => {
+    global.fetch = originalFetch;
     await stopDb();
   });
 
