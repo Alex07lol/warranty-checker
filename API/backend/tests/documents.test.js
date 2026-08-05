@@ -1,11 +1,11 @@
 // Mock Cloudinary and the multer upload middleware so tests never hit the network.
-jest.mock("../../src/config/cloudinary", () => ({
+jest.mock("../src/config/cloudinary", () => ({
   uploader: {
     destroy: jest.fn().mockResolvedValue({ result: "ok" })
   }
 }));
 
-jest.mock("../../src/middleware/upload", () => ({
+jest.mock("../src/middleware/upload", () => ({
   uploadSingle: (req, res, next) => {
     req.file = {
       original_filename: "receipt.jpg",
