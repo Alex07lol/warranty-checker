@@ -112,6 +112,37 @@ async function getExpiringProducts(userId) {
   }).sort({ warrantyExpiryDate: 1 });
 }
 
+async function applyOcrToProduct(productId, parsedData) {
+  if (!parsedData) return {};
+
+  const product = await Product.findById(productId);
+  if (!product || product.isDeleted) return {};
+
+  const updates = {};
+  if (
+    !product.warrantyExpiryDate &&
+    parsedData.warrantyExpiryDate &&
+    !(
+      product.purchaseDate &&
+      new Date(parsedData.warrantyExpiryDate) <= new Date(product.purchaseDate)
+    )
+  ) {
+    updates.warrantyExpiryDate = parsedData.warrantyExpiryDate;
+  }
+  if (product.purchasePrice == null && parsedData.purchasePrice != null) {
+    updates.purchasePrice = parsedData.purchasePrice;
+  }
+  if (!product.serialNumber && parsedData.serialNumber) {
+    updates.serialNumber = parsedData.serialNumber;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    Object.assign(product, updates);
+    await product.save();
+  }
+  return updates;
+}
+
 module.exports = {
   getAllProducts,
   getProductById,
@@ -119,5 +150,6 @@ module.exports = {
   updateProduct,
   softDeleteProduct,
   searchProducts,
-  getExpiringProducts
+  getExpiringProducts,
+  applyOcrToProduct
 };
