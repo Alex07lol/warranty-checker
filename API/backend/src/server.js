@@ -24,6 +24,25 @@ app.use(cors({
 app.use(morgan("combined"));
 app.use(express.json({ limit: "1mb" }));
 
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "WarrantyVault API",
+    data: {
+      health: "/health",
+      docs: "/api/v1",
+      endpoints: [
+        "/api/v1/auth",
+        "/api/v1/products",
+        "/api/v1/products/:productId/documents",
+        "/api/v1/products/:productId/service-history",
+        "/api/v1/notifications",
+        "/api/v1/dashboard"
+      ]
+    }
+  });
+});
+
 app.get("/health", (req, res) => {
   res.status(200).json({
     success: true,
