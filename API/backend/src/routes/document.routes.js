@@ -16,6 +16,7 @@ router.post(
   controller.uploadDocument
 );
 router.get("/:documentId", controller.getDocumentById);
+router.post("/:documentId/ocr", controller.runDocumentOcr);
 router.delete("/:documentId", controller.deleteDocument);
 
 module.exports = router;

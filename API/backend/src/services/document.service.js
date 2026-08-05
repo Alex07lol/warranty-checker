@@ -3,6 +3,7 @@ const Document = require("../models/Document");
 const Product = require("../models/Product");
 const AppError = require("../utils/AppError");
 const cloudinary = require("../config/cloudinary");
+const { isOcrEligible, processDocument } = require("./ocr.service");
 
 async function assertProductOwner(productId, userId) {
   if (!mongoose.isValidObjectId(productId)) {
@@ -52,6 +53,17 @@ async function uploadDocument(productId, userId, fileData, documentType, notes) 
     });
   }
 
+  // Fire OCR asynchronously for eligible uploads (receipts and warranty
+  // cards). Ineligible documents are marked skipped synchronously so the
+  // upload response reflects the final status. processDocument never throws;
+  // on failure it sets ocrStatus="failed" + ocrError.
+  if (isOcrEligible(document)) {
+    processDocument(document).catch(() => {});
+  } else {
+    document.ocrStatus = "skipped";
+    await document.save();
+  }
+
   return document;
 }
 
@@ -84,9 +96,18 @@ async function deleteDocument(documentId, userId) {
   await document.deleteOne();
 }
 
+async function runDocumentOcr(documentId, userId) {
+  const document = await getDocumentById(documentId, userId);
+  if (document.ocrStatus === "skipped") {
+    throw new AppError("This document is not eligible for OCR", 422);
+  }
+  return processDocument(document);
+}
+
 module.exports = {
   getDocumentsByProduct,
   uploadDocument,
   getDocumentById,
-  deleteDocument
+  deleteDocument,
+  runDocumentOcr
 };

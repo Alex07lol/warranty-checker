@@ -50,9 +50,19 @@ async function deleteDocument(req, res, next) {
   }
 }
 
+async function runDocumentOcr(req, res, next) {
+  try {
+    const data = await documentService.runDocumentOcr(req.params.documentId, req.user.userId);
+    return sendSuccess(res, data, "OCR completed");
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getDocuments,
   uploadDocument,
   getDocumentById,
-  deleteDocument
+  deleteDocument,
+  runDocumentOcr
 };
