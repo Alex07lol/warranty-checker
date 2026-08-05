@@ -1,4 +1,50 @@
 WarrantyVault --- Day 2 Handoff
+
+> # STATUS UPDATE — 2026-08-05 (read this first)
+>
+> The sections below are the original Day 2 **design** doc. This status block reflects what is actually **built and verified** in the repo today, and what is left to finish. The authoritative API walkthrough is now `API/Api.md`; the design doc is `docs/day2-plan.md` and `docs/database-design.md`.
+
+> ## ✅ Done and verified
+>
+> **The live backend is `API/backend`** (the top-level `backend/` folder is an older copy — see gaps).
+>
+> - Full layered Express API: `routes → middleware → controllers → services → models`.
+> - Auth: `register / login / me / change-password / logout`, JWT (stateless, `7d`), bcrypt hashing, rate-limited login/register, Joi validation.
+> - Products: paginated list, search (Mongo text index), `expiring-soon`, soft delete, ownership checks, `422` if `warrantyExpiryDate ≤ purchaseDate`.
+> - Documents: `multipart/form-data` upload to Cloudinary via multer + CloudinaryStorage (jpeg/png/webp/pdf, ≤10 MB), metadata stored in Mongo, delete also destroys the Cloudinary asset.
+> - Service history: CRUD nested under a product, every op guarded by ownership.
+> - Notifications: `list / read / read-all / delete` (consume side complete).
+> - Dashboard: 6 parallel Mongo queries (totals, expiring soon, recent products, unread count).
+> - **Tests: 45/45 pass across 7 suites** (`jest --runInBand` in `API/backend`, uses `mongodb-memory-server`).
+> - **Smoke client:** `API/backend/scripts/api-smoke.js` — 22 pass, 1 warn (Cloudinary not configured), 1 fail (pre-existing `/health` path bug, see gaps).
+> - **Run locally without any database installed:**
+>   `cd API/backend && node scripts/run-test-server.js` → spins up an in-memory MongoDB, serves http://localhost:5000.
+> - **Root endpoint:** `GET /` now returns the API route list instead of 404 (added this session, commit `09cc3c8`).
+
+> ## 🔧 Gaps to finish (the "definition of done")
+>
+> ### Backend
+> 1. **Wire the notification generator.** `createExpiryNotifications()` exists in `API/backend/src/services/notification.service.js` but is **never scheduled** — `API/backend` has no `node-cron` and `server.js` has no cron job. The older `backend/src/server.js` has the wiring (`cron.schedule("0 0 * * *", …)`, `node-cron` dep) — port it into `API/backend` so expiry reminders actually get created.
+> 2. **Real credentials.** `API/backend` has no `.env`; the old `backend/.env` holds placeholder Atlas creds (`<user>:<password>`) and one real Cloudinary account. Create `API/backend/.env` from `.env.example` with a real Atlas connection string (code reads `MONGO_URI`) + the Cloudinary creds. Never commit it.
+> 3. **Consolidate the duplicate backends.** `backend/` and `API/backend/` are near-identical. Pick `API/backend` (has tests/smoke), port the cron, delete `backend/` (or the reverse) — keeping both will drift and confuse the next dev.
+> 4. **Fix smoke `/health` path.** `scripts/api-smoke.js` uses base `http://localhost:5000/api/v1`, so its `GET /health` hits `/api/v1/health` → 404. Fix by hitting the root `/health` for that one check (everything else correctly uses `/api/v1`).
+> 5. **Deploy the backend** (Render/Railway/Fly.io) with Atlas + Cloudinary env vars, so the app has a real base URL.
+>
+> ### Mobile (`mobile/warranty_vault`)
+> 6. **It cannot be built yet:** no `android/` platform folder, no `pubspec.lock`, no `test/` dir, and `flutter`/`dart` are **not installed on this machine**. To finish: install Flutter, `flutter create .` (adds android), `flutter pub get`, `flutter analyze`, `flutter test`, then `flutter build apk --debug`.
+> 7. **Verify against the live backend** with `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api/v1` (Android emulator alias) or your LAN IP for a device.
+> 8. **Local push notifications** (`flutter_local_notifications` is already a dependency): request permission, schedule the reminder; and decide how device alerts relate to server-generated `warranty_expiry` notifications.
+>
+> ### End-to-end / ops
+> 9. **Full E2E pass with real services:** register → add product → upload a real receipt (needs Cloudinary) → service history → confirm expiry notifications arrive → dashboard numbers match.
+> 10. **CI:** add a GitHub Actions workflow that runs `npm test` in `API/backend` on push (the smoke script is already wired to exit non-zero on failure and can gate deploys).
+> 11. **Git hygiene:** commit the pending working-tree changes (see below).
+
+> ## 📋 Pending uncommitted changes (as of this date)
+> - `API/backend/src/server.js` + `API/backend/scripts/run-test-server.js` — **committed** (`09cc3c8`).
+> - Still uncommitted: `API/backend/tests/documents.test.js`, `API/backend/tests/helpers/setup.js` (pre-existing edits), `API/backend/package-lock.json` (untracked), `.claude/` (untracked).
+
+---
 Project Overview
 WarrantyVault is a warranty/document management application that lets users store product information, warranty details, purchase documents, service history, notifications, and dashboard information in one place.
 

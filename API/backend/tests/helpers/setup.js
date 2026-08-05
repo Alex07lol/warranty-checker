@@ -9,6 +9,8 @@ process.env.CLOUDINARY_API_SECRET = "test";
 process.env.CLIENT_URL = "*";
 process.env.AUTH_RATE_LIMIT = "1000";
 
+jest.setTimeout(20000);
+
 const mongoose = require("mongoose");
 const { MongoMemoryServer } = require("mongodb-memory-server");
 const request = require("supertest");

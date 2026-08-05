@@ -96,6 +96,7 @@ secrets.json
 *.p12
 cloudinary.config.js
 firebase-adminsdk*.json
+.claude/
 
 MongoDB
 mongodb-data/
