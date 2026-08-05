@@ -1,3 +1,0 @@
-This is a temporary push test file to verify commit attribution.
-
-Created 2026-08-05. Safe to delete.
