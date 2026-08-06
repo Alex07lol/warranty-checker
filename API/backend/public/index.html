@@ -16,22 +16,15 @@
 
     body {
       background: #e8e8e8;
-      display: flex;
-      justify-content: center;
-      align-items: center;
       min-height: 100vh;
       font-family: 'Inter', sans-serif;
     }
 
     /* Phone shell */
     .phone {
-      width: 375px;
-      height: 812px;
+      width: 100%;
+      min-height: 100vh;
       background: #f5f5f7;
-      border-radius: 48px;
-      box-shadow:
-        0 0 0 10px #1a1a1a,
-        0 30px 80px rgba(0,0,0,0.4);
       position: relative;
       overflow: hidden;
       display: flex;
@@ -40,9 +33,9 @@
 
     /* Status bar */
     .status-bar {
+      display: none;
       height: 44px;
       background: #f5f5f7;
-      display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 28px;
@@ -203,11 +196,11 @@
     .product-attention-card {
       background: #fff;
       border-radius: 16px;
-      padding: 14px;
-      margin-bottom: 12px;
+      padding: 18px;
+      margin-bottom: 14px;
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 18px;
       cursor: pointer;
       transition: transform 0.15s ease;
       box-shadow: 0 1px 4px rgba(0,0,0,0.06);
@@ -218,8 +211,8 @@
     }
 
     .product-img {
-      width: 60px;
-      height: 60px;
+      width: 80px;
+      height: 80px;
       border-radius: 12px;
       object-fit: cover;
       background: #eee;
@@ -227,8 +220,8 @@
     }
 
     .product-img-placeholder {
-      width: 60px;
-      height: 60px;
+      width: 80px;
+      height: 80px;
       border-radius: 12px;
       background: linear-gradient(135deg, #e0e0e0, #f5f5f5);
       flex-shrink: 0;
@@ -379,81 +372,124 @@
       background: #fff;
     }
 
-    .camera-coming-soon {
-      font-size: 11px;
-      color: rgba(255,255,255,0.3);
-      text-transform: uppercase;
-      letter-spacing: 1px;
+    .camera-upload-area {
+      border: 2px dashed #ccc;
+      border-radius: 16px;
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      margin-bottom: 16px;
+    }
+
+    .camera-upload-area:hover { border-color: #999; }
+
+    .camera-upload-area input[type="file"] {
+      display: none;
+    }
+
+    .camera-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #e0e0e0;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+
+    .camera-progress-fill {
+      width: 0%;
+      height: 100%;
+      background: #3949ab;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    .camera-apply-btn {
+      flex: 1;
+      padding: 12px;
+      border-radius: 12px;
+      border: none;
+      background: #111;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .camera-apply-btn:hover { background: #333; }
+
+    .camera-retry-btn {
+      flex: 1;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1.5px solid #e0e0e0;
+      background: #f5f5f7;
+      color: #111;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
     }
 
     /* ---- REPAIR / SERVICE VIEW ---- */
-    .repair-screen {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: #f5f5f7;
-      gap: 14px;
-      padding: 40px;
-    }
-
-    .repair-map-placeholder {
-      width: 300px;
-      height: 220px;
-      border-radius: 20px;
-      background: linear-gradient(135deg, #e8eaf6, #e3f2fd);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      overflow: hidden;
-      border: 1px solid #e0e0e0;
-    }
-
-    .map-grid {
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px);
-      background-size: 30px 30px;
-    }
-
-    .map-pin {
-      position: absolute;
-      font-size: 32px;
-      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
-    }
-
-    .map-pin:nth-child(2) { top: 30%; left: 40%; }
-    .map-pin:nth-child(3) { top: 50%; left: 65%; font-size: 24px; color: #666; }
-    .map-pin:nth-child(4) { top: 20%; left: 20%; font-size: 24px; color: #666; }
-
-    .repair-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: #111;
-      letter-spacing: -0.3px;
-    }
-
-    .repair-sub {
-      font-size: 13px;
-      color: #888;
-      text-align: center;
-      line-height: 1.6;
-      max-width: 240px;
-    }
-
-    .repair-coming-soon-badge {
-      background: #111;
-      color: #fff;
-      font-size: 11px;
+    .repair-brand-tag {
+      display: inline-block;
+      background: #e8eaf6;
+      color: #3949ab;
+      font-size: 12px;
       font-weight: 600;
-      padding: 6px 14px;
+      padding: 5px 12px;
       border-radius: 20px;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .repair-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      transition: transform 0.15s ease;
+      cursor: pointer;
+    }
+
+    .repair-card:active { transform: scale(0.98); }
+
+    .repair-card-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #111;
+      margin-bottom: 4px;
+    }
+
+    .repair-card-city {
+      font-size: 13px;
+      font-weight: 600;
+      color: #3949ab;
+      margin-bottom: 4px;
+    }
+
+    .repair-card-address {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .repair-card-details {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .repair-card-phone {
+      font-size: 13px;
+      color: #444;
+    }
+
+    .repair-card-rating {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f9a825;
     }
 
     /* ---- PRODUCT DETAIL OVERLAY ---- */
@@ -650,11 +686,11 @@
 
     /* ---- BOTTOM NAV ---- */
     .bottom-nav {
-      position: absolute;
+      position: fixed;
       bottom: 16px;
       left: 50%;
       transform: translateX(-50%);
-      width: 280px;
+      width: min(280px, calc(100% - 40px));
       height: 62px;
       border-radius: 32px;
       background: rgba(25, 25, 30, 0.72);
@@ -891,6 +927,86 @@
 
     /* Utility */
     input[type="file"] { display: none; }
+
+    /* Desktop brand (shown only in the top nav on wide screens) */
+    .brand-desktop {
+      display: none;
+    }
+
+    /* Responsive: wider layout for desktop/laptop, portrait stays for mobile */
+    @media (min-width: 768px) {
+      .brand-desktop {
+        display: inline-flex;
+        align-items: center;
+        margin-right: auto;
+        padding: 0 10px;
+        font-size: 18px;
+        font-weight: 700;
+        color: #111;
+        letter-spacing: -0.3px;
+      }
+
+      .bottom-nav {
+        position: fixed;
+        top: 0;
+        bottom: auto;
+        left: 0;
+        transform: none;
+        width: 100%;
+        height: 60px;
+        border-radius: 0;
+        background: #fff;
+        border-bottom: 1px solid #e5e5e5;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        justify-content: flex-end;
+        padding: 0 24px;
+        gap: 4px;
+        z-index: 40;
+      }
+
+      .nav-item {
+        flex-direction: row;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: 10px;
+        color: #6b6b6b;
+      }
+      .nav-item:hover { background: #f2f2f2; }
+      .nav-item.active { color: #111; background: #f2f2f2; }
+      .nav-item.active .nav-label::after { display: none; }
+
+      /* Clear the fixed top bar */
+      .view { padding-top: 60px; }
+
+      /* Widen + center content */
+      .view-scroll {
+        max-width: 1000px;
+        margin: 0 auto;
+        width: 100%;
+        padding: 28px 24px 64px;
+      }
+
+      /* Product cards in a responsive grid */
+      #attention-list,
+      #recent-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 14px;
+      }
+      #attention-list .product-attention-card,
+      #recent-list .product-attention-card { margin-bottom: 0; }
+      #attention-list .all-good,
+      #recent-list .all-good { grid-column: 1 / -1; }
+
+      /* Constrain the auth form */
+      .login-screen {
+        max-width: 420px;
+        width: 100%;
+        margin: 0 auto;
+      }
+    }
   </style>
 </head>
 <body>
@@ -990,38 +1106,59 @@
 
     <!-- ======================== CAMERA VIEW ======================== -->
     <div class="view" id="view-camera">
-      <div class="camera-screen">
-        <div class="camera-label">Scan Receipt or Warranty</div>
-        <div class="camera-viewfinder">
-          <svg width="48" height="48" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" viewBox="0 0 24 24">
+      <div class="home-header">
+        <div class="greeting">Scan Receipt</div>
+        <div class="greeting-name" id="camera-product-name">Upload a receipt or warranty document</div>
+      </div>
+      <div class="view-scroll">
+
+        <div class="camera-upload-area" id="camera-upload-area">
+          <svg width="48" height="48" fill="none" stroke="#aaa" stroke-width="1.5" viewBox="0 0 24 24">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
             <path d="M3 9h18M9 21V9"/>
           </svg>
+          <div style="font-size:14px;color:#888;">Tap to upload a receipt or warranty card</div>
+          <div style="font-size:12px;color:#bbb;margin-top:4px;">JPEG, PNG, or PDF — max 10 MB</div>
+          <input type="file" id="camera-file-input" accept="image/*,application/pdf" />
         </div>
-        <div class="camera-instruction">
-          Point your camera at a receipt, warranty card,<br/>or product manual to auto-fill product details.
+
+        <div id="camera-progress" style="display:none;">
+          <div class="camera-progress-bar">
+            <div class="camera-progress-fill" id="camera-progress-fill"></div>
+          </div>
+          <div style="font-size:13px;color:#888;text-align:center;margin-top:8px;" id="camera-status-text">Uploading…</div>
         </div>
-        <div class="camera-shutter" id="cameraShutter">
-          <div class="camera-shutter-inner"></div>
+
+        <div id="camera-result" style="display:none;">
+          <div style="background:#fff;border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+            <div style="font-size:15px;font-weight:600;color:#111;margin-bottom:12px;">Extracted Data</div>
+            <div id="camera-extracted-fields"></div>
+            <div style="margin-top:14px;display:flex;gap:10px;">
+              <button class="camera-apply-btn" id="camera-apply-btn">Apply to Product</button>
+              <button class="camera-retry-btn" id="camera-retry-btn">Try Another</button>
+            </div>
+          </div>
         </div>
-        <div class="camera-coming-soon">OCR — Coming Soon</div>
+
+        <div id="camera-error" style="display:none;">
+          <div style="background:#fff0f0;border-radius:14px;padding:18px;border-left:3px solid #e53935;">
+            <div style="font-size:14px;font-weight:600;color:#c62828;" id="camera-error-msg">Error</div>
+            <button class="camera-retry-btn" style="margin-top:12px;" onclick="resetCamera()">Try Again</button>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- ======================== REPAIR / SERVICE VIEW ======================== -->
     <div class="view" id="view-repair">
-      <div class="repair-screen">
-        <div class="repair-map-placeholder">
-          <div class="map-grid"></div>
-          <span class="map-pin">📍</span>
-          <span class="map-pin">📍</span>
-          <span class="map-pin">📍</span>
+      <div class="home-header">
+        <div class="greeting">Find Repair Centres</div>
+      </div>
+      <div class="view-scroll">
+        <div id="repair-filter"></div>
+        <div id="repair-list">
+          <div style="color:#888;font-size:13px;padding:20px 0;">Select a product and tap "Find Repair Centre" to see options for that brand.</div>
         </div>
-        <div class="repair-title">Repair & Service Centers</div>
-        <div class="repair-sub">
-          Find authorized service centers nearest to your location for any of your registered products.
-        </div>
-        <div class="repair-coming-soon-badge">Coming Soon</div>
       </div>
     </div>
 
@@ -1084,6 +1221,7 @@
 
     <!-- ======================== BOTTOM NAV ======================== -->
     <nav class="bottom-nav">
+      <span class="brand-desktop">WarrantyVault</span>
       <button class="nav-item active" id="nav-home" data-view="home">
         <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -1192,6 +1330,24 @@
   function save() {
     localStorage.setItem('wv_products_v2', JSON.stringify(products));
   }
+
+  // ─── Service centre dataset ─────────────────────────────────────────────
+  const REPAIR_CENTRES = [
+    { brand: 'Apple', name: 'Apple Premium Reseller – Mumbai', city: 'Mumbai', address: '123 MG Road, Fort', phone: '022-2267-8910', rating: 4.6 },
+    { brand: 'Apple', name: 'Apple Authorised Service – Delhi', city: 'Delhi', address: '456 Nehru Place, South Delhi', phone: '011-2643-9871', rating: 4.3 },
+    { brand: 'Apple', name: 'Apple Care Centre – Bangalore', city: 'Bangalore', address: '23 Brigade Road, MG Road', phone: '080-2556-3344', rating: 4.5 },
+    { brand: 'Sony', name: 'Sony Service Centre – Mumbai', city: 'Mumbai', address: '789 Linking Road, Bandra', phone: '022-6567-8910', rating: 4.2 },
+    { brand: 'Sony', name: 'Sony Premium Care – Delhi', city: 'Delhi', address: '101 Lajpat Nagar, Block A', phone: '011-4157-9912', rating: 4.4 },
+    { brand: 'Sony', name: 'Sony Authorised Centre – Bangalore', city: 'Bangalore', address: '45 Indiranagar 100 Feet Road', phone: '080-4118-5678', rating: 4.1 },
+    { brand: 'Samsung', name: 'Samsung Smart Service – Chennai', city: 'Chennai', address: '345 T Nagar, South Chennai', phone: '044-2834-6789', rating: 4.3 },
+    { brand: 'Samsung', name: 'Samsung Authorised Centre – Hyderabad', city: 'Hyderabad', address: '678 Banjara Hills, Road No 12', phone: '040-2345-8910', rating: 4.5 },
+    { brand: 'Samsung', name: 'Samsung Care – Pune', city: 'Pune', address: '90 FC Road, Shivajinagar', phone: '020-2557-6688', rating: 4.0 },
+    { brand: 'Bosch', name: 'Bosch Authorised Service – Mumbai', city: 'Mumbai', address: '234 Andheri West, SV Road', phone: '022-4052-3456', rating: 4.1 },
+    { brand: 'Bosch', name: 'Bosch Care Centre – Pune', city: 'Pune', address: '901 Kothrud, Karve Road', phone: '020-6789-2345', rating: 4.0 },
+    { brand: 'Bosch', name: 'Bosch Service Hub – Delhi', city: 'Delhi', address: '34 Daryaganj, Near Red Fort', phone: '011-2345-6789', rating: 4.2 },
+  ];
+
+  let currentBrand = null; // set when navigating to repair from a product
 
   // ─── Warranty calculation ────────────────────────────────────────────────
   function warrantyInfo(p) {
@@ -1335,15 +1491,19 @@
 
   // Quick action buttons inside detail overlay → navigate to the right view
   document.getElementById('detail-repair-btn').addEventListener('click', () => {
+    const p = products.find(x => x.id === currentProductId);
+    currentBrand = p ? p.brand : null;
     document.getElementById('detail-overlay').classList.remove('open');
     currentProductId = null;
+    renderRepairCentres(currentBrand);
     switchView('repair');
   });
 
   document.getElementById('detail-scan-btn').addEventListener('click', () => {
+    // Keep currentProductId for the upload; close overlay but leave context
     document.getElementById('detail-overlay').classList.remove('open');
-    currentProductId = null;
     switchView('camera');
+    renderCameraForProduct(currentProductId);
   });
 
   // Photo upload
@@ -1367,6 +1527,212 @@
     reader.readAsDataURL(file);
     e.target.value = '';
   });
+
+  // ─── Camera / OCR ────────────────────────────────────────────────────────
+  let cameraProduct = null;
+
+  function renderCameraForProduct(productId) {
+    const nameEl = document.getElementById('camera-product-name');
+    const uploadArea = document.getElementById('camera-upload-area');
+    const fileInput = document.getElementById('camera-file-input');
+    const progressEl = document.getElementById('camera-progress');
+    const resultEl = document.getElementById('camera-result');
+    const errorEl = document.getElementById('camera-error');
+
+    cameraProduct = products.find(x => x.id === productId) || null;
+
+    if (nameEl) {
+      nameEl.textContent = cameraProduct
+        ? `Upload receipt for ${cameraProduct.name}`
+        : 'Upload a receipt or warranty document';
+    }
+
+    // Show upload area, hide progress/result/error
+    uploadArea.style.display = '';
+    progressEl.style.display = 'none';
+    resultEl.style.display = 'none';
+    errorEl.style.display = 'none';
+  }
+
+  function resetCamera() {
+    document.getElementById('camera-upload-area').style.display = '';
+    document.getElementById('camera-progress').style.display = 'none';
+    document.getElementById('camera-result').style.display = 'none';
+    document.getElementById('camera-error').style.display = 'none';
+    document.getElementById('camera-file-input').value = '';
+  }
+
+  function setupCameraUpload() {
+    const fileInput = document.getElementById('camera-file-input');
+    const uploadArea = document.getElementById('camera-upload-area');
+
+    uploadArea.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Must have a product to upload to
+      if (!cameraProduct) {
+        document.getElementById('camera-upload-area').style.display = 'none';
+        document.getElementById('camera-result').style.display = 'none';
+        document.getElementById('camera-progress').style.display = 'none';
+        document.getElementById('camera-error').style.display = '';
+        document.getElementById('camera-error-msg').textContent = 'Open a product first, then tap Scan/OCR.';
+        return;
+      }
+
+      // Show progress
+      document.getElementById('camera-upload-area').style.display = 'none';
+      document.getElementById('camera-error').style.display = 'none';
+      document.getElementById('camera-progress').style.display = '';
+      document.getElementById('camera-status-text').textContent = 'Uploading…';
+      document.getElementById('camera-progress-fill').style.width = '30%';
+
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('documentType', 'receipt');
+        fd.append('notes', 'Uploaded from website scan view');
+
+        const uploadRes = await fetch(`/api/v1/products/${cameraProduct.id}/documents`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${localStorage.getItem('wv_token') || ''}` },
+          body: fd
+        });
+
+        const uploadData = await uploadRes.json();
+
+        if (!uploadData.success) {
+          throw new Error(uploadData.message || 'Upload failed');
+        }
+
+        document.getElementById('camera-progress-fill').style.width = '70%';
+        document.getElementById('camera-status-text').textContent = 'OCR processing…';
+
+        // Poll for OCR result (the backend processes asynchronously)
+        const docId = uploadData.data._id;
+        let attempts = 0;
+        let ocrData = null;
+
+        while (attempts < 30) {
+          await new Promise(r => setTimeout(r, 500));
+          attempts++;
+
+          const docRes = await fetch(`/api/v1/products/${cameraProduct.id}/documents/${docId}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('wv_token') || ''}` }
+          });
+          const docJson = await docRes.json();
+
+          if (docJson.data && docJson.data.ocrStatus === 'done') {
+            ocrData = docJson.data;
+            document.getElementById('camera-progress-fill').style.width = '100%';
+            break;
+          }
+          if (docJson.data && docJson.data.ocrStatus === 'failed') {
+            throw new Error(docJson.data.ocrError || 'OCR failed');
+          }
+        }
+
+        if (!ocrData) {
+          throw new Error('OCR timed out');
+        }
+
+        // Show results
+        document.getElementById('camera-progress').style.display = 'none';
+        document.getElementById('camera-result').style.display = '';
+
+        const fields = document.getElementById('camera-extracted-fields');
+        const parsed = ocrData.parsedData || {};
+        fields.innerHTML = '';
+
+        const rows = [
+          ['Price', parsed.purchasePrice ? '₹' + Number(parsed.purchasePrice).toLocaleString('en-IN') : '—'],
+          ['Serial', parsed.serialNumber || '—'],
+          ['Expiry', parsed.warrantyExpiryDate ? new Date(parsed.warrantyExpiryDate).toLocaleDateString('en-IN') : '—']
+        ];
+
+        rows.forEach(([label, val]) => {
+          fields.innerHTML += `
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;">
+              <span style="font-size:13px;color:#888;">${label}</span>
+              <span style="font-size:13px;font-weight:500;color:#111;">${val}</span>
+            </div>`;
+        });
+
+        // Apply button — update product fields with extracted data
+        document.getElementById('camera-apply-btn').onclick = () => {
+          let updated = false;
+          if (parsed.purchasePrice && !cameraProduct.price) {
+            cameraProduct.price = parsed.purchasePrice;
+            updated = true;
+          }
+          if (parsed.serialNumber && !cameraProduct.serial) {
+            cameraProduct.serial = parsed.serialNumber;
+            updated = true;
+          }
+          if (parsed.warrantyExpiryDate) {
+            // Calculate months from now
+            const expiry = new Date(parsed.warrantyExpiryDate);
+            const now = new Date();
+            const months = Math.round((expiry - now) / (1000 * 60 * 60 * 24 * 30.44));
+            if (months > 0 && !cameraProduct.warrantyMonths) {
+              cameraProduct.warrantyMonths = months;
+              updated = true;
+            }
+          }
+
+          if (updated) {
+            save();
+            renderHome();
+            document.getElementById('camera-status-text').textContent = 'Data applied ✓';
+          } else {
+            document.getElementById('camera-status-text').textContent = 'No new fields to apply';
+          }
+        };
+
+        // Retry button
+        document.getElementById('camera-retry-btn').onclick = resetCamera;
+
+      } catch (err) {
+        document.getElementById('camera-progress').style.display = 'none';
+        document.getElementById('camera-result').style.display = 'none';
+        document.getElementById('camera-error').style.display = '';
+        document.getElementById('camera-error-msg').textContent = err.message || 'Something went wrong';
+      }
+    });
+  }
+
+  // ─── Repair centres ──────────────────────────────────────────────────────
+  function renderRepairCentres(brandFilter) {
+    const list = document.getElementById('repair-list');
+    const filterBar = document.getElementById('repair-filter');
+    if (!list) return;
+
+    let centres = REPAIR_CENTRES;
+    if (brandFilter) {
+      centres = centres.filter(c => c.brand === brandFilter);
+    }
+
+    list.innerHTML = centres.length === 0
+      ? `<div style="color:#888;font-size:13px;padding:20px 0;text-align:center;">No repair centres found.</div>`
+      : centres.map(c => `
+        <div class="repair-card">
+          <div class="repair-card-name">${c.name}</div>
+          <div class="repair-card-city">${c.city}</div>
+          <div class="repair-card-address">${c.address}</div>
+          <div class="repair-card-details">
+            <span class="repair-card-phone">📞 ${c.phone}</span>
+            <span class="repair-card-rating">⭐ ${c.rating}</span>
+          </div>
+        </div>`).join('');
+
+    if (filterBar) {
+      filterBar.innerHTML = brandFilter
+        ? `<span class="repair-brand-tag">${brandFilter} brands</span>`
+        : '';
+    }
+  }
 
   // ─── Shared view switcher ─────────────────────────────────────────────────
   function switchView(target) {
@@ -1468,6 +1834,8 @@
   }
 
   // ─── Initial render ───────────────────────────────────────────────────────
+  // Set up camera upload handler
+  setupCameraUpload();
   // Hide nav until logged in
   document.querySelector('.bottom-nav').style.display = 'none';
   // Show login screen by default (view-login is already .active from HTML)

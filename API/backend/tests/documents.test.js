@@ -5,18 +5,23 @@ jest.mock("../src/config/cloudinary", () => ({
   }
 }));
 
+// This mock mirrors the REAL req.file shape produced by multer-storage-cloudinary
+// v4 (installed version). The storage engine only sets { path, size, filename }
+// (filename === Cloudinary public_id); multer itself adds originalname/mimetype.
+// There is deliberately NO `public_id`/`secure_url`/`bytes` field, because v4 no
+// longer spreads the full Cloudinary response onto req.file. The service must
+// derive publicId from `filename` — if that mapping regresses, the upload below
+// fails with a 422 "Path `publicId` is required."
 jest.mock("../src/middleware/upload", () => ({
   uploadSingle: (req, res, next) => {
     req.file = {
-      original_filename: "receipt.jpg",
+      fieldname: "file",
       originalname: "receipt.jpg",
-      filename: "receipt.jpg",
-      path: "https://res.cloudinary.com/test/image/upload/v1/receipt.jpg",
-      secure_url: "https://res.cloudinary.com/test/image/upload/v1/receipt.jpg",
-      public_id: "test/receipt123",
-      bytes: 1024,
+      encoding: "7bit",
+      mimetype: "image/jpeg",
       size: 1024,
-      mimetype: "image/jpeg"
+      path: "https://res.cloudinary.com/test/image/upload/v1/test/receipt123",
+      filename: "test/receipt123"
     };
     return next();
   }
@@ -32,6 +37,7 @@ jest.mock("tesseract.js", () => ({
 }));
 
 const originalFetch = global.fetch;
+const cloudinary = require("../src/config/cloudinary");
 
 const { app, request, startDb, stopDb, registerUser } = require("./helpers/setup");
 
@@ -70,8 +76,17 @@ describe("Document API", () => {
       .send({ documentType: "receipt", notes: "Original bill" });
     expect(response.statusCode).toBe(201);
     expect(response.body.data.documentType).toBe("receipt");
-    expect(response.body.data.fileUrl).toContain("cloudinary");
+    // Field mapping must survive the multer-storage-cloudinary v4 req.file
+    // shape (storage sets only path/size/filename).
+    expect(response.body.data.fileUrl).toBe(
+      "https://res.cloudinary.com/test/image/upload/v1/test/receipt123"
+    );
     expect(response.body.data.fileName).toBe("receipt.jpg");
+    expect(response.body.data.fileSize).toBe(1024);
+    expect(response.body.data.mimeType).toBe("image/jpeg");
+    // Regression guard: publicId must come from req.file.filename when the
+    // v4 storage engine does not provide public_id.
+    expect(response.body.data.publicId).toBe("test/receipt123");
   });
 
   test("validates document type", async () => {
@@ -106,5 +121,11 @@ describe("Document API", () => {
       .get(`/api/v1/products/${productId}/documents`)
       .set("Authorization", `Bearer ${token}`);
     expect(after.body.data.documents).toHaveLength(0);
+
+    // The publicId persisted from the v4 filename must drive the Cloudinary
+    // destroy call — this closes the loop on the v4 field mapping.
+    expect(cloudinary.uploader.destroy).toHaveBeenCalledWith("test/receipt123", {
+      resource_type: "image"
+    });
   });
 });
