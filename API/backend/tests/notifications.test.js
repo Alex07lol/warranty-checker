@@ -61,7 +61,7 @@ describe("Notifications API", () => {
       .get("/api/v1/notifications")
       .set("Authorization", `Bearer ${token}`);
     expect(response.statusCode).toBe(200);
-    expect(response.body.data.length).toBe(1);
+    expect(response.body.data).toHaveLength(1);
     expect(response.body.data[0].title).toBe("Warranty expires soon");
   });
 
@@ -70,7 +70,7 @@ describe("Notifications API", () => {
       .get("/api/v1/notifications?unreadOnly=true")
       .set("Authorization", `Bearer ${token}`);
     expect(response.statusCode).toBe(200);
-    expect(response.body.data.length).toBe(1);
+    expect(response.body.data).toHaveLength(1);
   });
 
   test("marks a notification as read", async () => {
@@ -97,7 +97,7 @@ describe("Notifications API", () => {
     const after = await request(app)
       .get("/api/v1/notifications")
       .set("Authorization", `Bearer ${token}`);
-    expect(after.body.data.length).toBe(0);
+    expect(after.body.data).toHaveLength(0);
   });
 
   test("creates warranty expiry notifications for products expiring on a reminder day", async () => {

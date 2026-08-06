@@ -23,7 +23,7 @@
 // linear-time and unambiguous (javascript:S8786).
 function stripTrailingSlashes(value) {
   let end = value.length;
-  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+  while (end > 0 && value.codePointAt(end - 1) === 47) {
     end -= 1;
   }
   return value.slice(0, end);
@@ -60,38 +60,6 @@ function record(name, ok, detail = "") {
   console.log(`  ${icon} [${mark}] ${name}${suffix}`);
 }
 
-// Defense against client-side request forgery: before a request URL is used
-// with fetch(), validate that it stays within the base origin. `base` and
-// `path` can carry tainted data (e.g. IDs echoed back from an API response, or
-// a BASE_URL env var). A crafted `path` containing "://" or starting with "//"
-// would otherwise redirect the request to an attacker-controlled origin, and a
-// crafted `base` must at least be a well-formed http(s) URL.
-function assertSafeRequestUrl(base, path) {
-  let baseUrl;
-  try {
-    baseUrl = new URL(base);
-  } catch {
-    throw new Error(`Refusing request with invalid base URL: ${base}`);
-  }
-  if (!["http:", "https:"].includes(baseUrl.protocol)) {
-    throw new Error(`Refusing request with non-http(s) base URL: ${base}`);
-  }
-
-  const p = String(path ?? "");
-  if (p.includes("://") || p.startsWith("//")) {
-    throw new Error(`Refusing request path that escapes the base origin: ${p}`);
-  }
-
-  // The base already carries the path prefix (e.g. /api/v1), so the final URL
-  // is base + path. Verify the resolved origin cannot differ from base's.
-  const url = `${base}${p}`;
-  const resolved = new URL(url, baseUrl);
-  if (resolved.origin !== baseUrl.origin) {
-    throw new Error(`Refusing request URL that escapes the base origin: ${url}`);
-  }
-  return url;
-}
-
 async function request(method, path, { body, formData, auth = true, expected = 200, base = BASE_URL } = {}) {
   const headers = {};
   if (auth && token) headers.Authorization = `Bearer ${token}`;
@@ -104,7 +72,28 @@ async function request(method, path, { body, formData, auth = true, expected = 2
     payload = JSON.stringify(body);
   }
 
-  const url = assertSafeRequestUrl(base, path);
+  // Client-side request forgery defense (jssecurity:S8476/S5144): `base` and
+  // `path` may carry tainted data (IDs echoed back from API responses, or a
+  // BASE_URL env var). Refuse anything that could escape the base origin
+  // before the URL reaches fetch().
+  let baseUrl;
+  try {
+    baseUrl = new URL(base);
+  } catch {
+    throw new Error(`Refusing request with invalid base URL: ${base}`);
+  }
+  if (!["http:", "https:"].includes(baseUrl.protocol)) {
+    throw new Error(`Refusing request with non-http(s) base URL: ${base}`);
+  }
+  const safePath = String(path ?? "");
+  if (safePath.includes("://") || safePath.startsWith("//")) {
+    throw new Error(`Refusing request path that escapes the base origin: ${safePath}`);
+  }
+  const url = `${base}${safePath}`;
+  if (new URL(url).origin !== baseUrl.origin) {
+    throw new Error(`Refusing request URL that escapes the base origin: ${url}`);
+  }
+
   const res = await fetch(url, { method, headers, body: payload });
   let json = null;
   try {

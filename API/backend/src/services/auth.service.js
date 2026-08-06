@@ -32,7 +32,7 @@ async function registerUser(name, email, password) {
 async function loginUser(email, password) {
   const user = await User.findOne({ email: email.toLowerCase().trim() });
 
-  if (!user || !user.isActive || !(await user.comparePassword(password))) {
+  if (!user?.isActive || !(await user.comparePassword(password))) {
     throw new AppError("Invalid email or password", 401);
   }
 

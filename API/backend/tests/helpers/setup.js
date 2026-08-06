@@ -46,8 +46,8 @@ async function registerUser(name, email, password = "password123") {
 
   return {
     response,
-    token: response.body.data && response.body.data.token,
-    userId: response.body.data && response.body.data.user && response.body.data.user._id
+    token: response.body.data?.token,
+    userId: response.body.data?.user?._id
   };
 }
 

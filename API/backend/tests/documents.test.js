@@ -87,7 +87,7 @@ describe("Document API", () => {
       .get(`/api/v1/products/${productId}/documents`)
       .set("Authorization", `Bearer ${token}`);
     expect(response.statusCode).toBe(200);
-    expect(response.body.data.documents.length).toBe(1);
+    expect(response.body.data.documents).toHaveLength(1);
     expect(response.body.data.documents[0].documentType).toBe("receipt");
   });
 
@@ -105,6 +105,6 @@ describe("Document API", () => {
     const after = await request(app)
       .get(`/api/v1/products/${productId}/documents`)
       .set("Authorization", `Bearer ${token}`);
-    expect(after.body.data.documents.length).toBe(0);
+    expect(after.body.data.documents).toHaveLength(0);
   });
 });

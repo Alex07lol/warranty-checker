@@ -4,7 +4,7 @@ const { verifyToken } = require("../utils/jwtHelper");
 function auth(req, res, next) {
   const header = req.headers.authorization;
 
-  if (!header || !header.startsWith("Bearer ")) {
+  if (!header?.startsWith("Bearer ")) {
     return next(new AppError("Unauthorized", 401));
   }
 
@@ -14,7 +14,9 @@ function auth(req, res, next) {
     const decoded = verifyToken(token);
     req.user = decoded;
     return next();
-  } catch (error) {
+  } catch {
+    // Any verification failure (expired, malformed, wrong secret) is treated as
+    // unauthenticated; the exception details are not needed here.
     return next(new AppError("Unauthorized", 401));
   }
 }

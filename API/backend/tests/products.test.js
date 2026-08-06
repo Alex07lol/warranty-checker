@@ -122,7 +122,7 @@ describe("Product API", () => {
       .get("/api/v1/products/search?q=zzzzzz")
       .set("Authorization", `Bearer ${token}`);
     expect(response.statusCode).toBe(200);
-    expect(response.body.data.length).toBe(0);
+    expect(response.body.data).toHaveLength(0);
   });
 
   test("lists expiring soon products", async () => {

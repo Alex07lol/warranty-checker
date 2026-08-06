@@ -58,7 +58,7 @@ describe("Dashboard API", () => {
     expect(response.statusCode).toBe(200);
     expect(response.body.data.totalProducts).toBe(1);
     expect(response.body.data.expiringSoonCount).toBe(1);
-    expect(response.body.data.recentProducts.length).toBe(1);
+    expect(response.body.data.recentProducts).toHaveLength(1);
     expect(response.body.data.recentProducts[0].productName).toBe("Washing Machine");
   });
 });

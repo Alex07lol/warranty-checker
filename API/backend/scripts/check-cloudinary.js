@@ -67,7 +67,7 @@ main().catch((error) => {
   if (error.http_code) {
     process.stderr.write(`Cloudinary HTTP code: ${error.http_code}\n`);
   }
-  if (error.error && error.error.message) {
+  if (error.error?.message) {
     process.stderr.write(`Cloudinary error: ${error.error.message}\n`);
   }
   process.exit(1);

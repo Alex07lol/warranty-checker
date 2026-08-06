@@ -87,6 +87,6 @@ describe("Service History API", () => {
     const after = await request(app)
       .get(`/api/v1/products/${productId}/service-history`)
       .set("Authorization", `Bearer ${token}`);
-    expect(after.body.data.length).toBe(0);
+    expect(after.body.data).toHaveLength(0);
   });
 });

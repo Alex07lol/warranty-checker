@@ -19,7 +19,7 @@ const storage = new CloudinaryStorage({
 
 const uploadSingle = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
       return cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "file"));

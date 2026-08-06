@@ -10,6 +10,14 @@ router = APIRouter(
     tags=["Warranties"]
 )
 
+WARRANTY_NOT_FOUND = "Warranty not found"
+
+# Response schemas for endpoints that can raise documented HTTPExceptions.
+NOT_FOUND_RESPONSE = {
+    400: {"description": "Invalid warranty ID"},
+    404: {"description": "Warranty not found"},
+}
+
 
 # -----------------------------
 # Helper Functions
@@ -90,7 +98,7 @@ def get_warranties(
 # READ ONE
 # -----------------------------
 
-@router.get("/{warranty_id}")
+@router.get("/{warranty_id}", responses=NOT_FOUND_RESPONSE)
 def get_warranty(warranty_id: str):
 
     object_id = get_object_id(warranty_id)
@@ -102,7 +110,7 @@ def get_warranty(warranty_id: str):
     if warranty is None:
         raise HTTPException(
             status_code=404,
-            detail="Warranty not found"
+            detail=WARRANTY_NOT_FOUND
         )
 
     return serialize(warranty)
@@ -112,7 +120,7 @@ def get_warranty(warranty_id: str):
 # UPDATE
 # -----------------------------
 
-@router.put("/{warranty_id}")
+@router.put("/{warranty_id}", responses=NOT_FOUND_RESPONSE)
 def update_warranty(
     warranty_id: str,
     warranty: WarrantyCreate
@@ -130,7 +138,7 @@ def update_warranty(
     if result.matched_count == 0:
         raise HTTPException(
             status_code=404,
-            detail="Warranty not found"
+            detail=WARRANTY_NOT_FOUND
         )
 
     updated_warranty = warranties_collection.find_one(
@@ -144,7 +152,7 @@ def update_warranty(
 # DELETE
 # -----------------------------
 
-@router.delete("/{warranty_id}")
+@router.delete("/{warranty_id}", responses=NOT_FOUND_RESPONSE)
 def delete_warranty(warranty_id: str):
 
     object_id = get_object_id(warranty_id)
@@ -156,7 +164,7 @@ def delete_warranty(warranty_id: str):
     if result.deleted_count == 0:
         raise HTTPException(
             status_code=404,
-            detail="Warranty not found"
+            detail=WARRANTY_NOT_FOUND
         )
 
     return {
