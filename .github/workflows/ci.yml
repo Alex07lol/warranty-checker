@@ -27,7 +27,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./API/backend
-        run: npm ci --legacy-peer-deps
+        run: npm ci --legacy-peer-deps --ignore-scripts
 
       - name: Run tests
         working-directory: ./API/backend

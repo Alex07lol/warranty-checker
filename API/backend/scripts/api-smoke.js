@@ -19,7 +19,17 @@
  * WARN instead of FAIL so the rest of the flow can still be verified.
  */
 
-const BASE_URL = (process.env.BASE_URL || "http://localhost:5000/api/v1").replace(/\/+$/, "");
+// Strip a trailing run of "/" characters without a regex so the strip stays
+// linear-time and unambiguous (javascript:S8786).
+function stripTrailingSlashes(value) {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
+
+const BASE_URL = stripTrailingSlashes(process.env.BASE_URL || "http://localhost:5000/api/v1");
 // The health route lives at the root, not under /api/v1.
 const ROOT_URL = BASE_URL.replace(/\/api\/v1\/?$/, "");
 const EMAIL = process.env.EMAIL || `smoke-${Date.now()}@example.com`;
@@ -32,10 +42,54 @@ let productId = null;
 let recordId = null;
 let documentId = null;
 
+// Sanitize a detail string before it is logged: strip newlines/control
+// characters and cap the length so API-provided (potentially user-controlled)
+// text is never echoed verbatim (jssecurity:S5145).
+function sanitizeDetail(detail) {
+  const text = String(detail ?? "");
+  const cleaned = text.replace(/[\u0000-\u001f\u007f]+/g, " ").trim();
+  return cleaned.length > 160 ? `${cleaned.slice(0, 157)}...` : cleaned;
+}
+
 function record(name, ok, detail = "") {
-  results.push({ name, ok, detail });
+  const safeDetail = sanitizeDetail(detail);
+  results.push({ name, ok, detail: safeDetail });
   const mark = ok ? "PASS" : "FAIL";
-  console.log(`  ${ok ? "✔" : "✘"} [${mark}] ${name}${detail ? ` — ${detail}` : ""}`);
+  const icon = ok ? "✔" : "✘";
+  const suffix = safeDetail ? ` — ${safeDetail}` : "";
+  console.log(`  ${icon} [${mark}] ${name}${suffix}`);
+}
+
+// Defense against client-side request forgery: before a request URL is used
+// with fetch(), validate that it stays within the base origin. `base` and
+// `path` can carry tainted data (e.g. IDs echoed back from an API response, or
+// a BASE_URL env var). A crafted `path` containing "://" or starting with "//"
+// would otherwise redirect the request to an attacker-controlled origin, and a
+// crafted `base` must at least be a well-formed http(s) URL.
+function assertSafeRequestUrl(base, path) {
+  let baseUrl;
+  try {
+    baseUrl = new URL(base);
+  } catch {
+    throw new Error(`Refusing request with invalid base URL: ${base}`);
+  }
+  if (!["http:", "https:"].includes(baseUrl.protocol)) {
+    throw new Error(`Refusing request with non-http(s) base URL: ${base}`);
+  }
+
+  const p = String(path ?? "");
+  if (p.includes("://") || p.startsWith("//")) {
+    throw new Error(`Refusing request path that escapes the base origin: ${p}`);
+  }
+
+  // The base already carries the path prefix (e.g. /api/v1), so the final URL
+  // is base + path. Verify the resolved origin cannot differ from base's.
+  const url = `${base}${p}`;
+  const resolved = new URL(url, baseUrl);
+  if (resolved.origin !== baseUrl.origin) {
+    throw new Error(`Refusing request URL that escapes the base origin: ${url}`);
+  }
+  return url;
 }
 
 async function request(method, path, { body, formData, auth = true, expected = 200, base = BASE_URL } = {}) {
@@ -50,7 +104,8 @@ async function request(method, path, { body, formData, auth = true, expected = 2
     payload = JSON.stringify(body);
   }
 
-  const res = await fetch(`${base}${path}`, { method, headers, body: payload });
+  const url = assertSafeRequestUrl(base, path);
+  const res = await fetch(url, { method, headers, body: payload });
   let json = null;
   try {
     json = await res.json();
@@ -66,72 +121,90 @@ function jsonBody(path, { body, auth = true, expected = 200 } = {}) {
   return request("POST", path, { body, auth, expected });
 }
 
+// Compare a floating point value to an expected value within a small epsilon
+// instead of using exact equality (javascript:S1244).
+function approxEqual(value, expected, epsilon = 1e-3) {
+  return typeof value === "number" && Math.abs(value - expected) < epsilon;
+}
+
 // A 1x1 transparent PNG used for the document upload smoke step.
 function tinyPng() {
   const base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const bytes = Uint8Array.from(atob(base64), (c) => c.codePointAt(0));
   return new Blob([bytes], { type: "image/png" });
 }
 
-async function main() {
-  console.log(`\nWarrantyVault API smoke test`);
-  console.log(`  Base URL : ${BASE_URL}`);
-  console.log(`  Email    : ${EMAIL}\n`);
+function expectOk(name, ok, detail = "") {
+  record(name, ok, detail);
+}
 
-  // 1. Health -------------------------------------------------------------
+function expectFail(name, err) {
+  record(name, false, err.message);
+}
+
+// Run a step in a guarded context so an unexpected exception is recorded as a
+// FAIL for that step instead of crashing the whole smoke test.
+async function runStep(name, fn) {
+  try {
+    await fn();
+  } catch (err) {
+    expectFail(name, err);
+  }
+}
+
+// 1. Health ---------------------------------------------------------------
+async function stepHealth() {
   try {
     const { res, json, ok } = await request("GET", "/health", { auth: false, expected: 200, base: ROOT_URL });
-    record("GET /health", ok && json?.success === true, json?.message || `HTTP ${res.status}`);
+    expectOk("GET /health", ok && json?.success === true, json?.message || `HTTP ${res.status}`);
   } catch (err) {
     record("GET /health", false, `server unreachable: ${err.message}`);
     summarize();
     process.exit(1);
   }
+}
 
-  // 2. Registration -------------------------------------------------------
-  try {
+// 2-5. Registration, login, current user, unauthorized rejection -------------
+async function stepAuth() {
+  // 2. Registration
+  await runStep("POST /auth/register", async () => {
     const { json, ok } = await jsonBody("/auth/register", {
       body: { name: "Smoke Tester", email: EMAIL, password: PASSWORD, confirmPassword: PASSWORD },
       expected: 201
     });
     token = json?.data?.token;
-    record("POST /auth/register", ok && !!token, ok ? `user ${json.data.user.email}` : json?.message);
-  } catch (err) {
-    record("POST /auth/register", false, err.message);
-  }
+    expectOk("POST /auth/register", ok && !!token, ok ? `user ${json.data.user.email}` : json?.message);
+  });
 
-  // 3. Login --------------------------------------------------------------
-  try {
+  // 3. Login
+  await runStep("POST /auth/login", async () => {
     const { json, ok } = await jsonBody("/auth/login", {
       body: { email: EMAIL, password: PASSWORD }
     });
     token = json?.data?.token;
-    record("POST /auth/login", ok && !!token, ok ? `token ${String(token).slice(0, 18)}…` : json?.message);
-  } catch (err) {
-    record("POST /auth/login", false, err.message);
-  }
+    expectOk("POST /auth/login", ok && !!token, ok ? `token ${String(token).slice(0, 18)}…` : json?.message);
+  });
 
-  // 4. Current user -------------------------------------------------------
-  try {
+  // 4. Current user
+  await runStep("GET /auth/me", async () => {
     const { res, json, ok } = await request("GET", "/auth/me");
-    record("GET /auth/me", ok && json?.data?.email === EMAIL, ok ? json.data.email : `HTTP ${res.status}`);
-  } catch (err) {
-    record("GET /auth/me", false, err.message);
-  }
+    expectOk("GET /auth/me", ok && json?.data?.email === EMAIL, ok ? json.data.email : `HTTP ${res.status}`);
+  });
 
-  // 5. Unauthorized access is rejected ------------------------------------
-  try {
+  // 5. Unauthorized access is rejected
+  await runStep("GET /products without token → 401", async () => {
     const saved = token;
     token = null;
     const { res } = await request("GET", "/products", { auth: false });
     token = saved;
-    record("GET /products without token → 401", res.status === 401, `HTTP ${res.status}`);
-  } catch (err) {
-    record("GET /products without token → 401", false, err.message);
-  }
+    expectOk("GET /products without token → 401", res.status === 401, `HTTP ${res.status}`);
+  });
+}
 
-  // 6. Create product -----------------------------------------------------
-  try {
+// 6-11. Product CRUD -------------------------------------------------------
+async function stepProducts() {
+  // 6. Create product
+  await runStep("POST /products", async () => {
     const { json, ok } = await jsonBody("/products", {
       body: {
         productName: "Sony WH-1000XM5 Headphones",
@@ -150,56 +223,47 @@ async function main() {
       expected: 201
     });
     productId = json?.data?._id;
-    record("POST /products", ok && !!productId, ok ? `id ${productId}` : json?.message);
-  } catch (err) {
-    record("POST /products", false, err.message);
-  }
+    expectOk("POST /products", ok && !!productId, ok ? `id ${productId}` : json?.message);
+  });
 
-  // 7. List products ------------------------------------------------------
-  try {
+  // 7. List products
+  await runStep("GET /products (paginated)", async () => {
     const { json, ok } = await request("GET", "/products?page=1&limit=10&sortBy=createdAt&order=desc");
     const found = (json?.data?.products || []).some((p) => p._id === productId);
-    record("GET /products (paginated)", ok && found, ok ? `total ${json.data.total}` : json?.message);
-  } catch (err) {
-    record("GET /products (paginated)", false, err.message);
-  }
+    expectOk("GET /products (paginated)", ok && found, ok ? `total ${json.data.total}` : json?.message);
+  });
 
-  // 8. Search products ----------------------------------------------------
-  try {
+  // 8. Search products
+  await runStep("GET /products/search", async () => {
     const { json, ok } = await request("GET", "/products/search?q=headphones");
-    record("GET /products/search", ok && Array.isArray(json?.data), ok ? `${json.data.length} hit(s)` : json?.message);
-  } catch (err) {
-    record("GET /products/search", false, err.message);
-  }
+    expectOk("GET /products/search", ok && Array.isArray(json?.data), ok ? `${json.data.length} hit(s)` : json?.message);
+  });
 
-  // 9. Expiring soon ------------------------------------------------------
-  try {
+  // 9. Expiring soon
+  await runStep("GET /products/expiring-soon", async () => {
     const { json, ok } = await request("GET", "/products/expiring-soon");
-    record("GET /products/expiring-soon", ok && Array.isArray(json?.data), ok ? `${json.data.length} item(s)` : json?.message);
-  } catch (err) {
-    record("GET /products/expiring-soon", false, err.message);
-  }
+    expectOk("GET /products/expiring-soon", ok && Array.isArray(json?.data), ok ? `${json.data.length} item(s)` : json?.message);
+  });
 
-  // 10. Get product by id --------------------------------------------------
-  try {
+  // 10. Get product by id
+  await runStep("GET /products/:id", async () => {
     const { res, json, ok } = await request("GET", `/products/${productId}`);
-    record("GET /products/:id", ok && json?.data?._id === productId, ok ? json.data.productName : `HTTP ${res.status}`);
-  } catch (err) {
-    record("GET /products/:id", false, err.message);
-  }
+    expectOk("GET /products/:id", ok && json?.data?._id === productId, ok ? json.data.productName : `HTTP ${res.status}`);
+  });
 
-  // 11. Update product -----------------------------------------------------
-  try {
+  // 11. Update product
+  await runStep("PUT /products/:id", async () => {
     const { json, ok } = await request("PUT", `/products/${productId}`, {
       body: { notes: "Updated via smoke test" }
     });
-    record("PUT /products/:id", ok && json?.data?.notes === "Updated via smoke test", json?.message);
-  } catch (err) {
-    record("PUT /products/:id", false, err.message);
-  }
+    expectOk("PUT /products/:id", ok && json?.data?.notes === "Updated via smoke test", json?.message);
+  });
+}
 
-  // 12. Add service history record ------------------------------------------
-  try {
+// 12-15. Service history CRUD ------------------------------------------------
+async function stepServiceHistory() {
+  // 12. Add service history record
+  await runStep("POST /service-history", async () => {
     const { json, ok } = await jsonBody(`/products/${productId}/service-history`, {
       body: {
         serviceDate: "2026-06-15",
@@ -213,39 +277,34 @@ async function main() {
       expected: 201
     });
     recordId = json?.data?._id;
-    record("POST /service-history", ok && !!recordId, ok ? `id ${recordId}` : json?.message);
-  } catch (err) {
-    record("POST /service-history", false, err.message);
-  }
+    expectOk("POST /service-history", ok && !!recordId, ok ? `id ${recordId}` : json?.message);
+  });
 
-  // 13. List service history -------------------------------------------------
-  try {
+  // 13. List service history
+  await runStep("GET /service-history", async () => {
     const { json, ok } = await request("GET", `/products/${productId}/service-history`);
     const found = (json?.data || []).some((r) => r._id === recordId);
-    record("GET /service-history", ok && found, ok ? `${json.data.length} record(s)` : json?.message);
-  } catch (err) {
-    record("GET /service-history", false, err.message);
-  }
+    expectOk("GET /service-history", ok && found, ok ? `${json.data.length} record(s)` : json?.message);
+  });
 
-  // 14. Update service record -------------------------------------------------
-  try {
+  // 14. Update service record
+  await runStep("PUT /service-history/:recordId", async () => {
     const { json, ok } = await request("PUT", `/products/${productId}/service-history/${recordId}`, {
       body: { cost: 59.99 }
     });
-    record("PUT /service-history/:recordId", ok && json?.data?.cost === 59.99, json?.message);
-  } catch (err) {
-    record("PUT /service-history/:recordId", false, err.message);
-  }
+    expectOk("PUT /service-history/:recordId", ok && approxEqual(json?.data?.cost, 59.99), json?.message);
+  });
 
-  // 15. Delete service record --------------------------------------------------
-  try {
+  // 15. Delete service record
+  await runStep("DELETE /service-history/:recordId", async () => {
     const { ok } = await request("DELETE", `/products/${productId}/service-history/${recordId}`);
-    record("DELETE /service-history/:recordId", ok, ok ? "deleted" : "failed");
-  } catch (err) {
-    record("DELETE /service-history/:recordId", false, err.message);
-  }
+    expectOk("DELETE /service-history/:recordId", ok, ok ? "deleted" : "failed");
+  });
+}
 
-  // 16. Upload document (multipart, needs Cloudinary) ---------------------------
+// 16-19. Document upload / list / get / delete ---------------------------------
+async function stepDocuments() {
+  // 16. Upload document (multipart, needs Cloudinary)
   try {
     const fd = new FormData();
     fd.append("file", tinyPng(), "smoke-receipt.png");
@@ -267,65 +326,59 @@ async function main() {
     record("POST /documents (multipart)", true, `WARN: skipped — ${err.message}`);
   }
 
-  // 17. List documents -----------------------------------------------------------
-  try {
+  // 17. List documents
+  await runStep("GET /documents", async () => {
     const { json, ok } = await request("GET", `/products/${productId}/documents`);
-    record("GET /documents", ok && Array.isArray(json?.data?.documents), ok ? `${json.data.documents.length} document(s)` : json?.message);
-  } catch (err) {
-    record("GET /documents", false, err.message);
-  }
+    expectOk("GET /documents", ok && Array.isArray(json?.data?.documents), ok ? `${json.data.documents.length} document(s)` : json?.message);
+  });
 
-  // 18. Get document by id ---------------------------------------------------------
+  // 18. Get document by id (only if a document was uploaded)
   if (documentId) {
-    try {
+    await runStep("GET /documents/:documentId", async () => {
       const { json, ok } = await request("GET", `/products/${productId}/documents/${documentId}`);
-      record("GET /documents/:documentId", ok && json?.data?._id === documentId, json?.message);
-    } catch (err) {
-      record("GET /documents/:documentId", false, err.message);
-    }
+      expectOk("GET /documents/:documentId", ok && json?.data?._id === documentId, json?.message);
+    });
   }
 
-  // 19. Delete document ---------------------------------------------------------------
+  // 19. Delete document (only if a document was uploaded)
   if (documentId) {
-    try {
+    await runStep("DELETE /documents/:documentId", async () => {
       const { ok } = await request("DELETE", `/products/${productId}/documents/${documentId}`);
-      record("DELETE /documents/:documentId", ok, ok ? "deleted" : "failed");
-    } catch (err) {
-      record("DELETE /documents/:documentId", false, err.message);
-    }
+      expectOk("DELETE /documents/:documentId", ok, ok ? "deleted" : "failed");
+    });
   }
+}
 
-  // 20. Dashboard ------------------------------------------------------------------------
-  try {
+// 20-22. Dashboard, notifications, mark-all-read ------------------------------
+async function stepDashboardNotifications() {
+  // 20. Dashboard
+  await runStep("GET /dashboard", async () => {
     const { json, ok } = await request("GET", "/dashboard");
     const d = json?.data;
-    record(
+    expectOk(
       "GET /dashboard",
       ok && typeof d?.totalProducts === "number" && typeof d?.unreadNotificationsCount === "number",
       ok ? `products=${d.totalProducts} documents=${d.totalDocuments} unread=${d.unreadNotificationsCount}` : json?.message
     );
-  } catch (err) {
-    record("GET /dashboard", false, err.message);
-  }
+  });
 
-  // 21. Notifications (may be empty for a fresh user) --------------------------------------
-  try {
+  // 21. Notifications (may be empty for a fresh user)
+  await runStep("GET /notifications", async () => {
     const { json, ok } = await request("GET", "/notifications");
-    record("GET /notifications", ok && Array.isArray(json?.data), ok ? `${json.data.length} notification(s)` : json?.message);
-  } catch (err) {
-    record("GET /notifications", false, err.message);
-  }
+    expectOk("GET /notifications", ok && Array.isArray(json?.data), ok ? `${json.data.length} notification(s)` : json?.message);
+  });
 
-  // 22. Mark all as read -----------------------------------------------------------------------
-  try {
+  // 22. Mark all as read
+  await runStep("PUT /notifications/read-all", async () => {
     const { ok } = await request("PUT", "/notifications/read-all");
-    record("PUT /notifications/read-all", ok, ok ? "ok" : "failed");
-  } catch (err) {
-    record("PUT /notifications/read-all", false, err.message);
-  }
+    expectOk("PUT /notifications/read-all", ok, ok ? "ok" : "failed");
+  });
+}
 
-  // 23. Change password + re-login ---------------------------------------------------------------
-  try {
+// 23. Change password + re-login ------------------------------------------------
+async function stepPassword() {
+  // Change password
+  await runStep("PUT /auth/change-password", async () => {
     const { ok } = await request("PUT", "/auth/change-password", {
       body: {
         currentPassword: PASSWORD,
@@ -333,38 +386,49 @@ async function main() {
         confirmNewPassword: NEW_PASSWORD
       }
     });
-    record("PUT /auth/change-password", ok, ok ? "ok" : "failed");
-  } catch (err) {
-    record("PUT /auth/change-password", false, err.message);
-  }
+    expectOk("PUT /auth/change-password", ok, ok ? "ok" : "failed");
+  });
 
+  // Re-login with the new password, only if the change succeeded.
   if (results.some((r) => r.name === "PUT /auth/change-password" && r.ok)) {
-    try {
+    await runStep("POST /auth/login with new password", async () => {
       const { json, ok } = await jsonBody("/auth/login", {
         body: { email: EMAIL, password: NEW_PASSWORD }
       });
       token = json?.data?.token;
-      record("POST /auth/login with new password", ok && !!token, ok ? "ok" : json?.message);
-    } catch (err) {
-      record("POST /auth/login with new password", false, err.message);
-    }
+      expectOk("POST /auth/login with new password", ok && !!token, ok ? "ok" : json?.message);
+    });
   }
+}
 
-  // 24. Logout ------------------------------------------------------------------------------------
-  try {
+// 24-25. Logout + soft-delete product -------------------------------------------
+async function stepCleanup() {
+  // 24. Logout
+  await runStep("POST /auth/logout", async () => {
     const { ok } = await request("POST", "/auth/logout");
-    record("POST /auth/logout", ok, ok ? "ok" : "failed");
-  } catch (err) {
-    record("POST /auth/logout", false, err.message);
-  }
+    expectOk("POST /auth/logout", ok, ok ? "ok" : "failed");
+  });
 
-  // 25. Delete product (soft) ----------------------------------------------------------------------
-  try {
+  // 25. Delete product (soft)
+  await runStep("DELETE /products/:id (soft)", async () => {
     const { ok } = await request("DELETE", `/products/${productId}`);
-    record("DELETE /products/:id (soft)", ok, ok ? "deleted" : "failed");
-  } catch (err) {
-    record("DELETE /products/:id (soft)", false, err.message);
-  }
+    expectOk("DELETE /products/:id (soft)", ok, ok ? "deleted" : "failed");
+  });
+}
+
+async function main() {
+  console.log(`\nWarrantyVault API smoke test`);
+  console.log(`  Base URL : ${BASE_URL}`);
+  console.log(`  Email    : ${EMAIL}\n`);
+
+  await stepHealth();
+  await stepAuth();
+  await stepProducts();
+  await stepServiceHistory();
+  await stepDocuments();
+  await stepDashboardNotifications();
+  await stepPassword();
+  await stepCleanup();
 
   summarize();
 }
@@ -376,8 +440,10 @@ function summarize() {
   const passed = results.filter((r) => r.ok && !warned.includes(r)).length;
   const failed = results.filter((r) => !r.ok).length;
 
+  const warningSuffix = warned.length ? `, ${warned.length} warned (Cloudinary)` : "";
+
   console.log(`\n${"=".repeat(60)}`);
-  console.log(`  ${passed} passed, ${failed} failed${warned.length ? `, ${warned.length} warned (Cloudinary)` : ""}`);
+  console.log(`  ${passed} passed, ${failed} failed${warningSuffix}`);
   console.log(`${"=".repeat(60)}\n`);
 
   process.exit(failed > 0 ? 1 : 0);

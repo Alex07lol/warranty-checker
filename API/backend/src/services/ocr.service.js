@@ -8,10 +8,10 @@ const OCR_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 function parseDate(text) {
   if (!text) return null;
   const keywordPattern =
-    /(expiry|expiration|expires|valid thru|valid through|warranty|good until|exp)[^0-9]{0,20}([0-9]{1,2}[/\-.][0-9]{1,2}[/\-.][0-9]{2,4})/i;
+    /(expiry|expiration|expires|valid thru|valid through|warranty|good until|exp)\D{0,20}(\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4})/i;
   const match = text.match(keywordPattern);
   const candidate = match ? match[2] : null;
-  const fallback = (text.match(/([0-9]{1,2}[/\-.][0-9]{1,2}[/\-.][0-9]{2,4})/) || [])[1];
+  const fallback = (text.match(/(\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4})/) || [])[1];
   const raw = candidate || fallback;
   if (!raw) return null;
   const date = new Date(raw);
@@ -21,11 +21,11 @@ function parseDate(text) {
 function parsePrice(text) {
   if (!text) return null;
 
-  const PRICE_PATTERN = /\$\s?([0-9]+(?:,[0-9]{3})*(?:\.[0-9]+)?)/;
+  const PRICE_PATTERN = /\$\s?(\d+(?:,\d{3})*(?:\.\d+)?)/;
   const TOTAL_PATTERN = /(?:\b(?:grand\s*)?total\b)|(?:\bamount(?:\s*due)?\b)|\bdue\b|\bbal\b/i;
 
   const toValue = (raw) => {
-    const value = parseFloat(raw.replace(/,/g, ""));
+    const value = Number.parseFloat(raw.replaceAll(",", ""));
     return Number.isNaN(value) ? null : value;
   };
 
@@ -43,7 +43,7 @@ function parsePrice(text) {
 function parseSerial(text) {
   if (!text) return null;
   const match = text.match(
-    /(?:serial\s*(?:no\.?|number|#)?|s\/?n\.?|sn\.?)[\s:]*([A-Z0-9][A-Z0-9-]{3,})/i
+    /(?:serial\s*(?:no\.?|number|#)|serial|s\/?n\.?)[\s:]*([A-Z0-9][A-Z0-9-]{3,})/i
   );
   return match ? match[1].toUpperCase() : null;
 }

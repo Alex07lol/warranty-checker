@@ -19,7 +19,16 @@ const { createExpiryNotifications } = require("./services/notification.service")
 const app = express();
 
 app.use(helmet({
-  contentSecurityPolicy: false
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      connectSrc: ["'self'"],
+      imgSrc: ["'self'", "data:"]
+    }
+  }
 }));
 app.use(cors({
   origin: CLIENT_URL === "*" ? true : CLIENT_URL,
