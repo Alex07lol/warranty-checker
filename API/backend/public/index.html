@@ -251,7 +251,7 @@
       position: absolute; transform: translate(-50%, -50%);
       width: 14px; height: 14px; border-radius: 50%;
       background: #3949ab; border: 2.5px solid #fff;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.28); cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.28); cursor: default;
     }
     .map-pin.user {
       width: 18px; height: 18px; background: #e53935;
@@ -1655,7 +1655,9 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
     Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  return 2 * R * Math.asin(Math.sqrt(a));
+  // Clamp to [0,1] to prevent NaN from floating-point rounding errors
+  const clampedA = Math.max(0, Math.min(1, a));
+  return 2 * R * Math.asin(Math.sqrt(clampedA));
 }
 
 function bearingDeg(lat1, lng1, lat2, lng2) {
@@ -1707,11 +1709,29 @@ function renderRepairMap(lat, lng, centres) {
 
   const w = mapEl.clientWidth;
   const h = mapEl.clientHeight;
-  const cx = w / 2;
-  const cy = h / 2;
-  const maxRadius = Math.min(w, h) / 2 - 46;
-  const maxDist = Math.max(...centres.map(c => c.distKm)) || 1;
 
+  // Guard: if the view isn't visible (display:none), dimensions are 0.
+  // Fall back to CSS-defined dimensions (240px height).
+  const mapWidth = w || mapEl.offsetWidth || 300;
+  const mapHeight = h || 240;
+
+  const cx = mapWidth / 2;
+  const cy = mapHeight / 2;
+  const maxRadius = Math.min(mapWidth, mapHeight) / 2 - 46;
+
+  // Filter centres that have valid coordinates
+  const validCentres = centres.filter(c =>
+    c.lat != null && c.lng != null && Number.isFinite(c.lat) && Number.isFinite(c.lng)
+  );
+
+  if (validCentres.length === 0) {
+    mapEl.hidden = true;
+    return;
+  }
+
+  const maxDist = Math.max(...validCentres.map(c => c.distKm || 0)) || 1;
+
+  // Place user pin at center
   const userPin = document.createElement('div');
   userPin.className = 'map-pin user';
   userPin.style.left = cx + 'px';
@@ -1722,17 +1742,21 @@ function renderRepairMap(lat, lng, centres) {
   userPin.appendChild(userLabel);
   mapEl.appendChild(userPin);
 
-  centres.forEach(c => {
+  validCentres.forEach(c => {
     const bearing = bearingDeg(lat, lng, c.lat, c.lng);
-    const ratio = Math.max(0.14, Math.min(1, c.distKm / maxDist));
+    const ratio = Math.max(0.14, Math.min(1, (c.distKm || 0) / maxDist));
     const rad = ratio * maxRadius;
-    const x = cx + Math.cos(bearing * Math.PI / 180) * rad;
-    const y = cy - Math.sin(bearing * Math.PI / 180) * rad;
+    // Fix: swap sin/cos for correct "N = top" orientation
+    const x = cx + Math.sin(bearing * Math.PI / 180) * rad;
+    const y = cy - Math.cos(bearing * Math.PI / 180) * rad;
+
     const pin = document.createElement('div');
     pin.className = 'map-pin';
     pin.style.left = x + 'px';
     pin.style.top = y + 'px';
-    pin.title = c.name + ' — ' + fmtKm(c.distKm) + ' km away';
+    pin.title = c.name + ' — ' + fmtKm(c.distKm || 0) + ' km away';
+    // No click handler — pins are visual only, cards below provide interactivity
+    pin.style.cursor = 'default';
     const label = document.createElement('div');
     label.className = 'map-pin-label';
     label.textContent = c.name;
@@ -1760,11 +1784,15 @@ function repairCentreCard(c) {
 function renderRepairCentres(lat, lng, withLocation) {
   const list = document.getElementById('repair-list');
   list.innerHTML = '';
-  const centres = REPAIR_CENTRES.slice();
+
+  // Filter out centres missing coordinates
+  let centres = REPAIR_CENTRES.filter(c =>
+    c.lat != null && c.lng != null && Number.isFinite(c.lat) && Number.isFinite(c.lng)
+  );
 
   if (withLocation && lat != null && lng != null) {
     centres.forEach(c => { c.distKm = haversineKm(lat, lng, c.lat, c.lng); });
-    centres.sort((a, b) => a.distKm - b.distKm);
+    centres.sort((a, b) => (a.distKm || 0) - (b.distKm || 0));
     renderRepairMap(lat, lng, centres);
   } else {
     centres.forEach(c => { c.distKm = null; });
