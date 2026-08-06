@@ -1,6 +1,8 @@
 WarrantyVault --- Day 2 Handoff
 
-> # STATUS UPDATE — 2026-08-05 (read this first)
+> # STATUS UPDATE — 2026-08-06 (read this first)
+>
+> **Pivot (Aug 6):** the project is now **web-only** — the Flutter/Android app (`mobile/`) was removed (recoverable from git history). The web frontend is served by the API from `public/index.html`; see `README.md` for the current state.
 >
 > The sections below are the original Day 2 **design** doc. This status block reflects what is actually **built and verified** in the repo today, and what is left to finish. The authoritative API walkthrough is now `API/Api.md`; the design doc is `docs/day2-plan.md` and `docs/database-design.md`.
 
@@ -15,11 +17,14 @@ WarrantyVault --- Day 2 Handoff
 > - Service history: CRUD nested under a product, every op guarded by ownership.
 > - Notifications: consume side (`list / read / read-all / delete`) **plus** the generator, now scheduled daily at midnight via `node-cron`.
 > - Dashboard: 6 parallel Mongo queries (totals, expiring soon, recent products, unread count).
-> - **Tests: 46/46 pass across 7 suites** (`jest --runInBand` in `API/backend`, uses `mongodb-memory-server`).
-> - **Smoke client:** `API/backend/scripts/api-smoke.js` — 23 pass, 1 warn (Cloudinary not configured). The `/health` path bug is fixed.
+> - **Tests: 61/61 pass across 8 suites** (`jest --runInBand` in `API/backend`, uses `mongodb-memory-server`). Note: `npm test` (all suites in one process) can hang in this environment due to `/tmp` tmpfs pressure — each suite passes when run individually.
+> - **Document-upload fix (Aug 6):** the service now derives `publicId` from `req.file.filename` (multer-storage-cloudinary v4 only sets `{ path, size, filename }`); a regression test mocks the v4 shape so uploads can't silently break again.
+> - **OCR hardened (Aug 6):** tesseract `eng.traineddata` is cached in `~/.cache/warrantyvault-ocr` (never in the repo), and a failed worker init resets so OCR can retry.
+> - **Smoke client:** `API/backend/scripts/api-smoke.js` — 23 pass, 1 warn (Cloudinary not configured at the time; real creds now present in `.env`). The `/health` path bug is fixed.
 > - **Cloudinary diagnostic:** `npm run check:cloudinary` verifies creds end-to-end (upload + delete a 1px test asset).
 > - **Run locally without any database installed:**
 >   `cd API/backend && node scripts/run-test-server.js` → spins up an in-memory MongoDB, serves http://localhost:5000.
+> - **Full-featured demo (`npm run demo`):** `cd API/backend && npm run demo` → same in-memory MongoDB, but keeps the **real Cloudinary credentials from `.env`**, so document uploads + OCR work end to end (register → product → upload receipt → OCR auto-fills price/serial/expiry). Warns and disables uploads if Cloudinary isn't configured. OCR traineddata is cached in `~/.cache/warrantyvault-ocr` (never in the repo).
 > - **Root endpoint:** `GET /` returns the API route list instead of 404.
 
 > ## 🧹 Cleanup (this session)
@@ -35,14 +40,12 @@ WarrantyVault --- Day 2 Handoff
 > 1. **Real credentials.** `API/backend/.env` exists (real Cloudinary creds) but `MONGO_URI` is still the Atlas placeholder. Replace it with a real connection string (code reads `MONGO_URI`). Never commit `.env`.
 > 2. **Deploy the backend** (Render/Railway/Fly.io) with Atlas + Cloudinary env vars, so the app has a real base URL.
 >
-> ### Mobile (`mobile/warranty_vault`)
-> 3. **It cannot be built yet:** no `android/` platform folder, no `pubspec.lock`, no `test/` dir, and `flutter`/`dart` are **not installed on this machine**. To finish: install Flutter, `flutter create .` (adds android), `flutter pub get`, `flutter analyze`, `flutter test`, then `flutter build apk --debug`.
-> 4. **Verify against the live backend** with `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api/v1` (Android emulator alias) or your LAN IP for a device.
-> 5. **Local push notifications** (`flutter_local_notifications` is already a dependency): request permission, schedule the reminder; and decide how device alerts relate to server-generated `warranty_expiry` notifications.
+> ### Mobile
+> 3. **Removed (Aug 6):** the project is web-only — `mobile/` was deleted (recoverable from git history). No further mobile work is planned.
 >
 > ### End-to-end / ops
-> 6. **Full E2E pass with real services:** register → add product → upload a real receipt (needs Cloudinary) → service history → confirm expiry notifications arrive → dashboard numbers match.
-> 7. **CI:** add a GitHub Actions workflow that runs `npm test` in `API/backend` on push (the smoke script is already wired to exit non-zero on failure and can gate deploys).
+> 6. **Full E2E verified (Aug 6):** `npm run demo` (in-memory Mongo + real Cloudinary) — register → add product → upload a real receipt → OCR `done` → product auto-filled (price/serial/expiry) works end to end.
+> 7. **CI:** done — `.github/workflows/ci.yml` runs `npm test` in `API/backend` on push/PR.
 
 > ## 📋 Git state (as of this date)
 > - **Uncommitted by request:** notification-cron wiring, smoke-path fix, cleanup deletions, Cloudinary tooling port, and these handoff updates. All staged deletions + modified files are ready to commit when you ask.
@@ -54,7 +57,7 @@ WarrantyVault is a warranty/document management application that lets users stor
 
 The current project stack is:
 
-Frontend: Flutter
+Frontend: Web (HTML/CSS/JS served by the API)
 Backend: Node.js + Express REST API
 Database: MongoDB / MongoDB Atlas
 File storage: Cloudinary
@@ -63,9 +66,9 @@ API response format: JSON
 The repository currently follows a structure similar to:
 
 WarrantyVault/
-├── backend/
-├── mobile/
-└── docs/
+├── API/backend/
+├── docs/
+└── assets/
 The project repository is associated with the WarrantyVault / warranty-checker project.
 
 Day 2 Objective

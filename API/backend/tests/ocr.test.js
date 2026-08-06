@@ -4,6 +4,10 @@ jest.mock("tesseract.js", () => ({
   }))
 }));
 
+// This mock uses the LEGACY v3 req.file shape (includes public_id/secure_url/
+// bytes). Kept deliberately different from documents.test.js, which mocks the
+// v4 shape ({ path, size, filename } only), so the suite covers BOTH storage
+// shapes end to end. Do not "harmonize" these two mocks.
 jest.mock("../src/middleware/upload", () => ({
   uploadSingle: (req, res, next) => {
     req.file = {

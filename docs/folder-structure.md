@@ -29,56 +29,23 @@ BUILDATHON/
 │   ├── task-allocation.md
 │   ├── day1-summary.md
 │   └── day2-plan.md
-├── backend/
-│   ├── src/
-│   │   ├── config/
-│   │   ├── controllers/
-│   │   ├── middleware/
-│   │   ├── models/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   ├── utils/
-│   │   └── validators/
-│   ├── tests/
-│   ├── .env.example
-│   └── README.md
-├── mobile/
-│   └── warranty_vault/
-│       ├── android/
-│       ├── lib/
-│       │   ├── core/
-│       │   │   ├── constants/
-│       │   │   ├── routes/
-│       │   │   ├── theme/
-│       │   │   └── utils/
-│       │   ├── features/
-│       │   │   ├── auth/
-│       │   │   │   ├── models/
-│       │   │   │   ├── providers/
-│       │   │   │   ├── screens/
-│       │   │   │   ├── services/
-│       │   │   │   └── widgets/
-│       │   │   ├── products/
-│       │   │   │   ├── models/
-│       │   │   │   ├── providers/
-│       │   │   │   ├── screens/
-│       │   │   │   ├── services/
-│       │   │   │   └── widgets/
-│       │   │   ├── documents/
-│       │   │   ├── service_history/
-│       │   │   ├── notifications/
-│       │   │   ├── dashboard/
-│       │   │   └── settings/
-│       │   ├── shared/
-│       │   │   ├── models/
-│       │   │   ├── services/
-│       │   │   └── widgets/
-│       │   └── main.dart
-│       ├── assets/
-│       │   ├── images/
-│       │   ├── icons/
-│       │   └── fonts/
-│       └── pubspec.yaml
+├── API/
+│   ├── backend/
+│   │   ├── src/
+│   │   │   ├── config/
+│   │   │   ├── controllers/
+│   │   │   ├── middleware/
+│   │   │   ├── models/
+│   │   │   ├── routes/
+│   │   │   ├── services/
+│   │   │   ├── utils/
+│   │   │   └── validators/
+│   │   ├── public/
+│   │   │   └── index.html   (web frontend)
+│   │   ├── scripts/
+│   │   ├── tests/
+│   │   └── .env.example
+│   └── docs/
 └── assets/
     ├── images/
     ├── icons/
@@ -229,68 +196,9 @@ Jest test files. Integration tests use Supertest to make real HTTP requests agai
 
 ---
 
-## mobile/warranty_vault/
+## mobile/ (removed)
 
-The Flutter Android application. Initialized with `flutter create warranty_vault --org com.warrantyvault`.
-
-### mobile/warranty_vault/lib/core/
-
-Application-wide configuration that is not feature-specific.
-
-- `constants/api_constants.dart`: Base URL and all API endpoint path strings.
-- `constants/app_constants.dart`: App name, version, storage key names (e.g., the key used to store the JWT in SharedPreferences).
-- `routes/app_router.dart`: Named route definitions mapping route name strings to screen widget constructors.
-- `theme/app_theme.dart`: MaterialTheme configuration including color scheme, text theme, input decoration theme, button theme, and card theme.
-- `utils/`: Date formatting helpers, currency formatters, and other pure utility functions.
-
-### mobile/warranty_vault/lib/features/
-
-Feature-based organization. Each subdirectory is a self-contained feature module.
-
-Every feature folder follows this internal structure:
-
-```
-feature_name/
-├── models/        Data models for this feature
-├── providers/     ChangeNotifier classes managing state
-├── screens/       Screen widgets (full-page UI)
-├── services/      API communication for this feature
-└── widgets/       Feature-specific reusable UI components
-```
-
-Feature directories:
-
-- `auth/`: Splash, Welcome, Register, Login screens; AuthProvider; AuthService
-- `products/`: Product List, Add Product, Edit Product, Product Detail screens; ProductProvider; ProductService
-- `documents/`: Document List, Upload Document screens; DocumentProvider; DocumentService
-- `service_history/`: Service History, Add Service Record screens; ServiceHistoryProvider; ServiceHistoryService
-- `notifications/`: Notifications screen; NotificationProvider; NotificationService
-- `dashboard/`: Dashboard screen with stat cards; DashboardProvider; DashboardService
-- `settings/`: Settings screen with profile display, notification preferences, logout
-
-### mobile/warranty_vault/lib/shared/
-
-Reusable code shared across multiple features.
-
-- `models/`: Generic response model wrappers used by all API services.
-- `services/api_service.dart`: Dio HTTP client configured with base URL, timeout, and interceptors for JWT injection and 401 handling.
-- `services/storage_service.dart`: SharedPreferences wrapper with typed methods for storing and retrieving the JWT token.
-- `widgets/bottom_nav_bar.dart`: The main bottom navigation bar widget.
-- `widgets/app_bar_widget.dart`: Custom app bar with notification bell badge.
-- `widgets/loading_overlay.dart`: Full-screen loading indicator overlay.
-- `widgets/error_snackbar.dart`: Standardized Snackbar for error messages.
-
-### mobile/warranty_vault/lib/main.dart
-
-Application entry point. Initializes providers using MultiProvider, configures the MaterialApp with the theme and named routes, and sets the initial route to the splash screen.
-
-### mobile/warranty_vault/assets/
-
-Static assets used within the Flutter application and declared in `pubspec.yaml`.
-
-- `assets/images/`: Logo, splash background, and placeholder images.
-- `assets/icons/`: Custom icon assets.
-- `assets/fonts/`: Custom font files if any are used beyond Google Fonts CDN.
+The Flutter/Android app was **removed on 2026-08-06** — the project is web-only (frontend served from `API/backend/public/`). The old `mobile/warranty_vault/` structure (Dart `lib/core`, `lib/features/*`, `lib/shared`, `pubspec.yaml`) is recoverable from git history; the sections below documenting it were deleted with the code.
 
 ---
 
@@ -302,4 +210,4 @@ Project-level static assets for documentation, marketing, and repository purpose
 - `assets/icons/`: App icons in various sizes for documentation.
 - `assets/fonts/`: Font files if shared between documentation tooling and the application.
 
-These assets are distinct from `mobile/warranty_vault/assets/`, which are bundled into the compiled Android APK. Root-level assets are not bundled and are used only for documentation and repository purposes.
+These assets are not bundled into any application build — they are used only for documentation and repository purposes (the web frontend is served directly from `API/backend/public/`).

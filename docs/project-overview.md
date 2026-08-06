@@ -1,5 +1,7 @@
 # WarrantyVault - Project Overview
 
+> **Update (Aug 2026):** the project is now **web-only**. The Flutter/Android app was removed; the frontend is served by the API from `API/backend/public/`. This document is the original mobile-first design — see `README.md` for the current state.
+
 ## Introduction
 
 WarrantyVault is a mobile-first digital ownership and warranty management platform built for Android. The application provides consumers with a single, secure location to store every document and piece of information related to products they own.

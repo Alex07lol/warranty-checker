@@ -1,5 +1,7 @@
 # System Architecture
 
+> **Update (Aug 2026):** the project is now **web-only**. The Flutter Android application was removed; the client is now a web frontend served statically by the Express API (`API/backend/public/`). The client-server split described below is unchanged — only the client technology changed. See `README.md` for the current state.
+
 ## Architecture Overview
 
 WarrantyVault follows a client-server architecture. The Flutter Android application communicates with a Node.js and Express REST API. The API interacts with MongoDB Atlas for data persistence and Cloudinary for binary file storage. JSON Web Tokens secure all authenticated endpoints.

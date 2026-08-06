@@ -1,5 +1,7 @@
 # Technology Stack
 
+> **Update (Aug 2026):** the project is now **web-only** — the Flutter frontend was removed (the client is HTML/CSS/JS served by the Express API). This document is the original stack design; the backend stack below is unchanged and current.
+
 ## Overview Table
 
 | Layer | Technology | Version Target | Purpose |

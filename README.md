@@ -1,6 +1,8 @@
 # WarrantyVault
 
-A mobile-first digital ownership platform built for Android. WarrantyVault lets users securely store receipts, warranty cards, product photos, manuals, serial numbers, and service history for every product they own — all in one place, with automatic expiry tracking and push notifications.
+A web-based digital ownership platform. WarrantyVault lets users securely store receipts, warranty cards, product photos, manuals, serial numbers, and service history for every product they own — all in one place, with automatic expiry tracking and in-app notifications.
+
+> **Note (August 2026):** the project is now **web-only**. The Flutter/Android app was removed; the frontend is a web app served by the API. The old mobile code is recoverable from git history.
 
 ---
 
@@ -24,7 +26,7 @@ A mobile-first digital ownership platform built for Android. WarrantyVault lets 
 
 Most people lose their warranty cards, receipts, and product documentation within weeks of purchasing a product. When something breaks, they have no proof of purchase, no warranty card, and no service history — leading to denied warranty claims and avoidable repair costs.
 
-WarrantyVault solves this by providing a dedicated, secure, mobile-first platform where every ownership document is stored, organized, and accessible from a single app. The platform automatically tracks warranty expiry dates and notifies users before their coverage lapses.
+WarrantyVault solves this by providing a dedicated, secure, web platform where every ownership document is stored, organized, and accessible from a single app. The platform automatically tracks warranty expiry dates and notifies users before their coverage lapses.
 
 ---
 
@@ -70,7 +72,7 @@ WarrantyVault solves this by providing a dedicated, secure, mobile-first platfor
 ## Architecture
 
 ```
-Flutter Android App
+Web Browser (HTML/CSS/JS frontend)
         |
         | HTTPS REST API
         |
@@ -83,7 +85,7 @@ Atlas      (Files)
 (Data)
 ```
 
-The Flutter application communicates exclusively with the Express REST API over HTTPS. The API layer handles authentication, business logic, validation, and orchestration. Persistent data is stored in MongoDB Atlas. Binary files (images and PDFs) are stored in Cloudinary and referenced in MongoDB by URL and public_id.
+The web frontend — served statically from `API/backend/public/` by the Express API — communicates with the REST API over HTTPS. The API layer handles authentication, business logic, validation, and orchestration. Persistent data is stored in MongoDB Atlas. Binary files (images and PDFs) are stored in Cloudinary and referenced in MongoDB by URL and public_id.
 
 For a detailed architecture breakdown see [docs/architecture.md](docs/architecture.md).
 
@@ -93,10 +95,7 @@ For a detailed architecture breakdown see [docs/architecture.md](docs/architectu
 
 | Layer | Technology |
 |---|---|
-| Mobile Frontend | Flutter (Dart) |
-| State Management | Provider |
-| HTTP Client | Dio |
-| Local Storage | SharedPreferences |
+| Web Frontend | HTML/CSS/JS (served by the Express API) |
 | Backend Framework | Node.js + Express |
 | Database | MongoDB Atlas |
 | ODM | Mongoose |
@@ -104,6 +103,7 @@ For a detailed architecture breakdown see [docs/architecture.md](docs/architectu
 | Authentication | JWT (jsonwebtoken) |
 | Password Hashing | bcrypt |
 | Validation | Joi |
+| OCR | tesseract.js |
 | Environment | dotenv |
 
 For full technology justification see [docs/tech-stack.md](docs/tech-stack.md).
@@ -139,25 +139,23 @@ BUILDATHON/
 │   ├── task-allocation.md
 │   ├── day1-summary.md
 │   └── day2-plan.md
-├── backend/
-│   ├── src/
-│   │   ├── controllers/
-│   │   ├── middleware/
-│   │   ├── models/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   ├── utils/
-│   │   ├── validators/
-│   │   └── config/
-│   ├── tests/
-│   └── .env.example
-├── mobile/
-│   └── warranty_vault/
-│       ├── lib/
-│       │   ├── core/
-│       │   ├── features/
-│       │   └── shared/
-│       └── assets/
+├── API/
+│   ├── backend/
+│   │   ├── src/
+│   │   │   ├── controllers/
+│   │   │   ├── middleware/
+│   │   │   ├── models/
+│   │   │   ├── routes/
+│   │   │   ├── services/
+│   │   │   ├── utils/
+│   │   │   ├── validators/
+│   │   │   └── config/
+│   │   ├── public/
+│   │   │   └── index.html   (web frontend)
+│   │   ├── scripts/
+│   │   ├── tests/
+│   │   └── .env.example
+│   └── docs/
 └── assets/
     ├── images/
     ├── icons/
@@ -168,11 +166,18 @@ BUILDATHON/
 
 ## Installation
 
-Implementation begins on Day 2 (August 3, 2026). Complete setup and installation instructions will be added after the backend and Flutter app are initialized.
+**Backend prerequisites:** Node.js 20+, MongoDB Atlas account, Cloudinary account (for file uploads/OCR).
 
-**Backend prerequisites:** Node.js 20+, MongoDB Atlas account, Cloudinary account.
+**Run the full demo (no database install needed):**
 
-**Mobile prerequisites:** Flutter SDK, Android Studio, Android SDK.
+```bash
+cd API/backend
+npm install
+npm run demo          # in-memory MongoDB + real Cloudinary from .env
+# open http://localhost:5000
+```
+
+The web frontend requires no build step — it is served directly by the API.
 
 ---
 
@@ -195,36 +200,22 @@ For the complete API specification including request and response schemas see [d
 
 ## Roadmap
 
-**Day 1 (August 2, 2026) — Current**
+**Day 1 (August 2, 2026) — Done**
 - Repository structure and organization
 - Complete technical documentation
-- Database design
-- API design
-- Flutter folder planning
+- Database design and API design
 - Backend folder scaffolding
-- Day 2 implementation plan
 
-**Day 2 (August 3, 2026) — Planned**
-- Backend: Node.js/Express initialization
-- Backend: MongoDB Atlas connection
-- Backend: JWT authentication system
-- Backend: Product, Document, Service History, Notification APIs
-- Mobile: Flutter project initialization
-- Mobile: Authentication screens
-- Mobile: Product management screens
-- Mobile: Document upload with camera/gallery
-- Mobile: Dashboard, Notifications, Settings
-- End-to-end integration testing
+**Day 2 (August 3–6, 2026) — Done**
+- Backend: Node.js/Express + MongoDB Atlas + Cloudinary (JWT auth, products, documents, service history, notifications, dashboard)
+- OCR: tesseract.js receipt/warranty-card parsing with auto-fill (async after upload + retry endpoint)
+- Tests: 60+ integration tests, CI workflow, smoke script
+- Web frontend served from `API/backend/public/`
+- **Pivot (Aug 6):** web-only — the Flutter/Android app was removed (recoverable in git history)
 
-**Future (Post-Buildathon)**
-- Web portal for desktop access
-- AI-based receipt parsing (extract product info automatically)
-- Barcode/QR code scanner for product registration
-- Multi-user household accounts
-- Warranty claim assistance workflow
-- Export ownership records to PDF
-- Insurance company integrations
-- Scheduled service reminders
+**Next**
+- Replace the static demo page with a real web app wired to the API (products CRUD, document upload + OCR status, dashboard)
+- Deploy backend (Render/Railway) with real Atlas + Cloudinary env vars
 
 ---
 

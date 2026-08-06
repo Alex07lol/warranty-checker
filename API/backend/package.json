@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "demo": "node scripts/run-demo-server.js",
     "test": "jest --runInBand",
     "smoke": "node scripts/api-smoke.js",
     "check:cloudinary": "node scripts/check-cloudinary.js"

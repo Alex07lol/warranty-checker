@@ -20,7 +20,6 @@
       font-family: 'Inter', sans-serif;
     }
 
-    /* Phone shell */
     .phone {
       width: 100%;
       min-height: 100vh;
@@ -31,7 +30,6 @@
       flex-direction: column;
     }
 
-    /* Status bar */
     .status-bar {
       display: none;
       height: 44px;
@@ -43,23 +41,6 @@
       z-index: 10;
     }
 
-    .status-time {
-      font-size: 15px;
-      font-weight: 600;
-      color: #1a1a1a;
-    }
-
-    .status-icons {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-
-    .status-icons svg {
-      color: #1a1a1a;
-    }
-
-    /* Screen area */
     .screen {
       flex: 1;
       overflow: hidden;
@@ -68,7 +49,6 @@
       flex-direction: column;
     }
 
-    /* Individual view */
     .view {
       position: absolute;
       inset: 0;
@@ -87,7 +67,6 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* Scrollable inner content — leaves room for nav */
     .view-scroll {
       flex: 1;
       overflow-y: auto;
@@ -97,26 +76,18 @@
     }
     .view-scroll::-webkit-scrollbar { display: none; }
 
-    /* ---- HOME VIEW ---- */
+    /* ---- HOME / DASHBOARD ---- */
     .home-header {
       padding: 20px 20px 0;
       flex-shrink: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
     }
 
-    .greeting {
-      font-size: 13px;
-      color: #888;
-      font-weight: 400;
-      letter-spacing: 0.2px;
-    }
-
-    .greeting-name {
-      font-size: 24px;
-      font-weight: 700;
-      color: #111;
-      margin-top: 2px;
-      letter-spacing: -0.5px;
-    }
+    .greeting { font-size: 13px; color: #888; font-weight: 400; letter-spacing: 0.2px; }
+    .greeting-name { font-size: 24px; font-weight: 700; color: #111; margin-top: 2px; letter-spacing: -0.5px; }
 
     .attention-label {
       font-size: 12px;
@@ -127,73 +98,31 @@
       margin: 24px 0 12px;
     }
 
-    /* Alert strip */
-    .alert-strip {
-      background: #fff0f0;
-      border-left: 3px solid #e53935;
-      border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 20px;
     }
 
-    .alert-strip .alert-text {
-      font-size: 13px;
-      font-weight: 500;
-      color: #c62828;
+    .stat-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
+    .stat-card .stat-value { font-size: 26px; font-weight: 700; color: #111; }
+    .stat-card .stat-label { font-size: 12px; color: #888; margin-top: 2px; }
+    .stat-card.accent { background: #111; color: #fff; }
+    .stat-card.accent .stat-value { color: #fff; }
+    .stat-card.accent .stat-label { color: rgba(255,255,255,0.6); }
 
-    .alert-strip .alert-sub {
-      font-size: 11px;
-      color: #e57373;
-      margin-top: 2px;
-    }
+    .all-good { padding: 40px 0; text-align: center; color: #6b6b6b; }
+    .all-good-icon { font-size: 40px; margin-bottom: 10px; }
+    .all-good-text { font-size: 14px; font-weight: 500; }
 
-    .alert-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #e53935;
-      flex-shrink: 0;
-      margin-left: 10px;
-    }
-
-    .warn-strip {
-      background: #fff8e1;
-      border-left: 3px solid #f9a825;
-      border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .warn-strip .alert-text {
-      font-size: 13px;
-      font-weight: 500;
-      color: #e65100;
-    }
-
-    .warn-strip .alert-sub {
-      font-size: 11px;
-      color: #ffa726;
-      margin-top: 2px;
-    }
-
-    .warn-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #f9a825;
-      flex-shrink: 0;
-      margin-left: 10px;
-    }
-
-    /* Product card on Home attention items */
-    .product-attention-card {
+    /* ---- PRODUCT CARDS ---- */
+    .product-card {
       background: #fff;
       border-radius: 16px;
       padding: 18px;
@@ -202,810 +131,305 @@
       align-items: center;
       gap: 18px;
       cursor: pointer;
-      transition: transform 0.15s ease;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
       box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
-
-    .product-attention-card:active {
-      transform: scale(0.98);
-    }
+    .product-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
+    .product-card:active { transform: scale(0.98); }
 
     .product-img {
-      width: 80px;
-      height: 80px;
-      border-radius: 12px;
-      object-fit: cover;
-      background: #eee;
-      flex-shrink: 0;
+      width: 80px; height: 80px; border-radius: 12px; object-fit: cover;
+      background: #eee; flex-shrink: 0;
     }
-
     .product-img-placeholder {
-      width: 80px;
-      height: 80px;
-      border-radius: 12px;
+      width: 80px; height: 80px; border-radius: 12px;
       background: linear-gradient(135deg, #e0e0e0, #f5f5f5);
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #444;
-      font-size: 22px;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      color: #444; font-size: 22px;
     }
-
-    .product-info {
-      flex: 1;
-      overflow: hidden;
-    }
-
-    .product-info-name {
-      font-size: 14px;
-      font-weight: 600;
-      color: #111;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .product-info-brand {
-      font-size: 12px;
-      color: #5f6368;
-      margin-top: 2px;
-    }
+    .product-info { flex: 1; overflow: hidden; }
+    .product-info-name { font-size: 14px; font-weight: 600; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .product-info-brand { font-size: 12px; color: #5f6368; margin-top: 2px; }
 
     .product-warranty-badge {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 4px 9px;
-      border-radius: 20px;
-      white-space: nowrap;
-      flex-shrink: 0;
+      font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 20px;
+      white-space: nowrap; flex-shrink: 0;
     }
+    .badge-expired { background: #ffebee; color: #c62828; }
+    .badge-critical { background: #fff3e0; color: #bf360c; }
+    .badge-soon { background: #fffde7; color: #b45309; }
+    .badge-safe { background: #e8f5e9; color: #2e7d32; }
 
-    .badge-expired {
-      background: #ffebee;
-      color: #c62828;
+    /* ---- TOOLBAR + BUTTONS ---- */
+    .toolbar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+    .search-input {
+      flex: 1; border: 1.5px solid #e0e0e0; border-radius: 12px; padding: 12px 14px;
+      font-size: 14px; font-family: 'Inter', sans-serif; color: #111; background: #fff;
+      outline: none; transition: border-color 0.2s;
     }
+    .search-input:focus { border-color: #111; }
 
-    .badge-critical {
-      background: #fff3e0;
-      color: #bf360c;
+    .btn {
+      border: none; border-radius: 12px; padding: 12px 18px;
+      font-size: 14px; font-weight: 600; font-family: 'Inter', sans-serif;
+      cursor: pointer; transition: background 0.15s, transform 0.15s, opacity 0.15s;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #111; color: #fff; }
+    .btn-primary:hover { background: #333; }
+    .btn-ghost { background: #f5f5f7; color: #111; border: 1.5px solid #e0e0e0; }
+    .btn-ghost:hover { background: #ececec; }
+    .btn-danger { background: #fff0f0; color: #c62828; border: 1.5px solid #ffcdd2; }
+    .btn-danger:hover { background: #ffebee; }
+    .btn-small { padding: 8px 12px; font-size: 12px; border-radius: 10px; }
+    .btn-block { width: 100%; }
 
-    .badge-soon {
-      background: #fffde7;
-      color: #b45309;
+    .icon-btn {
+      border: none; background: #f5f5f7; border-radius: 12px; width: 42px; height: 42px;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      font-size: 18px; transition: background 0.15s;
     }
+    .icon-btn:hover { background: #e8e8ea; }
 
-    .all-good {
-      padding: 40px 0;
-      text-align: center;
-      color: #6b6b6b;
-    }
+    .empty-state { padding: 48px 20px; text-align: center; color: #9a9a9a; }
+    .empty-state .empty-icon { font-size: 42px; margin-bottom: 10px; }
+    .empty-state .empty-title { font-size: 15px; font-weight: 600; color: #666; margin-bottom: 4px; }
+    .empty-state .empty-sub { font-size: 13px; }
 
-    .all-good-icon {
-      font-size: 40px;
-      margin-bottom: 10px;
-    }
-
-    .all-good-text {
-      font-size: 14px;
-      font-weight: 500;
-    }
-
-    /* ---- PRODUCTS VIEW (Camera Placeholder) ---- */
-    .camera-screen {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: #111;
-      gap: 20px;
-      padding: 40px;
-    }
-
-    .camera-viewfinder {
-      width: 260px;
-      height: 260px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-radius: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-    }
-
-    .camera-viewfinder::before,
-    .camera-viewfinder::after {
-      content: '';
-      position: absolute;
-      width: 30px;
-      height: 30px;
-      border-color: #fff;
-      border-style: solid;
-    }
-
-    .camera-viewfinder::before {
-      top: -2px;
-      left: -2px;
-      border-width: 3px 0 0 3px;
-      border-radius: 6px 0 0 0;
-    }
-
-    .camera-viewfinder::after {
-      bottom: -2px;
-      right: -2px;
-      border-width: 0 3px 3px 0;
-      border-radius: 0 0 6px 0;
-    }
-
-    .camera-instruction {
-      font-size: 14px;
-      color: rgba(255,255,255,0.6);
-      text-align: center;
-      line-height: 1.6;
-    }
-
-    .camera-label {
-      font-size: 18px;
-      font-weight: 600;
-      color: #fff;
-    }
-
-    .camera-shutter {
-      width: 68px;
-      height: 68px;
-      border-radius: 50%;
-      border: 4px solid rgba(255,255,255,0.5);
-      background: rgba(255,255,255,0.15);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      margin-top: 20px;
-    }
-
-    .camera-shutter-inner {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: #fff;
-    }
-
+    /* ---- CAMERA / SCAN ---- */
     .camera-upload-area {
-      border: 2px dashed #ccc;
-      border-radius: 16px;
-      padding: 40px 24px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.2s;
-      margin-bottom: 16px;
+      border: 2px dashed #ccc; border-radius: 16px; padding: 40px 24px; text-align: center;
+      cursor: pointer; transition: border-color 0.2s; margin-bottom: 16px;
     }
-
     .camera-upload-area:hover { border-color: #999; }
+    .camera-upload-area input[type="file"] { display: none; }
+    .camera-progress-bar { width: 100%; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+    .camera-progress-fill { width: 0%; height: 100%; background: #3949ab; border-radius: 3px; transition: width 0.3s ease; }
+    .camera-apply-btn { flex: 1; padding: 12px; border-radius: 12px; border: none; background: #111; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .camera-retry-btn { flex: 1; padding: 12px; border-radius: 12px; border: 1.5px solid #e0e0e0; background: #f5f5f7; color: #111; font-size: 14px; font-weight: 600; cursor: pointer; }
 
-    .camera-upload-area input[type="file"] {
-      display: none;
+    .form-select {
+      width: 100%; border: 1.5px solid #e0e0e0; border-radius: 12px; padding: 12px 14px;
+      font-size: 14px; font-family: 'Inter', sans-serif; color: #111; background: #fff; outline: none;
     }
 
-    .camera-progress-bar {
-      width: 100%;
-      height: 6px;
-      background: #e0e0e0;
-      border-radius: 3px;
-      overflow: hidden;
-      margin-bottom: 4px;
-    }
-
-    .camera-progress-fill {
-      width: 0%;
-      height: 100%;
-      background: #3949ab;
-      border-radius: 3px;
-      transition: width 0.3s ease;
-    }
-
-    .camera-apply-btn {
-      flex: 1;
-      padding: 12px;
-      border-radius: 12px;
-      border: none;
-      background: #111;
-      color: #fff;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .camera-apply-btn:hover { background: #333; }
-
-    .camera-retry-btn {
-      flex: 1;
-      padding: 12px;
-      border-radius: 12px;
-      border: 1.5px solid #e0e0e0;
-      background: #f5f5f7;
-      color: #111;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    /* ---- REPAIR / SERVICE VIEW ---- */
+    /* ---- REPAIR ---- */
     .repair-brand-tag {
-      display: inline-block;
-      background: #e8eaf6;
-      color: #3949ab;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 5px 12px;
-      border-radius: 20px;
-      margin-bottom: 12px;
+      display: inline-block; background: #e8eaf6; color: #3949ab; font-size: 12px; font-weight: 600;
+      padding: 5px 12px; border-radius: 20px; margin-bottom: 12px;
     }
+    .repair-card { background: #fff; border-radius: 14px; padding: 18px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .repair-card-name { font-size: 15px; font-weight: 600; color: #111; margin-bottom: 4px; }
+    .repair-card-city { font-size: 13px; font-weight: 600; color: #3949ab; margin-bottom: 4px; }
+    .repair-card-address { font-size: 13px; color: #666; margin-bottom: 8px; }
+    .repair-card-details { display: flex; justify-content: space-between; align-items: center; }
+    .repair-card-phone { font-size: 13px; color: #444; }
+    .repair-card-rating { font-size: 13px; font-weight: 600; color: #f9a825; }
 
-    .repair-card {
-      background: #fff;
-      border-radius: 14px;
-      padding: 18px;
-      margin-bottom: 12px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      transition: transform 0.15s ease;
-      cursor: pointer;
-    }
-
-    .repair-card:active { transform: scale(0.98); }
-
-    .repair-card-name {
-      font-size: 15px;
-      font-weight: 600;
-      color: #111;
-      margin-bottom: 4px;
-    }
-
-    .repair-card-city {
-      font-size: 13px;
-      font-weight: 600;
-      color: #3949ab;
-      margin-bottom: 4px;
-    }
-
-    .repair-card-address {
-      font-size: 13px;
-      color: #666;
-      margin-bottom: 8px;
-    }
-
-    .repair-card-details {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .repair-card-phone {
-      font-size: 13px;
-      color: #444;
-    }
-
-    .repair-card-rating {
-      font-size: 13px;
-      font-weight: 600;
-      color: #f9a825;
-    }
-
-    /* ---- PRODUCT DETAIL OVERLAY ---- */
+    /* ---- DETAIL OVERLAY ---- */
     .detail-overlay {
-      position: absolute;
-      inset: 0;
-      background: #f5f5f7;
-      z-index: 20;
-      display: flex;
-      flex-direction: column;
-      transform: translateX(100%);
-      transition: transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      position: absolute; inset: 0; background: #f5f5f7; z-index: 20;
+      display: flex; flex-direction: column;
+      transform: translateX(100%); transition: transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }
+    .detail-overlay.open { transform: translateX(0); }
 
-    .detail-overlay.open {
-      transform: translateX(0);
-    }
-
-    .detail-image-area {
-      height: 240px;
-      position: relative;
-      flex-shrink: 0;
-      background: #e0e0e0;
-    }
-
-    .detail-image-area img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
+    .detail-image-area { height: 200px; position: relative; flex-shrink: 0; background: #e0e0e0; }
+    .detail-image-area img { width: 100%; height: 100%; object-fit: cover; }
     .detail-back {
-      position: absolute;
-      top: 52px;
-      left: 16px;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.85);
-      backdrop-filter: blur(8px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      border: none;
-      z-index: 5;
+      position: absolute; top: 16px; left: 16px; width: 36px; height: 36px; border-radius: 50%;
+      background: rgba(255,255,255,0.9); backdrop-filter: blur(8px); display: flex; align-items: center;
+      justify-content: center; cursor: pointer; border: none; z-index: 5;
     }
-
-    .detail-upload-btn {
-      position: absolute;
-      top: 52px;
-      right: 16px;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.85);
-      backdrop-filter: blur(8px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      border: none;
-      z-index: 5;
-    }
-
-    .detail-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px 20px 100px;
-      scrollbar-width: none;
-    }
+    .detail-body { flex: 1; overflow-y: auto; padding: 20px 20px 120px; scrollbar-width: none; }
     .detail-body::-webkit-scrollbar { display: none; }
 
-    .detail-product-name {
-      font-size: 22px;
-      font-weight: 700;
-      color: #111;
-      letter-spacing: -0.4px;
-    }
+    .detail-product-name { font-size: 22px; font-weight: 700; color: #111; letter-spacing: -0.4px; }
+    .detail-product-brand { font-size: 14px; color: #888; margin-top: 4px; }
 
-    .detail-product-brand {
-      font-size: 14px;
-      color: #888;
-      margin-top: 4px;
-    }
-
-    .detail-warranty-block {
-      margin-top: 20px;
-      border-radius: 16px;
-      padding: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .detail-warranty-block.expired {
-      background: #ffebee;
-    }
-    .detail-warranty-block.critical {
-      background: #fff3e0;
-    }
-    .detail-warranty-block.safe {
-      background: #e8f5e9;
-    }
-
-    .detail-warranty-label {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: #666;
-    }
-
-    .detail-warranty-value {
-      font-size: 18px;
-      font-weight: 700;
-      margin-top: 4px;
-    }
-
+    .detail-warranty-block { margin-top: 20px; border-radius: 16px; padding: 16px; display: flex; align-items: center; justify-content: space-between; }
+    .detail-warranty-block.expired { background: #ffebee; }
+    .detail-warranty-block.critical { background: #fff3e0; }
+    .detail-warranty-block.safe { background: #e8f5e9; }
+    .detail-warranty-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #666; }
+    .detail-warranty-value { font-size: 18px; font-weight: 700; margin-top: 4px; }
     .detail-warranty-value.expired { color: #c62828; }
     .detail-warranty-value.critical { color: #e65100; }
     .detail-warranty-value.safe { color: #2e7d32; }
 
-    .detail-section-title {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.7px;
-      color: #aaa;
-      margin: 24px 0 12px;
-    }
+    .detail-section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.7px; color: #aaa; margin: 24px 0 12px; }
+    .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-row-label { font-size: 13px; color: #888; }
+    .detail-row-value { font-size: 13px; font-weight: 500; color: #111; text-align: right; max-width: 200px; overflow-wrap: anywhere; }
 
-    .detail-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px solid #f0f0f0;
+    .detail-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .detail-action-btn {
+      flex: 1; border: none; border-radius: 14px; padding: 14px 10px; display: flex;
+      flex-direction: column; align-items: center; gap: 7px; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+      transition: transform 0.15s ease;
     }
+    .detail-action-btn:active { transform: scale(0.96); }
+    .detail-action-btn.repair { background: #e8f5e9; color: #2e7d32; }
+    .detail-action-btn.scan { background: #e3f2fd; color: #1565c0; }
+    .detail-action-btn svg { width: 22px; height: 22px; }
 
-    .detail-row:last-child {
-      border-bottom: none;
+    /* Documents */
+    .doc-item {
+      background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
+    .doc-item-head { display: flex; align-items: center; gap: 10px; }
+    .doc-type-chip {
+      background: #e8eaf6; color: #3949ab; font-size: 11px; font-weight: 600;
+      padding: 3px 9px; border-radius: 20px; text-transform: capitalize; flex-shrink: 0;
+    }
+    .doc-filename { font-size: 13px; font-weight: 600; color: #111; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ocr-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; letter-spacing: 0.3px; text-transform: uppercase; flex-shrink: 0; }
+    .ocr-done { background: #e8f5e9; color: #2e7d32; }
+    .ocr-failed { background: #ffebee; color: #c62828; }
+    .ocr-processing { background: #fff8e1; color: #b45309; }
+    .ocr-skipped { background: #f0f0f0; color: #888; }
+    .doc-meta { font-size: 11px; color: #aaa; margin-top: 4px; }
+    .parsed-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .parsed-chip { background: #f5f5f7; border-radius: 8px; padding: 4px 8px; font-size: 11px; color: #444; }
+    .doc-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 
-    .detail-row-label {
-      font-size: 13px;
-      color: #888;
+    .upload-row { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+    .upload-row .form-select { width: auto; flex: 1; min-width: 140px; }
+    .file-label {
+      border: 1.5px dashed #bbb; border-radius: 12px; padding: 11px 14px; font-size: 13px;
+      color: #555; cursor: pointer; background: #fff; white-space: nowrap;
     }
+    .file-label input[type="file"] { display: none; }
+    .file-chosen { color: #111; font-weight: 500; }
 
-    .detail-row-value {
-      font-size: 13px;
-      font-weight: 500;
-      color: #111;
-      text-align: right;
-      max-width: 200px;
-      word-break: normal;
-      overflow-wrap: anywhere;
-    }
+    /* Service history */
+    .service-item { background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .service-item-head { display: flex; justify-content: space-between; align-items: center; }
+    .service-type-chip { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; background: #e8f5e9; color: #2e7d32; text-transform: capitalize; }
+    .service-date { font-size: 12px; color: #888; }
+    .service-desc { font-size: 13px; color: #444; margin-top: 6px; }
+    .service-meta { font-size: 12px; color: #999; margin-top: 4px; }
 
-    /* Docs section */
-    .doc-chip-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
+    /* Notifications */
+    .notification-item { background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); cursor: pointer; border-left: 3px solid transparent; }
+    .notification-item.unread { border-left-color: #3949ab; background: #fafbff; }
+    .notification-title { font-size: 13px; font-weight: 600; color: #111; }
+    .notification-message { font-size: 13px; color: #666; margin-top: 3px; }
+    .notification-meta { font-size: 11px; color: #aaa; margin-top: 6px; }
 
-    .doc-chip {
-      background: #fff;
-      border: 1px solid #e0e0e0;
-      border-radius: 10px;
-      padding: 8px 12px;
-      font-size: 12px;
-      font-weight: 500;
-      color: #333;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+    /* ---- FORM OVERLAY (add/edit product) ---- */
+    .form-overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 50;
+      display: none; align-items: flex-end; justify-content: center;
     }
+    .form-overlay.open { display: flex; }
+    .form-sheet {
+      background: #fff; width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto;
+      border-radius: 20px 20px 0 0; padding: 24px 22px 30px;
+    }
+    .form-sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .form-sheet-title { font-size: 18px; font-weight: 700; color: #111; }
+    .form-field { margin-bottom: 14px; }
+    .form-field label { font-size: 12px; font-weight: 600; color: #555; letter-spacing: 0.3px; display: block; margin-bottom: 6px; }
+    .form-field input, .form-field select, .form-field textarea {
+      width: 100%; border: 1.5px solid #e0e0e0; border-radius: 12px; padding: 12px 14px;
+      font-size: 14px; font-family: 'Inter', sans-serif; color: #111; background: #fff; outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: #111; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+    .form-actions { display: flex; gap: 10px; margin-top: 18px; }
+    .form-actions .btn { flex: 1; }
+    .form-err { font-size: 12px; color: #c62828; text-align: center; margin-top: 8px; min-height: 16px; }
 
-    .add-doc-chip {
-      background: #f5f5f7;
-      border: 1.5px dashed #ccc;
-      border-radius: 10px;
-      padding: 8px 12px;
-      font-size: 12px;
-      font-weight: 500;
-      color: #5f6368;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+    /* ---- AUTH ---- */
+    .login-screen { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 32px 28px; background: #f5f5f7; }
+    .login-logo { font-size: 32px; margin-bottom: 6px; }
+    .login-title { font-size: 26px; font-weight: 700; color: #111; letter-spacing: -0.5px; }
+    .login-sub { font-size: 13px; color: #888; margin-top: 4px; margin-bottom: 32px; }
+    .login-tab-row { display: flex; background: #e8e8ea; border-radius: 12px; padding: 3px; margin-bottom: 24px; }
+    .login-tab { flex: 1; text-align: center; padding: 8px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; color: #888; transition: background 0.2s, color 0.2s; border: none; background: none; font-family: 'Inter', sans-serif; }
+    .login-tab.active { background: #fff; color: #111; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .login-field { margin-bottom: 14px; }
+    .login-field label { font-size: 12px; font-weight: 600; color: #555; letter-spacing: 0.3px; display: block; margin-bottom: 6px; }
+    .login-field input { width: 100%; border: 1.5px solid #e0e0e0; border-radius: 12px; padding: 12px 14px; font-size: 14px; font-family: 'Inter', sans-serif; color: #111; background: #fff; outline: none; transition: border-color 0.2s; }
+    .login-field input:focus { border-color: #111; }
+    .login-btn { width: 100%; background: #111; color: #fff; border: none; border-radius: 14px; padding: 15px; font-size: 15px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 8px; transition: background 0.2s, transform 0.15s; }
+    .login-btn:active { transform: scale(0.98); background: #333; }
+    .login-err { font-size: 12px; color: #c62828; text-align: center; margin-top: 10px; min-height: 16px; }
 
     /* ---- BOTTOM NAV ---- */
     .bottom-nav {
-      position: fixed;
-      bottom: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(280px, calc(100% - 40px));
-      height: 62px;
-      border-radius: 32px;
-      background: rgba(25, 25, 30, 0.72);
-      backdrop-filter: blur(20px) saturate(180%);
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      width: min(340px, calc(100% - 40px)); height: 62px; border-radius: 32px;
+      background: rgba(25, 25, 30, 0.72); backdrop-filter: blur(20px) saturate(180%);
       -webkit-backdrop-filter: blur(20px) saturate(180%);
-      border: 1px solid rgba(255,255,255,0.12);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
-      display: flex;
-      align-items: center;
-      justify-content: space-around;
-      padding: 0 10px;
-      z-index: 30;
+      border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+      display: flex; align-items: center; justify-content: space-around; padding: 0 6px; z-index: 30;
     }
-
     .nav-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      cursor: pointer;
-      padding: 8px 14px;
-      border-radius: 20px;
-      transition: background 0.2s ease;
-      border: none;
-      background: none;
-      color: rgba(255,255,255,0.5);
-      flex: 1;
+      display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;
+      padding: 8px 10px; border-radius: 20px; transition: background 0.2s ease;
+      border: none; background: none; color: rgba(255,255,255,0.5); flex: 1;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.07); }
+    .nav-item.active { color: #fff; }
+    .nav-item svg { width: 22px; height: 22px; }
+    .nav-label { font-size: 10px; font-weight: 500; letter-spacing: 0.2px; }
+    .nav-item.active .nav-label::after { content: ''; display: block; width: 4px; height: 4px; background: #fff; border-radius: 50%; margin: 3px auto 0; }
+    .nav-badge {
+      position: absolute; top: 2px; right: 6px; background: #e53935; color: #fff;
+      font-size: 9px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; padding: 0 4px;
     }
 
-    .nav-item:hover {
-      background: rgba(255,255,255,0.07);
+    /* ---- TOAST ---- */
+    .toast {
+      position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #111; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 13px;
+      font-weight: 500; opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
+      z-index: 99; max-width: 90vw; text-align: center;
     }
-
-    .nav-item.active {
-      color: #fff;
-    }
-
-    .nav-item svg {
-      width: 22px;
-      height: 22px;
-    }
-
-    .nav-label {
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.2px;
-    }
-
-    /* Active indicator dot */
-    .nav-item.active .nav-label::after {
-      content: '';
-      display: block;
-      width: 4px;
-      height: 4px;
-      background: #fff;
-      border-radius: 50%;
-      margin: 3px auto 0;
-    }
-
-    /* ---- QUICK ACTIONS ---- */
-    .detail-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .detail-action-btn {
-      flex: 1;
-      border: none;
-      border-radius: 14px;
-      padding: 14px 10px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 7px;
-      cursor: pointer;
-      font-family: 'Inter', sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-
-    .detail-action-btn:active {
-      transform: scale(0.96);
-    }
-
-    .detail-action-btn.repair {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-
-    .detail-action-btn.scan {
-      background: #e3f2fd;
-      color: #1565c0;
-    }
-
-    .detail-action-btn svg {
-      width: 22px;
-      height: 22px;
-    }
-
-    /* ---- LOGIN VIEW ---- */
-    .login-screen {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 32px 28px;
-      background: #f5f5f7;
-    }
-
-    .login-logo {
-      font-size: 32px;
-      margin-bottom: 6px;
-    }
-
-    .login-title {
-      font-size: 26px;
-      font-weight: 700;
-      color: #111;
-      letter-spacing: -0.5px;
-    }
-
-    .login-sub {
-      font-size: 13px;
-      color: #888;
-      margin-top: 4px;
-      margin-bottom: 32px;
-    }
-
-    .login-tab-row {
-      display: flex;
-      background: #e8e8ea;
-      border-radius: 12px;
-      padding: 3px;
-      margin-bottom: 24px;
-    }
-
-    .login-tab {
-      flex: 1;
-      text-align: center;
-      padding: 8px;
-      border-radius: 10px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      color: #888;
-      transition: background 0.2s, color 0.2s;
-      border: none;
-      background: none;
-      font-family: 'Inter', sans-serif;
-    }
-
-    .login-tab.active {
-      background: #fff;
-      color: #111;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    }
-
-    .login-field {
-      margin-bottom: 14px;
-    }
-
-    .login-field label {
-      font-size: 12px;
-      font-weight: 600;
-      color: #555;
-      letter-spacing: 0.3px;
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    .login-field input {
-      width: 100%;
-      border: 1.5px solid #e0e0e0;
-      border-radius: 12px;
-      padding: 12px 14px;
-      font-size: 14px;
-      font-family: 'Inter', sans-serif;
-      color: #111;
-      background: #fff;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .login-field input:focus {
-      border-color: #111;
-    }
-
-    .login-btn {
-      width: 100%;
-      background: #111;
-      color: #fff;
-      border: none;
-      border-radius: 14px;
-      padding: 15px;
-      font-size: 15px;
-      font-weight: 600;
-      font-family: 'Inter', sans-serif;
-      cursor: pointer;
-      margin-top: 8px;
-      transition: background 0.2s, transform 0.15s;
-    }
-
-    .login-btn:active {
-      transform: scale(0.98);
-      background: #333;
-    }
-
-    .login-err {
-      font-size: 12px;
-      color: #c62828;
-      text-align: center;
-      margin-top: 10px;
-      min-height: 16px;
-    }
-
-    .login-divider {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 18px 0;
-      color: #ccc;
-      font-size: 12px;
-    }
-
-    .login-divider::before,
-    .login-divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: #e0e0e0;
-    }
-
-    /* Utility */
-    input[type="file"] { display: none; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.error { background: #c62828; }
+    .toast.success { background: #2e7d32; }
 
     /* Desktop brand (shown only in the top nav on wide screens) */
-    .brand-desktop {
-      display: none;
-    }
+    .brand-desktop { display: none; }
 
-    /* Responsive: wider layout for desktop/laptop, portrait stays for mobile */
     @media (min-width: 768px) {
       .brand-desktop {
-        display: inline-flex;
-        align-items: center;
-        margin-right: auto;
-        padding: 0 10px;
-        font-size: 18px;
-        font-weight: 700;
-        color: #111;
-        letter-spacing: -0.3px;
+        display: inline-flex; align-items: center; margin-right: auto; padding: 0 10px;
+        font-size: 18px; font-weight: 700; color: #111; letter-spacing: -0.3px;
       }
-
       .bottom-nav {
-        position: fixed;
-        top: 0;
-        bottom: auto;
-        left: 0;
-        transform: none;
-        width: 100%;
-        height: 60px;
-        border-radius: 0;
-        background: #fff;
-        border-bottom: 1px solid #e5e5e5;
-        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-        justify-content: flex-end;
-        padding: 0 24px;
-        gap: 4px;
-        z-index: 40;
+        position: fixed; top: 0; bottom: auto; left: 0; transform: none; width: 100%;
+        height: 60px; border-radius: 0; background: #fff; border-bottom: 1px solid #e5e5e5;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.06); backdrop-filter: none; -webkit-backdrop-filter: none;
+        justify-content: flex-end; padding: 0 24px; gap: 4px; z-index: 40;
       }
-
-      .nav-item {
-        flex-direction: row;
-        gap: 8px;
-        padding: 8px 14px;
-        border-radius: 10px;
-        color: #6b6b6b;
-      }
+      .nav-item { flex-direction: row; gap: 8px; padding: 8px 14px; border-radius: 10px; color: #6b6b6b; }
       .nav-item:hover { background: #f2f2f2; }
       .nav-item.active { color: #111; background: #f2f2f2; }
       .nav-item.active .nav-label::after { display: none; }
-
-      /* Clear the fixed top bar */
       .view { padding-top: 60px; }
+      .view-scroll { max-width: 1000px; margin: 0 auto; width: 100%; padding: 28px 24px 64px; }
 
-      /* Widen + center content */
-      .view-scroll {
-        max-width: 1000px;
-        margin: 0 auto;
-        width: 100%;
-        padding: 28px 24px 64px;
+      #attention-list, #recent-list, #products-list, #notification-list {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px;
       }
+      #attention-list .product-card, #recent-list .product-card, #products-list .product-card { margin-bottom: 0; }
+      #attention-list .all-good, #recent-list .all-good, #products-list .all-good { grid-column: 1 / -1; }
 
-      /* Product cards in a responsive grid */
-      #attention-list,
-      #recent-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 14px;
-      }
-      #attention-list .product-attention-card,
-      #recent-list .product-attention-card { margin-bottom: 0; }
-      #attention-list .all-good,
-      #recent-list .all-good { grid-column: 1 / -1; }
-
-      /* Constrain the auth form */
-      .login-screen {
-        max-width: 420px;
-        width: 100%;
-        margin: 0 auto;
-      }
+      .stat-grid { grid-template-columns: repeat(4, 1fr); }
+      .form-overlay { align-items: center; }
+      .form-sheet { border-radius: 20px; }
+      .login-screen { max-width: 420px; width: 100%; margin: 0 auto; }
     }
   </style>
 </head>
@@ -1013,27 +437,6 @@
 
 <div class="phone">
 
-  <!-- Status Bar -->
-  <div class="status-bar">
-    <span class="status-time" id="statusTime">9:41</span>
-    <div class="status-icons">
-      <!-- Signal -->
-      <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor">
-        <rect x="0" y="7" width="3" height="5" rx="1"/>
-        <rect x="4.5" y="5" width="3" height="7" rx="1"/>
-        <rect x="9" y="2" width="3" height="10" rx="1"/>
-        <rect x="13.5" y="0" width="3" height="12" rx="1"/>
-      </svg>
-      <!-- Battery -->
-      <svg width="25" height="12" viewBox="0 0 25 12" fill="currentColor">
-        <rect x="0" y="1" width="21" height="10" rx="2.5" stroke="currentColor" stroke-width="1" fill="none"/>
-        <rect x="22" y="3.5" width="3" height="5" rx="1"/>
-        <rect x="1.5" y="2.5" width="16" height="7" rx="1.5" fill="currentColor"/>
-      </svg>
-    </div>
-  </div>
-
-  <!-- Screen -->
   <div class="screen">
 
     <!-- ======================== LOGIN VIEW ======================== -->
@@ -1048,7 +451,6 @@
           <button class="login-tab" id="tab-register" onclick="switchAuthTab('register')">Register</button>
         </div>
 
-        <!-- Sign In form -->
         <div id="form-login">
           <div class="login-field">
             <label for="login-email">Email</label>
@@ -1062,7 +464,6 @@
           <div class="login-err" id="login-err"></div>
         </div>
 
-        <!-- Register form -->
         <div id="form-register" style="display:none;">
           <div class="login-field">
             <label for="reg-name">Full Name</label>
@@ -1079,38 +480,64 @@
           <button class="login-btn" onclick="doRegister()">Create Account</button>
           <div class="login-err" id="reg-err"></div>
         </div>
-
-        <div class="login-divider">or continue as</div>
-        <button class="login-btn" style="background:#f5f5f7;color:#111;border:1.5px solid #e0e0e0;" onclick="doGuest()">👤 Guest (Demo Mode)</button>
       </div>
     </div>
 
-    <!-- ======================== HOME VIEW ======================== -->
+    <!-- ======================== HOME / DASHBOARD ======================== -->
     <div class="view" id="view-home">
       <div class="home-header">
-        <div class="greeting">Good morning,</div>
-        <div class="greeting-name" id="greeting-name">Aakash</div>
+        <div>
+          <div class="greeting" id="home-greeting">Welcome back,</div>
+          <div class="greeting-name" id="greeting-name">there</div>
+        </div>
+        <button class="icon-btn" id="logout-btn" title="Log out" style="margin-top:6px;">⎋</button>
       </div>
       <div class="view-scroll">
+        <div class="stat-grid" id="stat-grid">
+          <div class="stat-card"><div class="stat-value" id="stat-products">–</div><div class="stat-label">Products</div></div>
+          <div class="stat-card accent"><div class="stat-value" id="stat-expiring">–</div><div class="stat-label">Expiring ≤ 30d</div></div>
+          <div class="stat-card"><div class="stat-value" id="stat-documents">–</div><div class="stat-label">Documents</div></div>
+          <div class="stat-card"><div class="stat-value" id="stat-unread">–</div><div class="stat-label">Unread alerts</div></div>
+        </div>
 
-        <div class="attention-label">Needs Attention</div>
-
-        <!-- Attention product cards (expiring / expired only) -->
-        <div id="attention-list"></div>
+        <div class="attention-label">Expiring Soon</div>
+        <div id="attention-list"><div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Loading…</div></div></div>
 
         <div class="attention-label" style="margin-top: 28px;">Recent Products</div>
-        <div id="recent-list"></div>
-
+        <div id="recent-list"><div class="empty-state"><div class="empty-title">Loading…</div></div></div>
       </div>
     </div>
 
-    <!-- ======================== CAMERA VIEW ======================== -->
-    <div class="view" id="view-camera">
+    <!-- ======================== PRODUCTS VIEW ======================== -->
+    <div class="view" id="view-products">
       <div class="home-header">
-        <div class="greeting">Scan Receipt</div>
-        <div class="greeting-name" id="camera-product-name">Upload a receipt or warranty document</div>
+        <div>
+          <div class="greeting">Library</div>
+          <div class="greeting-name">My Products</div>
+        </div>
+        <button class="btn btn-primary btn-small" id="add-product-btn" style="margin-top:6px;">+ Add</button>
       </div>
       <div class="view-scroll">
+        <div class="toolbar">
+          <input type="search" class="search-input" id="products-search" placeholder="Search by name, brand, or model…" />
+        </div>
+        <div id="products-list"><div class="empty-state"><div class="empty-icon">📦</div><div class="empty-title">Loading…</div></div></div>
+      </div>
+    </div>
+
+    <!-- ======================== CAMERA / SCAN VIEW ======================== -->
+    <div class="view" id="view-camera">
+      <div class="home-header">
+        <div>
+          <div class="greeting">Scan Receipt</div>
+          <div class="greeting-name" id="camera-product-name">Upload a receipt or warranty document</div>
+        </div>
+      </div>
+      <div class="view-scroll">
+        <div class="form-field">
+          <label for="camera-product-select">Attach to product</label>
+          <select class="form-select" id="camera-product-select"></select>
+        </div>
 
         <div class="camera-upload-area" id="camera-upload-area">
           <svg width="48" height="48" fill="none" stroke="#aaa" stroke-width="1.5" viewBox="0 0 24 24">
@@ -1118,8 +545,8 @@
             <path d="M3 9h18M9 21V9"/>
           </svg>
           <div style="font-size:14px;color:#888;">Tap to upload a receipt or warranty card</div>
-          <div style="font-size:12px;color:#bbb;margin-top:4px;">JPEG, PNG, or PDF — max 10 MB</div>
-          <input type="file" id="camera-file-input" accept="image/*,application/pdf" />
+          <div style="font-size:12px;color:#bbb;margin-top:4px;">JPEG, PNG, WEBP — OCR reads the text</div>
+          <input type="file" id="camera-file-input" accept="image/*" />
         </div>
 
         <div id="camera-progress" style="display:none;">
@@ -1149,16 +576,33 @@
       </div>
     </div>
 
-    <!-- ======================== REPAIR / SERVICE VIEW ======================== -->
+    <!-- ======================== REPAIR VIEW ======================== -->
     <div class="view" id="view-repair">
       <div class="home-header">
-        <div class="greeting">Find Repair Centres</div>
+        <div>
+          <div class="greeting">Find Repair Centres</div>
+          <div class="greeting-name">Authorized service</div>
+        </div>
       </div>
       <div class="view-scroll">
         <div id="repair-filter"></div>
         <div id="repair-list">
-          <div style="color:#888;font-size:13px;padding:20px 0;">Select a product and tap "Find Repair Centre" to see options for that brand.</div>
+          <div style="color:#888;font-size:13px;padding:20px 0;">Select a product and tap "Find Repair Center" to see options for that brand.</div>
         </div>
+      </div>
+    </div>
+
+    <!-- ======================== NOTIFICATIONS VIEW ======================== -->
+    <div class="view" id="view-notifications">
+      <div class="home-header">
+        <div>
+          <div class="greeting">Alerts</div>
+          <div class="greeting-name">Notifications</div>
+        </div>
+        <button class="btn btn-ghost btn-small" id="read-all-btn" style="margin-top:6px;">Mark all read</button>
+      </div>
+      <div class="view-scroll">
+        <div id="notification-list"><div class="empty-state"><div class="empty-icon">🔔</div><div class="empty-title">Loading…</div></div></div>
       </div>
     </div>
 
@@ -1171,14 +615,6 @@
             <polyline points="15 18 9 12 15 6"/>
           </svg>
         </button>
-        <button class="detail-upload-btn" id="detail-upload-btn" title="Upload your own photo">
-          <svg width="18" height="18" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-        </button>
-        <input type="file" id="photo-upload-input" accept="image/*" aria-label="Upload document photo" />
       </div>
 
       <div class="detail-body">
@@ -1214,8 +650,101 @@
           </button>
         </div>
 
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          <button class="btn btn-ghost btn-small" id="detail-edit-btn" style="flex:1;">✏️ Edit Product</button>
+          <button class="btn btn-danger btn-small" id="detail-delete-btn" style="flex:1;">🗑 Delete</button>
+        </div>
+
         <div class="detail-section-title">Documents</div>
-        <div class="doc-chip-row" id="detail-docs"></div>
+        <div class="upload-row">
+          <label class="file-label" id="doc-file-label">
+            📎 <span id="doc-file-name">Choose file…</span>
+            <input type="file" id="doc-file-input" accept="image/*,.pdf" />
+          </label>
+          <select class="form-select" id="doc-type-select">
+            <option value="receipt">Receipt</option>
+            <option value="warranty_card">Warranty card</option>
+            <option value="product_photo">Photo</option>
+            <option value="manual">Manual</option>
+            <option value="other">Other</option>
+          </select>
+          <button class="btn btn-primary btn-small" id="doc-upload-btn">Upload</button>
+        </div>
+        <div id="detail-docs"><div class="empty-state"><div class="empty-title">Loading…</div></div></div>
+
+        <div class="detail-section-title">Service History</div>
+        <button class="btn btn-ghost btn-small" id="add-service-btn" style="width:100%;margin-bottom:12px;">+ Add service record</button>
+        <div id="service-form" style="display:none;">
+          <div class="form-grid">
+            <div class="form-field">
+              <label>Date</label>
+              <input type="date" id="svc-date" />
+            </div>
+            <div class="form-field">
+              <label>Type</label>
+              <select id="svc-type">
+                <option value="repair">Repair</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="inspection">Inspection</option>
+                <option value="replacement">Replacement</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-field"><label>Provider</label><input type="text" id="svc-provider" placeholder="Service center name" /></div>
+          <div class="form-field"><label>Description</label><input type="text" id="svc-desc" placeholder="What was done?" /></div>
+          <div class="form-grid">
+            <div class="form-field"><label>Cost</label><input type="number" id="svc-cost" min="0" placeholder="0" /></div>
+            <div class="form-field"><label>Next service</label><input type="date" id="svc-next" /></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="svc-save-btn">Save record</button>
+            <button class="btn btn-ghost" id="svc-cancel-btn">Cancel</button>
+          </div>
+        </div>
+        <div id="service-list"></div>
+      </div>
+    </div>
+
+    <!-- ======================== PRODUCT FORM OVERLAY ======================== -->
+    <div class="form-overlay" id="product-form-overlay">
+      <div class="form-sheet">
+        <div class="form-sheet-head">
+          <div class="form-sheet-title" id="product-form-title">Add Product</div>
+          <button class="icon-btn" id="product-form-close">✕</button>
+        </div>
+
+        <div class="form-field">
+          <label>Product name *</label>
+          <input type="text" id="pf-name" placeholder="e.g. Dell Monitor X27" />
+        </div>
+        <div class="form-grid">
+          <div class="form-field"><label>Brand</label><input type="text" id="pf-brand" placeholder="Dell" /></div>
+          <div class="form-field"><label>Model</label><input type="text" id="pf-model" placeholder="X27" /></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-field"><label>Category</label><input type="text" id="pf-category" placeholder="Electronics" /></div>
+          <div class="form-field"><label>Serial number</label><input type="text" id="pf-serial" placeholder="ABC123" /></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-field"><label>Purchase date</label><input type="date" id="pf-purchase-date" /></div>
+          <div class="form-field"><label>Price</label><input type="number" id="pf-price" min="0" placeholder="0" /></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-field"><label>Currency</label><input type="text" id="pf-currency" placeholder="USD" /></div>
+          <div class="form-field"><label>Store</label><input type="text" id="pf-store" placeholder="Retailer" /></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-field"><label>Warranty period (months)</label><input type="number" id="pf-warranty-months" min="1" placeholder="12" /></div>
+          <div class="form-field"><label>Warranty expiry date</label><input type="date" id="pf-expiry" /></div>
+        </div>
+        <div class="form-field"><label>Notes</label><textarea id="pf-notes" rows="2" placeholder="Optional notes"></textarea></div>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" id="pf-save-btn">Save Product</button>
+          <button class="btn btn-ghost" id="pf-cancel-btn">Cancel</button>
+        </div>
+        <div class="form-err" id="pf-err"></div>
       </div>
     </div>
 
@@ -1224,625 +753,942 @@
       <span class="brand-desktop">WarrantyVault</span>
       <button class="nav-item active" id="nav-home" data-view="home">
         <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
         </svg>
         <span class="nav-label">Home</span>
       </button>
-
+      <button class="nav-item" id="nav-products" data-view="products">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+        </svg>
+        <span class="nav-label">Products</span>
+      </button>
       <button class="nav-item" id="nav-camera" data-view="camera">
         <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-          <circle cx="12" cy="13" r="4"/>
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
         </svg>
         <span class="nav-label">Scan</span>
       </button>
-
       <button class="nav-item" id="nav-repair" data-view="repair">
         <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-          <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/>
-          <circle cx="12" cy="10" r="3"/>
+          <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
         </svg>
         <span class="nav-label">Repair</span>
+      </button>
+      <button class="nav-item" id="nav-notifications" data-view="notifications" style="position:relative;">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span class="nav-label">Alerts</span>
+        <span class="nav-badge" id="nav-unread-badge" style="display:none;">0</span>
       </button>
     </nav>
 
   </div><!-- /screen -->
 </div><!-- /phone -->
 
+<div class="toast" id="toast"></div>
+
 <script>
-  // ─── Live status bar clock ───────────────────────────────────────────────
-  function updateClock() {
-    const now = new Date();
-    let h = now.getHours(), m = now.getMinutes();
-    document.getElementById('statusTime').textContent =
-      h + ':' + (m < 10 ? '0' + m : m);
-  }
-  updateClock();
-  setInterval(updateClock, 10000);
+'use strict';
 
-  // ─── Product data (localStorage-backed) ──────────────────────────────────
-  const SEED = [
-    {
-      id: 'p1',
-      name: 'MacBook Pro M2',
-      brand: 'Apple',
-      model: 'A2779',
-      category: 'Laptop',
-      purchaseDate: '2023-09-15',
-      warrantyMonths: 12,
-      price: 184900,
-      store: 'Apple Premium Reseller',
-      serial: 'C02JG7ZKGH7L',
-      notes: 'Primary dev machine.',
-      docs: ['Receipt.pdf', 'Warranty Card.jpg'],
-      customPhoto: null
-    },
-    {
-      id: 'p2',
-      name: 'Sony WH-1000XM5',
-      brand: 'Sony',
-      model: 'WH1000XM5',
-      category: 'Headphones',
-      purchaseDate: '2026-06-01',
-      warrantyMonths: 12,
-      price: 29999,
-      store: 'Reliance Digital',
-      serial: 'SN50091823',
-      notes: 'Noise cancelling headphones.',
-      docs: ['Receipt.pdf'],
-      customPhoto: null
-    },
-    {
-      id: 'p3',
-      name: 'Samsung 55" QLED TV',
-      brand: 'Samsung',
-      model: 'QA55Q70C',
-      category: 'Television',
-      purchaseDate: '2022-01-10',
-      warrantyMonths: 12,
-      price: 89000,
-      store: 'Croma',
-      serial: 'SAM293810',
-      notes: '',
-      docs: ['Invoice.pdf', 'Warranty Card.jpg'],
-      customPhoto: null
-    },
-    {
-      id: 'p4',
-      name: 'Bosch Cordless Drill',
-      brand: 'Bosch',
-      model: 'GSR 120-LI',
-      category: 'Tools',
-      purchaseDate: '2023-03-20',
-      warrantyMonths: 6,
-      price: 5499,
-      store: 'Hardware Store',
-      serial: 'BS73918029',
-      notes: '',
-      docs: [],
-      customPhoto: null
-    }
-  ];
+// ─────────────────────────────────────────────────────────────────────────────
+// API layer
+// ─────────────────────────────────────────────────────────────────────────────
+const API = '/api/v1';
+const TOKEN_KEY = 'wv_token';
+const USER_KEY = 'wv_user';
 
-  let products = JSON.parse(localStorage.getItem('wv_products_v2') || 'null') || SEED;
+function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
+function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+function getUser() {
+  try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch { return null; }
+}
+function setUser(u) { localStorage.setItem(USER_KEY, JSON.stringify(u)); }
 
-  function save() {
-    localStorage.setItem('wv_products_v2', JSON.stringify(products));
+async function api(path, opts = {}) {
+  const headers = Object.assign({}, opts.headers || {});
+  const token = getToken();
+  if (token) headers.Authorization = 'Bearer ' + token;
+  if (opts.body && !(opts.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+    if (typeof opts.body !== 'string') opts.body = JSON.stringify(opts.body);
   }
 
-  // ─── Service centre dataset ─────────────────────────────────────────────
-  const REPAIR_CENTRES = [
-    { brand: 'Apple', name: 'Apple Premium Reseller – Mumbai', city: 'Mumbai', address: '123 MG Road, Fort', phone: '022-2267-8910', rating: 4.6 },
-    { brand: 'Apple', name: 'Apple Authorised Service – Delhi', city: 'Delhi', address: '456 Nehru Place, South Delhi', phone: '011-2643-9871', rating: 4.3 },
-    { brand: 'Apple', name: 'Apple Care Centre – Bangalore', city: 'Bangalore', address: '23 Brigade Road, MG Road', phone: '080-2556-3344', rating: 4.5 },
-    { brand: 'Sony', name: 'Sony Service Centre – Mumbai', city: 'Mumbai', address: '789 Linking Road, Bandra', phone: '022-6567-8910', rating: 4.2 },
-    { brand: 'Sony', name: 'Sony Premium Care – Delhi', city: 'Delhi', address: '101 Lajpat Nagar, Block A', phone: '011-4157-9912', rating: 4.4 },
-    { brand: 'Sony', name: 'Sony Authorised Centre – Bangalore', city: 'Bangalore', address: '45 Indiranagar 100 Feet Road', phone: '080-4118-5678', rating: 4.1 },
-    { brand: 'Samsung', name: 'Samsung Smart Service – Chennai', city: 'Chennai', address: '345 T Nagar, South Chennai', phone: '044-2834-6789', rating: 4.3 },
-    { brand: 'Samsung', name: 'Samsung Authorised Centre – Hyderabad', city: 'Hyderabad', address: '678 Banjara Hills, Road No 12', phone: '040-2345-8910', rating: 4.5 },
-    { brand: 'Samsung', name: 'Samsung Care – Pune', city: 'Pune', address: '90 FC Road, Shivajinagar', phone: '020-2557-6688', rating: 4.0 },
-    { brand: 'Bosch', name: 'Bosch Authorised Service – Mumbai', city: 'Mumbai', address: '234 Andheri West, SV Road', phone: '022-4052-3456', rating: 4.1 },
-    { brand: 'Bosch', name: 'Bosch Care Centre – Pune', city: 'Pune', address: '901 Kothrud, Karve Road', phone: '020-6789-2345', rating: 4.0 },
-    { brand: 'Bosch', name: 'Bosch Service Hub – Delhi', city: 'Delhi', address: '34 Daryaganj, Near Red Fort', phone: '011-2345-6789', rating: 4.2 },
-  ];
-
-  let currentBrand = null; // set when navigating to repair from a product
-
-  // ─── Warranty calculation ────────────────────────────────────────────────
-  function warrantyInfo(p) {
-    const start = new Date(p.purchaseDate);
-    const expiry = new Date(start);
-    expiry.setMonth(expiry.getMonth() + Number(p.warrantyMonths));
-    const today = new Date();
-    const days = Math.ceil((expiry - today) / 86400000);
-
-    if (days <= 0) return { days, status: 'expired', label: 'Expired', badgeClass: 'badge-expired', blockClass: 'expired', valueClass: 'expired' };
-    if (days <= 7) return { days, status: 'critical', label: `${days}d left`, badgeClass: 'badge-critical', blockClass: 'critical', valueClass: 'critical' };
-    if (days <= 30) return { days, status: 'soon', label: `${days} days left`, badgeClass: 'badge-soon', blockClass: 'critical', valueClass: 'critical' };
-    return { days, status: 'safe', label: `${days} days left`, badgeClass: '', blockClass: 'safe', valueClass: 'safe' };
+  let res;
+  try {
+    res = await fetch(API + path, Object.assign({}, opts, { headers }));
+  } catch (e) {
+    throw new Error('Network error — is the server running?');
   }
 
-  // ─── Product image resolution ────────────────────────────────────────────
-  // Uses Unsplash Source as a free realistic placeholder keyed to brand+name
-  function imageUrl(p) {
-    if (p.customPhoto) return p.customPhoto;
-    const q = encodeURIComponent(p.brand + ' ' + p.category);
-    return `https://source.unsplash.com/120x120/?${q}`;
+  let json = {};
+  try { json = await res.json(); } catch { /* empty body */ }
+
+  if (res.status === 401) {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    showView('login');
+    throw new Error(json.message || 'Session expired — please log in again');
   }
-
-  function largeImageUrl(p) {
-    if (p.customPhoto) return p.customPhoto;
-    const q = encodeURIComponent(p.brand + ' ' + p.name);
-    return `https://source.unsplash.com/800x500/?${q}`;
+  if (!res.ok || json.success === false) {
+    const err = (json.errors && json.errors[0] && (json.errors[0].message || json.errors[0]))
+      || json.message || 'Request failed (' + res.status + ')';
+    throw new Error(err);
   }
+  return json.data;
+}
 
-  // ─── Build product attention card DOM ────────────────────────────────────
-  function makeAttentionCard(p) {
-    const info = warrantyInfo(p);
-    const card = document.createElement('div');
-    card.className = 'product-attention-card';
-    card.onclick = () => openDetail(p.id);
-    card.innerHTML = `
-      <img class="product-img" src="${imageUrl(p)}" alt="${p.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
-      <div class="product-img-placeholder" style="display:none;">📦</div>
-      <div class="product-info">
-        <div class="product-info-name">${p.name}</div>
-        <div class="product-info-brand">${p.brand} · ${p.category}</div>
-      </div>
-      <span class="product-warranty-badge ${info.badgeClass}">${info.label}</span>
-    `;
-    return card;
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+// Small helpers
+// ─────────────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
 
-  // ─── Render home view ────────────────────────────────────────────────────
-  function renderHome() {
-    const attentionList = document.getElementById('attention-list');
-    const recentList = document.getElementById('recent-list');
-    attentionList.innerHTML = '';
-    recentList.innerHTML = '';
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
-    const needsAttention = products.filter(p => {
-      const info = warrantyInfo(p);
-      return info.status !== 'safe';
-    }).sort((a, b) => warrantyInfo(a).days - warrantyInfo(b).days);
+function fmtMoney(p) {
+  if (p == null || p.purchasePrice == null) return '—';
+  const c = p.currency || 'USD';
+  try { return Number(p.purchasePrice).toLocaleString('en-US', { style: 'currency', currency: c }); }
+  catch { return Number(p.purchasePrice).toLocaleString('en-US'); }
+}
 
-    if (needsAttention.length === 0) {
-      attentionList.innerHTML = `
-        <div class="all-good">
-          <div class="all-good-icon">✅</div>
-          <div class="all-good-text">All warranties are in good standing.</div>
-        </div>`;
-    } else {
-      needsAttention.forEach(p => attentionList.appendChild(makeAttentionCard(p)));
-    }
+function fmtDate(d) {
+  if (!d) return '—';
+  const date = new Date(d);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
-    // Recent: last 3 products with safe warranty (sorted by purchase date)
-    const recent = [...products]
-      .filter(p => warrantyInfo(p).status === 'safe')
-      .sort((a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate))
-      .slice(0, 3);
+// Warranty status from the product's warrantyExpiryDate
+function warrantyInfo(p) {
+  if (!p.warrantyExpiryDate) return { status: 'none', label: 'No expiry set', badgeClass: 'badge-safe', blockClass: 'safe', valueClass: 'safe', days: Infinity };
+  const expiry = new Date(p.warrantyExpiryDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.ceil((expiry - today) / 86400000);
+  if (days <= 0) return { status: 'expired', label: 'Expired', badgeClass: 'badge-expired', blockClass: 'expired', valueClass: 'expired', days };
+  if (days <= 7) return { status: 'critical', label: days + 'd left', badgeClass: 'badge-critical', blockClass: 'critical', valueClass: 'critical', days };
+  if (days <= 30) return { status: 'soon', label: days + ' days left', badgeClass: 'badge-soon', blockClass: 'critical', valueClass: 'critical', days };
+  return { status: 'safe', label: days + ' days left', badgeClass: 'badge-safe', blockClass: 'safe', valueClass: 'safe', days };
+}
 
-    if (recent.length === 0) {
-      recentList.innerHTML = `<div style="color:#bbb;font-size:13px;padding:12px 0;">No other products registered.</div>`;
-    } else {
-      recent.forEach(p => recentList.appendChild(makeAttentionCard(p)));
-    }
-  }
+function productImage(p) {
+  if (p && p.thumbnailUrl) return p.thumbnailUrl;
+  const q = encodeURIComponent((p && (p.brand + ' ' + p.category)) || 'product');
+  return 'https://source.unsplash.com/160x160/?' + q;
+}
 
-  // ─── Product detail overlay ───────────────────────────────────────────────
-  let currentProductId = null;
+function makeProductCard(p) {
+  const info = warrantyInfo(p);
+  const card = document.createElement('div');
+  card.className = 'product-card';
+  card.onclick = () => openDetail(p._id);
+  card.innerHTML =
+    '<img class="product-img" src="' + escapeHtml(productImage(p)) + '" alt="" ' +
+    'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" />' +
+    '<div class="product-img-placeholder" style="display:none;">📦</div>' +
+    '<div class="product-info">' +
+      '<div class="product-info-name">' + escapeHtml(p.productName) + '</div>' +
+      '<div class="product-info-brand">' + escapeHtml([p.brand, p.category].filter(Boolean).join(' · ') || '—') + '</div>' +
+    '</div>' +
+    '<span class="product-warranty-badge ' + info.badgeClass + '">' + info.label + '</span>';
+  return card;
+}
 
-  function openDetail(id) {
-    const p = products.find(x => x.id === id);
-    if (!p) return;
-    currentProductId = id;
-    const info = warrantyInfo(p);
+function emptyState(icon, title, sub) {
+  const el = document.createElement('div');
+  el.className = 'empty-state';
+  el.innerHTML = '<div class="empty-icon">' + icon + '</div>' +
+    '<div class="empty-title">' + escapeHtml(title) + '</div>' +
+    (sub ? '<div class="empty-sub">' + escapeHtml(sub) + '</div>' : '');
+  return el;
+}
 
-    document.getElementById('detail-name').textContent = p.name;
-    document.getElementById('detail-brand').textContent = p.brand + ' · ' + p.model;
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth
+// ─────────────────────────────────────────────────────────────────────────────
+function switchAuthTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('form-login').style.display = tab === 'login' ? '' : 'none';
+  document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
+  document.getElementById('login-err').textContent = '';
+  document.getElementById('reg-err').textContent = '';
+}
 
-    const img = document.getElementById('detail-img');
-    img.src = largeImageUrl(p);
-    img.alt = p.name;
-
-    const wb = document.getElementById('detail-warranty-block');
-    wb.className = 'detail-warranty-block ' + info.blockClass;
-
-    const wv = document.getElementById('detail-warranty-value');
-    wv.className = 'detail-warranty-value ' + info.valueClass;
-    wv.textContent = info.status === 'expired' ? 'Warranty Expired' : `Expires in ${info.label}`;
-
-    // Specs
-    const specs = document.getElementById('detail-specs');
-    const rows = [
-      ['Category', p.category],
-      ['Purchase Date', p.purchaseDate],
-      ['Store', p.store || '—'],
-      ['Price', p.price ? '₹' + Number(p.price).toLocaleString('en-IN') : '—'],
-      ['Serial Number', p.serial || '—'],
-      ['Notes', p.notes || '—']
-    ];
-    specs.innerHTML = rows.map(([label, val]) => `
-      <div class="detail-row">
-        <span class="detail-row-label">${label}</span>
-        <span class="detail-row-value">${val}</span>
-      </div>`).join('');
-
-    // Docs
-    const docsEl = document.getElementById('detail-docs');
-    docsEl.innerHTML = (p.docs || []).map(d => `
-      <div class="doc-chip">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        ${d}
-      </div>`).join('') + `
-      <div class="add-doc-chip">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add File
-      </div>`;
-
-    document.getElementById('detail-overlay').classList.add('open');
-  }
-
-  document.getElementById('detail-back-btn').addEventListener('click', () => {
-    document.getElementById('detail-overlay').classList.remove('open');
-    currentProductId = null;
-  });
-
-  // Quick action buttons inside detail overlay → navigate to the right view
-  document.getElementById('detail-repair-btn').addEventListener('click', () => {
-    const p = products.find(x => x.id === currentProductId);
-    currentBrand = p ? p.brand : null;
-    document.getElementById('detail-overlay').classList.remove('open');
-    currentProductId = null;
-    renderRepairCentres(currentBrand);
-    switchView('repair');
-  });
-
-  document.getElementById('detail-scan-btn').addEventListener('click', () => {
-    // Keep currentProductId for the upload; close overlay but leave context
-    document.getElementById('detail-overlay').classList.remove('open');
-    switchView('camera');
-    renderCameraForProduct(currentProductId);
-  });
-
-  // Photo upload
-  document.getElementById('detail-upload-btn').addEventListener('click', () => {
-    document.getElementById('photo-upload-input').click();
-  });
-
-  document.getElementById('photo-upload-input').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file || !currentProductId) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const p = products.find(x => x.id === currentProductId);
-      if (p) {
-        p.customPhoto = evt.target.result;
-        save();
-        document.getElementById('detail-img').src = evt.target.result;
-        renderHome();
-      }
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  });
-
-  // ─── Camera / OCR ────────────────────────────────────────────────────────
-  let cameraProduct = null;
-
-  function renderCameraForProduct(productId) {
-    const nameEl = document.getElementById('camera-product-name');
-    const uploadArea = document.getElementById('camera-upload-area');
-    const fileInput = document.getElementById('camera-file-input');
-    const progressEl = document.getElementById('camera-progress');
-    const resultEl = document.getElementById('camera-result');
-    const errorEl = document.getElementById('camera-error');
-
-    cameraProduct = products.find(x => x.id === productId) || null;
-
-    if (nameEl) {
-      nameEl.textContent = cameraProduct
-        ? `Upload receipt for ${cameraProduct.name}`
-        : 'Upload a receipt or warranty document';
-    }
-
-    // Show upload area, hide progress/result/error
-    uploadArea.style.display = '';
-    progressEl.style.display = 'none';
-    resultEl.style.display = 'none';
-    errorEl.style.display = 'none';
-  }
-
-  function resetCamera() {
-    document.getElementById('camera-upload-area').style.display = '';
-    document.getElementById('camera-progress').style.display = 'none';
-    document.getElementById('camera-result').style.display = 'none';
-    document.getElementById('camera-error').style.display = 'none';
-    document.getElementById('camera-file-input').value = '';
-  }
-
-  function setupCameraUpload() {
-    const fileInput = document.getElementById('camera-file-input');
-    const uploadArea = document.getElementById('camera-upload-area');
-
-    uploadArea.addEventListener('click', () => fileInput.click());
-
-    fileInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      // Must have a product to upload to
-      if (!cameraProduct) {
-        document.getElementById('camera-upload-area').style.display = 'none';
-        document.getElementById('camera-result').style.display = 'none';
-        document.getElementById('camera-progress').style.display = 'none';
-        document.getElementById('camera-error').style.display = '';
-        document.getElementById('camera-error-msg').textContent = 'Open a product first, then tap Scan/OCR.';
-        return;
-      }
-
-      // Show progress
-      document.getElementById('camera-upload-area').style.display = 'none';
-      document.getElementById('camera-error').style.display = 'none';
-      document.getElementById('camera-progress').style.display = '';
-      document.getElementById('camera-status-text').textContent = 'Uploading…';
-      document.getElementById('camera-progress-fill').style.width = '30%';
-
-      try {
-        const fd = new FormData();
-        fd.append('file', file);
-        fd.append('documentType', 'receipt');
-        fd.append('notes', 'Uploaded from website scan view');
-
-        const uploadRes = await fetch(`/api/v1/products/${cameraProduct.id}/documents`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${localStorage.getItem('wv_token') || ''}` },
-          body: fd
-        });
-
-        const uploadData = await uploadRes.json();
-
-        if (!uploadData.success) {
-          throw new Error(uploadData.message || 'Upload failed');
-        }
-
-        document.getElementById('camera-progress-fill').style.width = '70%';
-        document.getElementById('camera-status-text').textContent = 'OCR processing…';
-
-        // Poll for OCR result (the backend processes asynchronously)
-        const docId = uploadData.data._id;
-        let attempts = 0;
-        let ocrData = null;
-
-        while (attempts < 30) {
-          await new Promise(r => setTimeout(r, 500));
-          attempts++;
-
-          const docRes = await fetch(`/api/v1/products/${cameraProduct.id}/documents/${docId}`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('wv_token') || ''}` }
-          });
-          const docJson = await docRes.json();
-
-          if (docJson.data && docJson.data.ocrStatus === 'done') {
-            ocrData = docJson.data;
-            document.getElementById('camera-progress-fill').style.width = '100%';
-            break;
-          }
-          if (docJson.data && docJson.data.ocrStatus === 'failed') {
-            throw new Error(docJson.data.ocrError || 'OCR failed');
-          }
-        }
-
-        if (!ocrData) {
-          throw new Error('OCR timed out');
-        }
-
-        // Show results
-        document.getElementById('camera-progress').style.display = 'none';
-        document.getElementById('camera-result').style.display = '';
-
-        const fields = document.getElementById('camera-extracted-fields');
-        const parsed = ocrData.parsedData || {};
-        fields.innerHTML = '';
-
-        const rows = [
-          ['Price', parsed.purchasePrice ? '₹' + Number(parsed.purchasePrice).toLocaleString('en-IN') : '—'],
-          ['Serial', parsed.serialNumber || '—'],
-          ['Expiry', parsed.warrantyExpiryDate ? new Date(parsed.warrantyExpiryDate).toLocaleDateString('en-IN') : '—']
-        ];
-
-        rows.forEach(([label, val]) => {
-          fields.innerHTML += `
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;">
-              <span style="font-size:13px;color:#888;">${label}</span>
-              <span style="font-size:13px;font-weight:500;color:#111;">${val}</span>
-            </div>`;
-        });
-
-        // Apply button — update product fields with extracted data
-        document.getElementById('camera-apply-btn').onclick = () => {
-          let updated = false;
-          if (parsed.purchasePrice && !cameraProduct.price) {
-            cameraProduct.price = parsed.purchasePrice;
-            updated = true;
-          }
-          if (parsed.serialNumber && !cameraProduct.serial) {
-            cameraProduct.serial = parsed.serialNumber;
-            updated = true;
-          }
-          if (parsed.warrantyExpiryDate) {
-            // Calculate months from now
-            const expiry = new Date(parsed.warrantyExpiryDate);
-            const now = new Date();
-            const months = Math.round((expiry - now) / (1000 * 60 * 60 * 24 * 30.44));
-            if (months > 0 && !cameraProduct.warrantyMonths) {
-              cameraProduct.warrantyMonths = months;
-              updated = true;
-            }
-          }
-
-          if (updated) {
-            save();
-            renderHome();
-            document.getElementById('camera-status-text').textContent = 'Data applied ✓';
-          } else {
-            document.getElementById('camera-status-text').textContent = 'No new fields to apply';
-          }
-        };
-
-        // Retry button
-        document.getElementById('camera-retry-btn').onclick = resetCamera;
-
-      } catch (err) {
-        document.getElementById('camera-progress').style.display = 'none';
-        document.getElementById('camera-result').style.display = 'none';
-        document.getElementById('camera-error').style.display = '';
-        document.getElementById('camera-error-msg').textContent = err.message || 'Something went wrong';
-      }
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const err = document.getElementById('login-err');
+  err.textContent = '';
+  if (!email || !password) { err.textContent = 'Please fill in all fields.'; return; }
+  try {
+    const data = await api('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
     });
+    setToken(data.token);
+    setUser(data.user);
+    await enterApp();
+  } catch (e) {
+    err.textContent = e.message;
   }
+}
 
-  // ─── Repair centres ──────────────────────────────────────────────────────
-  function renderRepairCentres(brandFilter) {
-    const list = document.getElementById('repair-list');
-    const filterBar = document.getElementById('repair-filter');
-    if (!list) return;
+async function doRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const err = document.getElementById('reg-err');
+  err.textContent = '';
+  if (!name || !email || !password) { err.textContent = 'Please fill in all fields.'; return; }
+  if (password.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
+  try {
+    const data = await api('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, password, confirmPassword: password })
+    });
+    setToken(data.token);
+    setUser(data.user);
+    await enterApp();
+  } catch (e) {
+    err.textContent = e.message;
+  }
+}
 
-    let centres = REPAIR_CENTRES;
-    if (brandFilter) {
-      centres = centres.filter(c => c.brand === brandFilter);
+function logout() {
+  if (!getToken()) { showView('login'); return; }
+  api('/auth/logout', { method: 'POST' }).catch(() => {});
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  showView('login');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// View switching
+// ─────────────────────────────────────────────────────────────────────────────
+function showView(target) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const viewEl = document.getElementById('view-' + target);
+  if (viewEl) viewEl.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  const navBtn = document.querySelector('.nav-item[data-view="' + target + '"]');
+  if (navBtn) navBtn.classList.add('active');
+  document.getElementById('detail-overlay').classList.remove('open');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dashboard (home)
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  const user = getUser();
+  document.getElementById('greeting-name').textContent = (user && user.name) || 'there';
+  const hour = new Date().getHours();
+  document.getElementById('home-greeting').textContent =
+    hour < 12 ? 'Good morning,' : hour < 17 ? 'Good afternoon,' : 'Good evening,';
+
+  const list = document.getElementById('attention-list');
+  const recent = document.getElementById('recent-list');
+  list.innerHTML = '';
+  recent.innerHTML = '';
+
+  try {
+    const d = await api('/dashboard');
+    document.getElementById('stat-products').textContent = d.totalProducts;
+    document.getElementById('stat-expiring').textContent = d.expiringSoonCount;
+    document.getElementById('stat-documents').textContent = d.totalDocuments;
+    document.getElementById('stat-unread').textContent = d.unreadNotificationsCount;
+    updateNavBadge(d.unreadNotificationsCount);
+
+    if (d.expiringSoon && d.expiringSoon.length) {
+      d.expiringSoon.forEach(p => list.appendChild(makeProductCard(p)));
+    } else {
+      list.appendChild(emptyState('✅', 'All warranties in good standing', 'Nothing expiring in the next 30 days.'));
     }
 
-    list.innerHTML = centres.length === 0
-      ? `<div style="color:#888;font-size:13px;padding:20px 0;text-align:center;">No repair centres found.</div>`
-      : centres.map(c => `
-        <div class="repair-card">
-          <div class="repair-card-name">${c.name}</div>
-          <div class="repair-card-city">${c.city}</div>
-          <div class="repair-card-address">${c.address}</div>
-          <div class="repair-card-details">
-            <span class="repair-card-phone">📞 ${c.phone}</span>
-            <span class="repair-card-rating">⭐ ${c.rating}</span>
-          </div>
-        </div>`).join('');
-
-    if (filterBar) {
-      filterBar.innerHTML = brandFilter
-        ? `<span class="repair-brand-tag">${brandFilter} brands</span>`
-        : '';
+    if (d.recentProducts && d.recentProducts.length) {
+      d.recentProducts.forEach(p => recent.appendChild(makeProductCard(p)));
+    } else {
+      recent.appendChild(emptyState('📦', 'No products yet', 'Add your first product in the Products tab.'));
     }
+  } catch (e) {
+    list.appendChild(emptyState('⚠️', 'Could not load dashboard', e.message));
+  }
+}
+
+function updateNavBadge(count) {
+  const badge = document.getElementById('nav-unread-badge');
+  if (badge) {
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'flex' : 'none';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Products: list + search + create/update/delete
+// ─────────────────────────────────────────────────────────────────────────────
+let productsCache = [];
+let productsSearchTimer = null;
+
+async function loadProducts() {
+  const list = document.getElementById('products-list');
+  list.innerHTML = '';
+  list.appendChild(emptyState('📦', 'Loading…', ''));
+  try {
+    const data = await api('/products?limit=100');
+    productsCache = data.products || [];
+    renderProducts(productsCache);
+  } catch (e) {
+    list.innerHTML = '';
+    list.appendChild(emptyState('⚠️', 'Could not load products', e.message));
+  }
+}
+
+function renderProducts(items) {
+  const list = document.getElementById('products-list');
+  list.innerHTML = '';
+  if (!items.length) {
+    list.appendChild(emptyState('📦', 'No products yet', 'Tap “+ Add” to register your first product.'));
+    return;
+  }
+  items.forEach(p => list.appendChild(makeProductCard(p)));
+}
+
+async function searchProducts(q) {
+  const list = document.getElementById('products-list');
+  if (!q.trim()) { renderProducts(productsCache); return; }
+  try {
+    const data = await api('/products/search?q=' + encodeURIComponent(q.trim()));
+    renderProducts(Array.isArray(data) ? data : []);
+  } catch (e) {
+    list.innerHTML = '';
+    list.appendChild(emptyState('⚠️', 'Search failed', e.message));
+  }
+}
+
+let editingProductId = null;
+
+function openProductForm(product) {
+  editingProductId = product ? product._id : null;
+  document.getElementById('product-form-title').textContent = product ? 'Edit Product' : 'Add Product';
+  document.getElementById('pf-name').value = product ? product.productName || '' : '';
+  document.getElementById('pf-brand').value = product ? product.brand || '' : '';
+  document.getElementById('pf-model').value = product ? product.model || '' : '';
+  document.getElementById('pf-category').value = product ? product.category || '' : '';
+  document.getElementById('pf-serial').value = product ? product.serialNumber || '' : '';
+  document.getElementById('pf-purchase-date').value = product && product.purchaseDate ? new Date(product.purchaseDate).toISOString().slice(0, 10) : '';
+  document.getElementById('pf-price').value = product && product.purchasePrice != null ? product.purchasePrice : '';
+  document.getElementById('pf-currency').value = product ? product.currency || '' : '';
+  document.getElementById('pf-store').value = product ? product.purchaseStore || '' : '';
+  document.getElementById('pf-warranty-months').value = product && product.warrantyPeriodMonths != null ? product.warrantyPeriodMonths : '';
+  document.getElementById('pf-expiry').value = product && product.warrantyExpiryDate ? new Date(product.warrantyExpiryDate).toISOString().slice(0, 10) : '';
+  document.getElementById('pf-notes').value = product ? product.notes || '' : '';
+  document.getElementById('pf-err').textContent = '';
+  document.getElementById('product-form-overlay').classList.add('open');
+}
+
+function closeProductForm() {
+  document.getElementById('product-form-overlay').classList.remove('open');
+  editingProductId = null;
+}
+
+async function saveProductForm() {
+  const errEl = document.getElementById('pf-err');
+  errEl.textContent = '';
+  const name = document.getElementById('pf-name').value.trim();
+  if (!name) { errEl.textContent = 'Product name is required.'; return; }
+
+  const payload = {
+    productName: name,
+    brand: document.getElementById('pf-brand').value.trim() || undefined,
+    model: document.getElementById('pf-model').value.trim() || undefined,
+    category: document.getElementById('pf-category').value.trim() || undefined,
+    serialNumber: document.getElementById('pf-serial').value.trim() || undefined,
+    purchaseDate: document.getElementById('pf-purchase-date').value || undefined,
+    purchasePrice: document.getElementById('pf-price').value ? Number(document.getElementById('pf-price').value) : undefined,
+    currency: document.getElementById('pf-currency').value.trim() || undefined,
+    purchaseStore: document.getElementById('pf-store').value.trim() || undefined,
+    warrantyPeriodMonths: document.getElementById('pf-warranty-months').value ? Number(document.getElementById('pf-warranty-months').value) : undefined,
+    warrantyExpiryDate: document.getElementById('pf-expiry').value || undefined,
+    notes: document.getElementById('pf-notes').value.trim() || undefined
+  };
+  Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+  try {
+    let savedId = null;
+    if (editingProductId) {
+      savedId = editingProductId;
+      await api('/products/' + savedId, { method: 'PUT', body: JSON.stringify(payload) });
+      toast('Product updated', 'success');
+    } else {
+      const created = await api('/products', { method: 'POST', body: JSON.stringify(payload) });
+      toast('Product added', 'success');
+      savedId = created._id;
+    }
+    closeProductForm();
+    await Promise.all([loadProducts(), loadDashboard()]);
+    if (savedId) openDetail(savedId);
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+
+async function deleteCurrentProduct() {
+  if (!currentProductId) return;
+  if (!window.confirm('Delete this product? This can be restored later but hides it everywhere.')) return;
+  try {
+    await api('/products/' + currentProductId, { method: 'DELETE' });
+    toast('Product deleted', 'success');
+    closeDetail();
+    await Promise.all([loadProducts(), loadDashboard()]);
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Product detail: specs + documents + service history
+// ─────────────────────────────────────────────────────────────────────────────
+let currentProductId = null;
+let currentProduct = null;
+let detailOcrTimer = null;
+let detailDocFile = null;
+let cameraDoc = null;
+
+function closeDetail() {
+  clearTimeout(detailOcrTimer);
+  document.getElementById('detail-overlay').classList.remove('open');
+  currentProductId = null;
+  currentProduct = null;
+}
+
+async function openDetail(id) {
+  currentProductId = id;
+  try {
+    const p = await api('/products/' + id);
+    currentProduct = p;
+    renderDetailHeader(p);
+    renderDetailSpecs(p);
+    document.getElementById('detail-overlay').classList.add('open');
+    await Promise.all([loadDetailDocs(), loadServiceHistory()]);
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+function renderDetailHeader(p) {
+  document.getElementById('detail-name').textContent = p.productName || '—';
+  document.getElementById('detail-brand').textContent = [p.brand, p.model].filter(Boolean).join(' · ');
+  const img = document.getElementById('detail-img');
+  if (p.thumbnailUrl) { img.src = p.thumbnailUrl; img.style.display = ''; }
+  else { img.style.display = 'none'; }
+
+  const info = warrantyInfo(p);
+  const block = document.getElementById('detail-warranty-block');
+  block.className = 'detail-warranty-block ' + info.blockClass;
+  const val = document.getElementById('detail-warranty-value');
+  val.className = 'detail-warranty-value ' + info.valueClass;
+  val.textContent = info.label + (p.warrantyExpiryDate ? ' · ' + fmtDate(p.warrantyExpiryDate) : '');
+}
+
+function detailRow(label, value) {
+  return '<div class="detail-row"><span class="detail-row-label">' + escapeHtml(label) + '</span>' +
+    '<span class="detail-row-value">' + escapeHtml(value == null ? '—' : value) + '</span></div>';
+}
+
+function renderDetailSpecs(p) {
+  const rows = [
+    ['Serial number', p.serialNumber],
+    ['Model', p.model],
+    ['Category', p.category],
+    ['Purchased', fmtDate(p.purchaseDate)],
+    ['Price', fmtMoney(p)],
+    ['Store', p.purchaseStore],
+    ['Warranty period', p.warrantyPeriodMonths ? p.warrantyPeriodMonths + ' months' : null],
+    ['Notes', p.notes]
+  ];
+  document.getElementById('detail-specs').innerHTML = rows.map(r => detailRow(r[0], r[1])).join('');
+}
+
+// --- Documents ---
+async function loadDetailDocs() {
+  const box = document.getElementById('detail-docs');
+  box.innerHTML = '';
+  box.appendChild(emptyState('📄', 'Loading documents…', ''));
+  try {
+    const data = await api('/products/' + currentProductId + '/documents');
+    renderDetailDocs(data.documents || []);
+  } catch (e) {
+    box.innerHTML = '';
+    box.appendChild(emptyState('⚠️', 'Could not load documents', e.message));
+  }
+}
+
+function ocrBadgeClass(status) {
+  const map = { done: 'ocr-done', failed: 'ocr-failed', processing: 'ocr-processing', skipped: 'ocr-skipped' };
+  return map[status] || 'ocr-skipped';
+}
+
+function docCard(d) {
+  const parsed = [];
+  if (d.ocrData) {
+    if (d.ocrData.purchasePrice != null) parsed.push('💰 ' + Number(d.ocrData.purchasePrice).toLocaleString('en-US'));
+    if (d.ocrData.serialNumber) parsed.push('🔢 ' + d.ocrData.serialNumber);
+    if (d.ocrData.warrantyExpiryDate) parsed.push('📅 ' + fmtDate(d.ocrData.warrantyExpiryDate));
+  }
+  const canRetry = d.ocrStatus === 'failed' || d.ocrStatus === 'skipped';
+  let actions = '<button class="btn btn-ghost btn-small" data-url="' + escapeHtml(d.fileUrl) + '" onclick="window.open(this.dataset.url, \'_blank\')">View</button>';
+  if (canRetry) actions += '<button class="btn btn-ghost btn-small" onclick="retryDocOcr(\'' + d._id + '\')">⟳ Retry OCR</button>';
+  actions += '<button class="btn btn-danger btn-small" onclick="deleteDoc(\'' + d._id + '\')">Delete</button>';
+
+  return '<div class="doc-item">' +
+    '<div class="doc-item-head">' +
+      '<span class="doc-type-chip">' + escapeHtml(d.documentType || 'other') + '</span>' +
+      '<span class="doc-filename">' + escapeHtml(d.fileName) + '</span>' +
+      '<span class="ocr-badge ' + ocrBadgeClass(d.ocrStatus) + '">' + escapeHtml(d.ocrStatus || 'skipped') + '</span>' +
+    '</div>' +
+    '<div class="doc-meta">' + fmtDate(d.createdAt) + (d.fileSize ? ' · ' + Math.round(d.fileSize / 1024) + ' KB' : '') + '</div>' +
+    (parsed.length ? '<div class="parsed-chips">' + parsed.map(c => '<span class="parsed-chip">' + c + '</span>').join('') + '</div>' : '') +
+    '<div class="doc-actions">' + actions + '</div>' +
+  '</div>';
+}
+
+function renderDetailDocs(docs) {
+  const box = document.getElementById('detail-docs');
+  box.innerHTML = '';
+  if (!docs.length) {
+    box.appendChild(emptyState('📄', 'No documents yet', 'Upload a receipt, warranty card or manual above — OCR will read it automatically.'));
+    return;
+  }
+  docs.forEach(d => box.insertAdjacentHTML('beforeend', docCard(d)));
+  clearTimeout(detailOcrTimer);
+  if (docs.some(d => d.ocrStatus === 'processing')) {
+    detailOcrTimer = setTimeout(loadDetailDocs, 4000);
+  }
+}
+
+function resetDocFile() {
+  detailDocFile = null;
+  document.getElementById('doc-file-input').value = '';
+  document.getElementById('doc-file-name').textContent = 'Choose file…';
+}
+
+async function uploadDoc() {
+  if (!detailDocFile) { toast('Choose a file first', 'error'); return; }
+  const type = document.getElementById('doc-type-select').value;
+  const btn = document.getElementById('doc-upload-btn');
+  btn.disabled = true;
+  try {
+    const fd = new FormData();
+    fd.append('file', detailDocFile);
+    fd.append('documentType', type);
+    await api('/products/' + currentProductId + '/documents', { method: 'POST', body: fd });
+    toast('Document uploaded — OCR may take a few seconds', 'success');
+    resetDocFile();
+    await loadDetailDocs();
+    loadDashboard();
+  } catch (e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function retryDocOcr(docId) {
+  try {
+    await api('/products/' + currentProductId + '/documents/' + docId + '/ocr', { method: 'POST' });
+    toast('OCR started — takes ~10 seconds', 'success');
+    await loadDetailDocs();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function deleteDoc(docId) {
+  if (!window.confirm('Delete this document?')) return;
+  try {
+    await api('/products/' + currentProductId + '/documents/' + docId, { method: 'DELETE' });
+    toast('Document deleted', 'success');
+    await Promise.all([loadDetailDocs(), loadDashboard()]);
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+// --- Service history ---
+async function loadServiceHistory() {
+  const box = document.getElementById('service-list');
+  box.innerHTML = '';
+  try {
+    const records = await api('/products/' + currentProductId + '/service-history');
+    if (!records || !records.length) {
+      box.appendChild(emptyState('🛠️', 'No service records', 'Add the first repair or maintenance record.'));
+      return;
+    }
+    records.forEach(r => {
+      const el = document.createElement('div');
+      el.className = 'service-item';
+      const meta = [r.provider, r.cost != null ? '$' + Number(r.cost).toLocaleString('en-US') : '',
+        r.nextServiceDate ? 'Next: ' + fmtDate(r.nextServiceDate) : ''].filter(Boolean).join(' · ');
+      el.innerHTML =
+        '<div class="service-item-head"><span class="service-type-chip">' + escapeHtml(r.serviceType || 'other') + '</span>' +
+        '<span class="service-date">' + fmtDate(r.serviceDate) + '</span></div>' +
+        (r.description ? '<div class="service-desc">' + escapeHtml(r.description) + '</div>' : '') +
+        (meta ? '<div class="service-meta">' + escapeHtml(meta) + '</div>' : '');
+      box.appendChild(el);
+    });
+  } catch (e) {
+    box.innerHTML = '';
+    box.appendChild(emptyState('⚠️', 'Could not load service history', e.message));
+  }
+}
+
+function toggleServiceForm(show) {
+  document.getElementById('service-form').style.display = show ? '' : 'none';
+  document.getElementById('add-service-btn').style.display = show ? 'none' : '';
+  if (show) {
+    document.getElementById('svc-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('svc-provider').value = '';
+    document.getElementById('svc-desc').value = '';
+    document.getElementById('svc-cost').value = '';
+    document.getElementById('svc-next').value = '';
+  }
+}
+
+async function saveServiceRecord() {
+  const payload = {
+    serviceDate: document.getElementById('svc-date').value || undefined,
+    serviceType: document.getElementById('svc-type').value,
+    provider: document.getElementById('svc-provider').value.trim() || undefined,
+    description: document.getElementById('svc-desc').value.trim() || undefined,
+    cost: document.getElementById('svc-cost').value ? Number(document.getElementById('svc-cost').value) : undefined,
+    nextServiceDate: document.getElementById('svc-next').value || undefined
+  };
+  Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+  try {
+    await api('/products/' + currentProductId + '/service-history', { method: 'POST', body: JSON.stringify(payload) });
+    toast('Service record added', 'success');
+    toggleServiceForm(false);
+    await loadServiceHistory();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Camera / OCR flow
+// ─────────────────────────────────────────────────────────────────────────────
+async function populateCameraProducts(preselectId) {
+  try {
+    if (!productsCache.length) await loadProducts();
+    const sel = document.getElementById('camera-product-select');
+    sel.innerHTML = '';
+    if (!productsCache.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '— No products yet — add one first —';
+      sel.appendChild(opt);
+      return;
+    }
+    productsCache.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p._id;
+      opt.textContent = p.productName + (p.brand ? ' (' + p.brand + ')' : '');
+      sel.appendChild(opt);
+    });
+    if (preselectId) sel.value = preselectId;
+    else if (currentProductId) sel.value = currentProductId;
+  } catch (e) { /* non-fatal */ }
+}
+
+function resetCamera() {
+  cameraDoc = null;
+  document.getElementById('camera-progress').style.display = 'none';
+  document.getElementById('camera-result').style.display = 'none';
+  document.getElementById('camera-error').style.display = 'none';
+  document.getElementById('camera-upload-area').style.display = '';
+  document.getElementById('camera-file-input').value = '';
+}
+
+function showCameraError(msg) {
+  document.getElementById('camera-progress').style.display = 'none';
+  document.getElementById('camera-error-msg').textContent = msg;
+  document.getElementById('camera-error').style.display = '';
+}
+
+async function handleCameraFile(file) {
+  const pid = document.getElementById('camera-product-select').value;
+  if (!pid) { toast('Please add a product first', 'error'); return; }
+  if (!file || !file.type || !file.type.startsWith('image/')) {
+    toast('Please choose an image (JPEG, PNG or WEBP)', 'error');
+    return;
   }
 
-  // ─── Shared view switcher ─────────────────────────────────────────────────
-  function switchView(target) {
-    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    const navBtn = document.querySelector(`.nav-item[data-view="${target}"]`);
-    if (navBtn) navBtn.classList.add('active');
+  resetCamera();
+  document.getElementById('camera-upload-area').style.display = 'none';
+  document.getElementById('camera-progress').style.display = '';
+  const fill = document.getElementById('camera-progress-fill');
+  const status = document.getElementById('camera-status-text');
+  fill.style.width = '18%';
+  status.textContent = 'Uploading…';
 
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    const viewEl = document.getElementById('view-' + target);
-    if (viewEl) viewEl.classList.add('active');
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('documentType', 'receipt');
+    const doc = await api('/products/' + pid + '/documents', { method: 'POST', body: fd });
+    status.textContent = 'Uploaded — running OCR…';
+    fill.style.width = '45%';
+    await pollCameraOcr(pid, doc, status, fill);
+  } catch (e) {
+    showCameraError(e.message);
   }
+}
 
-  // ─── Bottom navigation ────────────────────────────────────────────────────
+async function pollCameraOcr(pid, doc, statusEl, fillEl) {
+  const maxWait = 90 * 1000;
+  const started = Date.now();
+  let current = doc;
+
+  while (Date.now() - started < maxWait) {
+    if (current.ocrStatus === 'done') {
+      fillEl.style.width = '100%';
+      await renderCameraResult(current);
+      return;
+    }
+    if (current.ocrStatus === 'failed') {
+      showCameraError('OCR could not read this image. Try a clearer photo, or retry from the product page.');
+      return;
+    }
+    await new Promise(r => setTimeout(r, 2500));
+    try {
+      current = await api('/products/' + pid + '/documents/' + current._id);
+    } catch (e) {
+      showCameraError(e.message);
+      return;
+    }
+    const progress = Math.min(45 + ((Date.now() - started) / maxWait) * 50, 95);
+    fillEl.style.width = progress + '%';
+    statusEl.textContent = 'Running OCR… (' + Math.round((Date.now() - started) / 1000) + 's)';
+  }
+  showCameraError('OCR timed out. You can retry it from the product page.');
+}
+
+async function renderCameraResult(doc) {
+  document.getElementById('camera-progress').style.display = 'none';
+  const data = doc.ocrData || {};
+  const rows = [];
+  if (data.purchasePrice != null) rows.push(['Price', Number(data.purchasePrice).toLocaleString('en-US')]);
+  if (data.serialNumber) rows.push(['Serial number', data.serialNumber]);
+  if (data.warrantyExpiryDate) rows.push(['Warranty expires', fmtDate(data.warrantyExpiryDate)]);
+  if (!rows.length) {
+    showCameraError('No data could be extracted from this image.');
+    return;
+  }
+  document.getElementById('camera-extracted-fields').innerHTML = rows.map(r => detailRow(r[0], r[1])).join('');
+  cameraDoc = doc;
+  document.getElementById('camera-result').style.display = '';
+}
+
+async function applyCameraToProduct() {
+  const doc = cameraDoc;
+  const pid = document.getElementById('camera-product-select').value;
+  if (!doc || !pid || !doc.ocrData) return;
+  const data = doc.ocrData;
+  const payload = {};
+  if (data.purchasePrice != null) payload.purchasePrice = data.purchasePrice;
+  if (data.serialNumber) payload.serialNumber = data.serialNumber;
+  if (data.warrantyExpiryDate) payload.warrantyExpiryDate = data.warrantyExpiryDate;
+  try {
+    await api('/products/' + pid, { method: 'PUT', body: JSON.stringify(payload) });
+    toast('OCR data applied to product', 'success');
+    resetCamera();
+    await Promise.all([loadProducts(), loadDashboard()]);
+    openDetail(pid);
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notifications
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadNotifications() {
+  const list = document.getElementById('notification-list');
+  list.innerHTML = '';
+  list.appendChild(emptyState('🔔', 'Loading…', ''));
+  try {
+    const notifs = await api('/notifications');
+    renderNotifications(Array.isArray(notifs) ? notifs : []);
+  } catch (e) {
+    list.innerHTML = '';
+    list.appendChild(emptyState('⚠️', 'Could not load notifications', e.message));
+  }
+}
+
+function renderNotifications(notifs) {
+  const list = document.getElementById('notification-list');
+  list.innerHTML = '';
+  if (!notifs.length) {
+    list.appendChild(emptyState('🔔', 'No notifications', 'You are all caught up.'));
+    return;
+  }
+  notifs.forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'notification-item' + (n.isRead ? '' : ' unread');
+    el.innerHTML =
+      '<div class="notification-title">' + escapeHtml(n.title || n.notificationType || 'Alert') + '</div>' +
+      (n.message ? '<div class="notification-message">' + escapeHtml(n.message) + '</div>' : '') +
+      '<div class="notification-meta">' + fmtDate(n.createdAt) + '</div>' +
+      '<div class="doc-actions">' +
+        (n.isRead ? '' : '<button class="btn btn-ghost btn-small" onclick="markNotifRead(\'' + n._id + '\')">Mark read</button>') +
+        '<button class="btn btn-danger btn-small" onclick="deleteNotif(\'' + n._id + '\')">Delete</button>' +
+      '</div>';
+    el.onclick = (ev) => {
+      if (ev.target.tagName === 'BUTTON') return;
+      if (!n.isRead) markNotifRead(n._id);
+    };
+    list.appendChild(el);
+  });
+}
+
+async function markNotifRead(id) {
+  try {
+    await api('/notifications/' + id + '/read', { method: 'PUT' });
+    loadNotifications();
+    loadDashboard();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteNotif(id) {
+  try {
+    await api('/notifications/' + id, { method: 'DELETE' });
+    loadNotifications();
+    loadDashboard();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function markAllNotifsRead() {
+  try {
+    await api('/notifications/read-all', { method: 'PUT' });
+    toast('All notifications marked as read', 'success');
+    loadNotifications();
+    loadDashboard();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Repair centres (placeholder — not yet backed by an API)
+// ─────────────────────────────────────────────────────────────────────────────
+function openRepair() {
+  showView('repair');
+  const p = currentProduct;
+  document.getElementById('repair-filter').innerHTML = p
+    ? '<span class="repair-brand-tag">' + escapeHtml(p.brand || p.productName || 'Product') + '</span>'
+    : '';
+  document.getElementById('repair-list').innerHTML =
+    '<div class="repair-card">' +
+      '<div class="repair-card-name">🔧 Authorized service directory</div>' +
+      '<div class="repair-card-city">Coming soon</div>' +
+      '<div class="repair-card-address">A live repair-centre directory is not wired to the API yet. Keep your scanned receipts so you have proof of purchase ready when you visit a centre.</div>' +
+    '</div>';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Event wiring + boot
+// ─────────────────────────────────────────────────────────────────────────────
+function wireEvents() {
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => {
-      switchView(btn.dataset.view);
+      const v = btn.getAttribute('data-view');
+      if (v === 'home') loadDashboard();
+      if (v === 'products') loadProducts();
+      if (v === 'camera') { populateCameraProducts(); resetCamera(); }
+      if (v === 'notifications') loadNotifications();
+      showView(v);
     });
   });
 
-  // ─── Auth helpers ─────────────────────────────────────────────────────────
-  function switchAuthTab(tab) {
-    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
-    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
-    document.getElementById('form-login').style.display = tab === 'login' ? '' : 'none';
-    document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
-    document.getElementById('login-err').textContent = '';
-    document.getElementById('reg-err').textContent = '';
+  document.getElementById('logout-btn').addEventListener('click', logout);
+  document.getElementById('add-product-btn').addEventListener('click', () => openProductForm(null));
+
+  document.getElementById('product-form-close').addEventListener('click', closeProductForm);
+  document.getElementById('pf-cancel-btn').addEventListener('click', closeProductForm);
+  document.getElementById('pf-save-btn').addEventListener('click', saveProductForm);
+
+  const search = document.getElementById('products-search');
+  search.addEventListener('input', () => {
+    clearTimeout(productsSearchTimer);
+    productsSearchTimer = setTimeout(() => searchProducts(search.value), 300);
+  });
+
+  document.getElementById('detail-back-btn').addEventListener('click', closeDetail);
+  document.getElementById('detail-edit-btn').addEventListener('click', () => openProductForm(currentProduct));
+  document.getElementById('detail-delete-btn').addEventListener('click', deleteCurrentProduct);
+  document.getElementById('detail-repair-btn').addEventListener('click', openRepair);
+  document.getElementById('detail-scan-btn').addEventListener('click', () => {
+    const pid = currentProductId;
+    closeDetail();
+    showView('camera');
+    populateCameraProducts(pid);
+    resetCamera();
+  });
+
+  document.getElementById('doc-file-input').addEventListener('change', (e) => {
+    detailDocFile = e.target.files[0] || null;
+    document.getElementById('doc-file-name').textContent = detailDocFile ? detailDocFile.name : 'Choose file…';
+  });
+  document.getElementById('doc-upload-btn').addEventListener('click', uploadDoc);
+
+  document.getElementById('add-service-btn').addEventListener('click', () => toggleServiceForm(true));
+  document.getElementById('svc-cancel-btn').addEventListener('click', () => toggleServiceForm(false));
+  document.getElementById('svc-save-btn').addEventListener('click', saveServiceRecord);
+
+  const cameraArea = document.getElementById('camera-upload-area');
+  const cameraInput = document.getElementById('camera-file-input');
+  cameraArea.addEventListener('click', () => cameraInput.click());
+  cameraInput.addEventListener('change', (e) => handleCameraFile(e.target.files[0] || null));
+  document.getElementById('camera-apply-btn').addEventListener('click', applyCameraToProduct);
+  document.getElementById('camera-retry-btn').addEventListener('click', resetCamera);
+
+  document.getElementById('read-all-btn').addEventListener('click', markAllNotifsRead);
+
+  ['login-email', 'login-password'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+  });
+  ['reg-name', 'reg-email', 'reg-password'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') doRegister(); });
+  });
+}
+
+async function enterApp() {
+  showView('home');
+  await Promise.all([loadDashboard(), loadProducts()]);
+  populateCameraProducts();
+}
+
+function init() {
+  wireEvents();
+  if (getToken()) {
+    enterApp();
+  } else {
+    showView('login');
   }
+}
 
-  function enterApp(name) {
-    // Hide bottom nav login-blocking overlay is gone, show home
-    document.querySelector('.bottom-nav').style.display = '';
-    document.getElementById('greeting-name').textContent = name || 'User';
-    renderHome();
-    switchView('home');
-  }
-
-  function doLogin() {
-    const email = document.getElementById('login-email').value.trim();
-    const pass  = document.getElementById('login-password').value;
-    const err   = document.getElementById('login-err');
-    if (!email || !pass) { err.textContent = 'Please fill in all fields.'; return; }
-
-    // Try API first, fall back to demo mode
-    fetch('/api/v1/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: pass })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        localStorage.setItem('wv_token', data.data.token);
-        enterApp(data.data.user?.name || email.split('@')[0]);
-      } else {
-        err.textContent = data.message || 'Invalid credentials.';
-      }
-    })
-    .catch(() => {
-      // Offline / no DB — demo mode login
-      if (email && pass.length >= 3) {
-        enterApp(email.split('@')[0]);
-      } else {
-        err.textContent = 'Enter a valid email and password.';
-      }
-    });
-  }
-
-  function doRegister() {
-    const name  = document.getElementById('reg-name').value.trim();
-    const email = document.getElementById('reg-email').value.trim();
-    const pass  = document.getElementById('reg-password').value;
-    const err   = document.getElementById('reg-err');
-    if (!name || !email || !pass) { err.textContent = 'Please fill in all fields.'; return; }
-    if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
-
-    fetch('/api/v1/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password: pass })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        localStorage.setItem('wv_token', data.data.token);
-        enterApp(name);
-      } else {
-        err.textContent = data.message || 'Registration failed.';
-      }
-    })
-    .catch(() => {
-      // Offline demo mode
-      enterApp(name);
-    });
-  }
-
-  function doGuest() {
-    enterApp('Aakash');
-  }
-
-  // ─── Initial render ───────────────────────────────────────────────────────
-  // Set up camera upload handler
-  setupCameraUpload();
-  // Hide nav until logged in
-  document.querySelector('.bottom-nav').style.display = 'none';
-  // Show login screen by default (view-login is already .active from HTML)
-  // If already have a token (e.g. returning user), skip login
-  if (localStorage.getItem('wv_token')) {
-    enterApp(localStorage.getItem('wv_username') || 'Aakash');
-  }
+document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>

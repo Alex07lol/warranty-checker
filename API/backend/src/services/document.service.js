@@ -41,7 +41,10 @@ async function uploadDocument(productId, userId, fileData, documentType, notes) 
     documentType,
     fileName: fileData.original_filename || fileData.originalname || fileData.filename || "document",
     fileUrl: fileData.path || fileData.secure_url,
-    publicId: fileData.public_id,
+    // multer-storage-cloudinary v4 only sets { path, size, filename } on
+    // req.file (filename === Cloudinary public_id). Accept both v3 and v4
+    // shapes so uploads don't fail on a missing public_id.
+    publicId: fileData.public_id || fileData.filename,
     fileSize: fileData.bytes || fileData.size || 0,
     mimeType: fileData.mimetype || "application/octet-stream",
     notes

@@ -1,3 +1,6 @@
+const path = require("path");
+const os = require("os");
+const fs = require("fs");
 const { createWorker } = require("tesseract.js");
 const Document = require("../models/Document");
 const { applyOcrToProduct } = require("./product.service");
@@ -67,7 +70,17 @@ let workerPromise = null;
 
 function getWorker() {
   if (!workerPromise) {
-    workerPromise = createWorker("eng");
+    // tesseract.js defaults cachePath to ".", which would drop eng.traineddata
+    // into the repo CWD. Cache it under the user's home instead.
+    const cachePath = path.join(os.homedir(), ".cache", "warrantyvault-ocr");
+    fs.mkdirSync(cachePath, { recursive: true });
+    // 1 = OEM.LSTM_ONLY (neural-net engine, the modern default).
+    workerPromise = createWorker("eng", 1, { cachePath }).catch((error) => {
+      // A failed init (e.g. traineddata download error) must not poison the
+      // singleton forever — reset so the next OCR call can retry.
+      workerPromise = null;
+      throw error;
+    });
   }
   return workerPromise;
 }
