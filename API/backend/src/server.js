@@ -83,7 +83,7 @@ app.get("/api/v1/places/nearby", async (req, res) => {
   }
 
   try {
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&key=${apiKey}&type=${type}&keyword=${keyword}`;
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&key=${apiKey}&type=${type}&keyword=${encodeURIComponent(keyword)}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
