@@ -46,7 +46,7 @@ function parsePrice(text) {
 function parseSerial(text) {
   if (!text) return null;
   const match = text.match(
-    /(?:serial\s*(?:no\.?|number|#)|serial|s\/?n\.?)[\s:]*([A-Z0-9][A-Z0-9-]{3,})/i
+    /(?:serial\s*(?:no\.?|number|#)?|s\/?n\.?)[\s:]*([A-Z0-9][A-Z0-9-]{3,})/i
   );
   return match ? match[1].toUpperCase() : null;
 }
