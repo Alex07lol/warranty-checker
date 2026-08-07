@@ -73,6 +73,34 @@ app.use("/api/v1/products/:productId/service-history", serviceHistoryRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 
+// Google Places API proxy to avoid CORS issues
+app.get("/api/v1/places/nearby", async (req, res) => {
+  const { lat, lng, radius = 10000, type = "electronics_store", keyword = "repair" } = req.query;
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+
+  if (!lat || !lng) {
+    return res.status(400).json({ error: "lat and lng are required" });
+  }
+
+  try {
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&key=${apiKey}&type=${type}&keyword=${keyword}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { "Accept": "application/json" }
+    });
+
+    clearTimeout(timeoutId);
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch from Google Places API", details: error.message });
+  }
+});
+
 app.use(notFound);
 app.use(errorHandler);
 

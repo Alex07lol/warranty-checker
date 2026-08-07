@@ -1915,7 +1915,8 @@ const FALLBACK_CENTRES = [
 // Fetch real repair/electronics shops from Google Places API.
 // Returns an array of centres (possibly empty). Throws if the API is unreachable.
 async function fetchNearbyRepairCentres(lat, lng) {
-  const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=10000&key=${GOOGLE_API_KEY}&type=electronics_store&keyword=repair`;
+  // Route through backend proxy to avoid CORS issues with Google Places API
+  const url = `/api/v1/places/nearby?lat=${lat}&lng=${lng}&radius=10000&type=electronics_store&keyword=repair`;
 
   try {
     const controller = new AbortController();
@@ -1930,12 +1931,12 @@ async function fetchNearbyRepairCentres(lat, lng) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`Google API error: ${response.status}`);
+      throw new Error(`API error: ${response.status}`);
     }
 
     const data = await response.json();
 
-    if (data.status !== 'OK' || !data.results || data.results.length === 0) {
+    if (!data.results || data.results.length === 0) {
       return [];
     }
 
@@ -2153,7 +2154,7 @@ async function openRepair() {
     try {
       realCentres = await fetchNearbyRepairCentres(lat, lng);
     } catch (err) {
-      console.error('Overpass API error:', err);
+      console.error('Google Places API error:', err);
       // Live directory is down — tell the user, then fall back to samples.
       toast('Live repair directory is unavailable right now. Showing sample centres instead.', 'error');
       realCentres = null;
