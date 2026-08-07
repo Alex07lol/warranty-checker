@@ -457,6 +457,30 @@
     .toast.error { background: #c62828; }
     .toast.success { background: #2e7d32; }
 
+    /* Guest mode + login prompt */
+    .guest-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 8px; padding: 4px 11px; border-radius: 20px;
+      background: #fff3e0; border: 1px solid #ffe0b2; color: #b45309;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.2px;
+    }
+    body.guest-mode #logout-btn {
+      width: auto; height: auto; padding: 8px 14px; border-radius: 10px;
+      background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%); color: #fff;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.2px;
+    }
+    .login-prompt {
+      display: none; background: #fff3e0; border: 1px solid #ffe0b2; color: #b45309;
+      border-radius: 12px; padding: 10px 14px; font-size: 13px; font-weight: 500;
+      margin-bottom: 16px; line-height: 1.4;
+    }
+    .login-back-btn {
+      width: 100%; background: none; border: none; margin-top: 14px;
+      color: #666; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif;
+      transition: color 0.15s;
+    }
+    .login-back-btn:hover { color: #111; }
+
     /* Desktop brand (shown only in the top nav on wide screens) */
     .brand-desktop { display: none; }
 
@@ -469,20 +493,35 @@
         position: fixed; top: 0; bottom: auto; left: 0; transform: none; width: 100%;
         height: 60px; border-radius: 0; background: #fff; border-bottom: 1px solid #e5e5e5;
         box-shadow: 0 1px 6px rgba(0,0,0,0.06); backdrop-filter: none; -webkit-backdrop-filter: none;
-        justify-content: flex-end; padding: 0 24px; gap: 4px; z-index: 40;
+        justify-content: flex-end; padding: 0 max(24px, calc((100vw - 1000px) / 2)); gap: 4px; z-index: 40;
       }
       .nav-item { flex-direction: row; gap: 8px; padding: 8px 14px; border-radius: 10px; color: #6b6b6b; }
       .nav-item:hover { background: #f2f2f2; }
       .nav-item.active { color: #111; background: #f2f2f2; }
       .nav-item.active .nav-label::after { display: none; }
       .view { padding-top: 60px; }
+      /* Align each view's header with the centered content column below it */
+      .home-header { max-width: 1000px; margin: 0 auto; width: 100%; padding: 28px 24px 0; }
       .view-scroll { max-width: 1000px; margin: 0 auto; width: 100%; padding: 28px 24px 64px; }
+      /* Keep the detail sheet readable on wide screens */
+      .detail-body { max-width: 720px; margin: 0 auto; width: 100%; }
 
       #attention-list, #recent-list, #products-list, #notification-list {
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px;
+        display: flex; flex-wrap: wrap; justify-content: center; gap: 14px;
       }
-      #attention-list .product-card, #recent-list .product-card, #products-list .product-card { margin-bottom: 0; }
-      #attention-list .all-good, #recent-list .all-good, #products-list .all-good { grid-column: 1 / -1; }
+      #attention-list > .product-card,
+      #recent-list > .product-card,
+      #products-list > .product-card,
+      #notification-list > .notification-item {
+        flex: 1 1 300px; min-width: 300px; max-width: 340px; margin-bottom: 0;
+      }
+      #attention-list > .empty-state,
+      #recent-list > .empty-state,
+      #products-list > .empty-state,
+      #notification-list > .empty-state {
+        flex: 1 1 100%; max-width: 100%;
+      }
+      #attention-list .all-good, #recent-list .all-good, #products-list .all-good { flex-basis: 100%; max-width: 100%; }
 
       .stat-grid { grid-template-columns: repeat(4, 1fr); }
       .form-overlay { align-items: center; }
@@ -498,11 +537,12 @@
   <div class="screen">
 
     <!-- ======================== LOGIN VIEW ======================== -->
-    <div class="view active" id="view-login">
+    <div class="view" id="view-login">
       <div class="login-screen">
         <div class="login-logo">🔒</div>
         <div class="login-title">WarrantyVault</div>
         <div class="login-sub">Your digital ownership companion</div>
+        <div class="login-prompt" id="login-prompt-msg"></div>
 
         <div class="login-tab-row">
           <button class="login-tab active" id="tab-login" onclick="switchAuthTab('login')">Sign In</button>
@@ -538,15 +578,18 @@
           <button class="login-btn" onclick="doRegister()">Create Account</button>
           <div class="login-err" id="reg-err"></div>
         </div>
+
+        <button class="login-back-btn" id="login-back-btn">← Continue browsing as guest</button>
       </div>
     </div>
 
     <!-- ======================== HOME / DASHBOARD ======================== -->
-    <div class="view" id="view-home">
+    <div class="view active" id="view-home">
       <div class="home-header">
         <div>
           <div class="greeting" id="home-greeting">Welcome back,</div>
           <div class="greeting-name" id="greeting-name">there</div>
+          <span class="guest-badge" id="guest-badge" style="display:none;">👤 Guest Mode</span>
         </div>
         <button class="icon-btn" id="logout-btn" title="Log out" style="margin-top:6px;">⎋</button>
       </div>
@@ -710,13 +753,13 @@
           </button>
         </div>
 
-        <div style="display:flex;gap:10px;margin-top:12px;">
+        <div style="display:flex;gap:10px;margin-top:12px;" id="detail-edit-row">
           <button class="btn btn-ghost btn-small" id="detail-edit-btn" style="flex:1;">✏️ Edit Product</button>
           <button class="btn btn-danger btn-small" id="detail-delete-btn" style="flex:1;">🗑 Delete</button>
         </div>
 
         <div class="detail-section-title">Documents</div>
-        <div class="upload-row">
+        <div class="upload-row" id="detail-doc-upload-row">
           <label class="file-label" id="doc-file-label">
             📎 <span id="doc-file-name">Choose file…</span>
             <input type="file" id="doc-file-input" accept="image/*,.pdf" />
@@ -886,10 +929,15 @@ async function api(path, opts = {}) {
   try { json = await res.json(); } catch { /* empty body */ }
 
   if (res.status === 401) {
+    const hadToken = !!getToken();
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
-    showView('login');
-    throw new Error(json.message || 'Session expired — please log in again');
+    if (hadToken) {
+      openLogin('Session expired — please sign in again.');
+      throw new Error(json.message || 'Session expired — please log in again');
+    }
+    // No token (guest): caller should fall back to demo/local data.
+    throw new Error(json.message || 'Authentication required — please sign in');
   }
   if (!res.ok || json.success === false) {
     const err = (json.errors && json.errors[0] && (json.errors[0].message || json.errors[0]))
@@ -977,6 +1025,121 @@ function emptyState(icon, title, sub) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Guest mode: browse without an account, read-only
+// ─────────────────────────────────────────────────────────────────────────────
+function isGuest() { return !getToken(); }
+
+function openLogin(promptMsg) {
+  const el = document.getElementById('login-prompt-msg');
+  if (promptMsg) { el.textContent = promptMsg; el.style.display = ''; }
+  else { el.textContent = ''; el.style.display = 'none'; }
+  showView('login');
+}
+
+// Gate write operations behind authentication. Returns true when allowed.
+function requireAuth(actionLabel) {
+  if (!isGuest()) return true;
+  openLogin('Sign in to ' + (actionLabel || 'continue') + ' — guest browsing is read-only.');
+  return false;
+}
+
+// Flip the UI between guest (read-only) and signed-in states.
+function applyGuestMode() {
+  const guest = isGuest();
+  document.body.classList.toggle('guest-mode', guest);
+
+  const badge = document.getElementById('guest-badge');
+  if (badge) badge.style.display = guest ? '' : 'none';
+
+  const logoutBtn = document.getElementById('logout-btn');
+  if (guest) {
+    logoutBtn.textContent = 'Sign In';
+    logoutBtn.title = 'Sign in to save your data';
+  } else {
+    logoutBtn.textContent = '⎋';
+    logoutBtn.title = 'Log out';
+  }
+
+  // Greeting reflects guest state until the dashboard loads
+  if (guest) document.getElementById('greeting-name').textContent = 'Guest';
+
+  // Hide login-only actions in guest mode
+  document.getElementById('nav-camera').style.display = guest ? 'none' : '';
+  document.getElementById('read-all-btn').style.display = guest ? 'none' : '';
+  document.getElementById('detail-edit-row').style.display = guest ? 'none' : '';
+  document.getElementById('detail-scan-btn').style.display = guest ? 'none' : '';
+  document.getElementById('detail-doc-upload-row').style.display = guest ? 'none' : '';
+  document.getElementById('add-service-btn').style.display = guest ? 'none' : '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Guest mode demo data (shown when not authenticated)
+// ─────────────────────────────────────────────────────────────────────────────
+function daysFromNow(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+const DEMO_PRODUCTS = [
+  {
+    _id: 'demo-1',
+    productName: 'Dell XPS 15 Laptop',
+    brand: 'Dell', model: 'XPS 15 9530', category: 'Laptop',
+    serialNumber: 'XPS15-7G2K9', purchaseDate: '2023-11-02',
+    purchasePrice: 2099, currency: 'USD', purchaseStore: 'Best Buy',
+    warrantyPeriodMonths: 12, warrantyExpiryDate: daysFromNow(-35),
+    notes: 'Primary work machine — extended support plan.'
+  },
+  {
+    _id: 'demo-2',
+    productName: 'Samsung Galaxy S23',
+    brand: 'Samsung', model: 'SM-S911', category: 'Smartphone',
+    serialNumber: 'S23-84KD2', purchaseDate: '2024-01-15',
+    purchasePrice: 899, currency: 'USD', purchaseStore: 'Amazon',
+    warrantyPeriodMonths: 24, warrantyExpiryDate: daysFromNow(4),
+    notes: 'Screen replaced once.'
+  },
+  {
+    _id: 'demo-3',
+    productName: 'LG 4K OLED TV',
+    brand: 'LG', model: 'OLED65C3', category: 'Television',
+    serialNumber: 'LG65-29FL7', purchaseDate: '2024-03-20',
+    purchasePrice: 1799, currency: 'USD', purchaseStore: 'Best Buy',
+    warrantyPeriodMonths: 12, warrantyExpiryDate: daysFromNow(12),
+    notes: ''
+  },
+  {
+    _id: 'demo-4',
+    productName: 'Sony WH-1000XM5 Headphones',
+    brand: 'Sony', model: 'WH-1000XM5', category: 'Audio',
+    serialNumber: 'XM5-5510Q', purchaseDate: '2025-02-10',
+    purchasePrice: 399, currency: 'USD', purchaseStore: 'Sony Store',
+    warrantyPeriodMonths: 12, warrantyExpiryDate: daysFromNow(190),
+    notes: 'So far so good.'
+  },
+  {
+    _id: 'demo-5',
+    productName: 'Canon EOS R50 Camera',
+    brand: 'Canon', model: 'EOS R50', category: 'Camera',
+    serialNumber: 'R50-9CB72', purchaseDate: '2025-06-01',
+    purchasePrice: 749, currency: 'USD', purchaseStore: 'B&H Photo',
+    warrantyPeriodMonths: 12, warrantyExpiryDate: daysFromNow(300),
+    notes: ''
+  }
+];
+
+const DEMO_NOTIFICATIONS = [
+  { _id: 'demo-n1', title: 'Warranty expiring soon', message: 'Samsung Galaxy S23 warranty expires in 4 days.', isRead: false, createdAt: daysFromNow(0) },
+  { _id: 'demo-n2', title: 'Warranty expired', message: 'The warranty on your Dell XPS 15 Laptop has expired.', isRead: false, createdAt: daysFromNow(-2) },
+  { _id: 'demo-n3', title: 'Welcome to WarrantyVault', message: 'This is guest mode — sign in to save products, receipts and service records.', isRead: true, createdAt: daysFromNow(-7) }
+];
+
+function demoProducts() { return DEMO_PRODUCTS.slice(); }
+function demoNotifications() { return DEMO_NOTIFICATIONS.slice(); }
+function demoUnreadCount() { return DEMO_NOTIFICATIONS.filter(n => !n.isRead).length; }
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Auth
 // ─────────────────────────────────────────────────────────────────────────────
 function switchAuthTab(tab) {
@@ -1029,11 +1192,11 @@ async function doRegister() {
 }
 
 function logout() {
-  if (!getToken()) { showView('login'); return; }
-  api('/auth/logout', { method: 'POST' }).catch(() => {});
+  if (getToken()) api('/auth/logout', { method: 'POST' }).catch(() => {});
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
-  showView('login');
+  toast('Signed out — now browsing as guest', 'success');
+  enterApp();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1054,7 +1217,7 @@ function showView(target) {
 // ─────────────────────────────────────────────────────────────────────────────
 async function loadDashboard() {
   const user = getUser();
-  document.getElementById('greeting-name').textContent = (user && user.name) || 'there';
+  document.getElementById('greeting-name').textContent = (user && user.name) || 'Guest';
   const hour = new Date().getHours();
   document.getElementById('home-greeting').textContent =
     hour < 12 ? 'Good morning,' : hour < 17 ? 'Good afternoon,' : 'Good evening,';
@@ -1063,6 +1226,36 @@ async function loadDashboard() {
   const recent = document.getElementById('recent-list');
   list.innerHTML = '';
   recent.innerHTML = '';
+
+  if (isGuest()) {
+    // Guest mode: render demo/local data instead of the API.
+    const products = demoProducts();
+    const expiringSoon = products
+      .map(p => ({ p, info: warrantyInfo(p) }))
+      .filter(x => x.info.days > 0 && x.info.days <= 30)
+      .sort((a, b) => a.info.days - b.info.days)
+      .map(x => x.p);
+    const recentProducts = products.slice().reverse();
+
+    document.getElementById('stat-products').textContent = products.length;
+    document.getElementById('stat-expiring').textContent = expiringSoon.length;
+    document.getElementById('stat-documents').textContent = 0;
+    document.getElementById('stat-unread').textContent = demoUnreadCount();
+    updateNavBadge(demoUnreadCount());
+
+    if (expiringSoon.length) {
+      expiringSoon.forEach(p => list.appendChild(makeProductCard(p)));
+    } else {
+      list.appendChild(emptyState('✅', 'All warranties in good standing', 'Nothing expiring in the next 30 days.'));
+    }
+
+    if (recentProducts.length) {
+      recentProducts.forEach(p => recent.appendChild(makeProductCard(p)));
+    } else {
+      recent.appendChild(emptyState('📦', 'No products yet', 'Sign in to add your first product.'));
+    }
+    return;
+  }
 
   try {
     const d = await api('/dashboard');
@@ -1106,6 +1299,11 @@ async function loadProducts() {
   const list = document.getElementById('products-list');
   list.innerHTML = '';
   list.appendChild(emptyState('📦', 'Loading…', ''));
+  if (isGuest()) {
+    productsCache = demoProducts();
+    renderProducts(productsCache);
+    return;
+  }
   try {
     const data = await api('/products?limit=100');
     productsCache = data.products || [];
@@ -1129,6 +1327,14 @@ function renderProducts(items) {
 async function searchProducts(q) {
   const list = document.getElementById('products-list');
   if (!q.trim()) { renderProducts(productsCache); return; }
+  if (isGuest()) {
+    const term = q.trim().toLowerCase();
+    const filtered = productsCache.filter(p =>
+      (p.productName + ' ' + (p.brand || '') + ' ' + (p.model || '') + ' ' + (p.category || '')).toLowerCase().includes(term)
+    );
+    renderProducts(filtered);
+    return;
+  }
   try {
     const data = await api('/products/search?q=' + encodeURIComponent(q.trim()));
     renderProducts(Array.isArray(data) ? data : []);
@@ -1141,6 +1347,7 @@ async function searchProducts(q) {
 let editingProductId = null;
 
 function openProductForm(product) {
+  if (!requireAuth('add or edit a product')) return;
   editingProductId = product ? product._id : null;
   document.getElementById('product-form-title').textContent = product ? 'Edit Product' : 'Add Product';
   document.getElementById('pf-name').value = product ? product.productName || '' : '';
@@ -1165,6 +1372,7 @@ function closeProductForm() {
 }
 
 async function saveProductForm() {
+  if (!requireAuth('save this product')) return;
   const errEl = document.getElementById('pf-err');
   errEl.textContent = '';
   const name = document.getElementById('pf-name').value.trim();
@@ -1206,6 +1414,7 @@ async function saveProductForm() {
 }
 
 async function deleteCurrentProduct() {
+  if (!requireAuth('delete this product')) return;
   if (!currentProductId) return;
   if (!window.confirm('Delete this product? This can be restored later but hides it everywhere.')) return;
   try {
@@ -1236,6 +1445,16 @@ function closeDetail() {
 
 async function openDetail(id) {
   currentProductId = id;
+  if (isGuest()) {
+    const p = demoProducts().find(x => x._id === id);
+    if (!p) { toast('Product not found', 'error'); return; }
+    currentProduct = p;
+    renderDetailHeader(p);
+    renderDetailSpecs(p);
+    document.getElementById('detail-overlay').classList.add('open');
+    await Promise.all([loadDetailDocs(), loadServiceHistory()]);
+    return;
+  }
   try {
     const p = await api('/products/' + id);
     currentProduct = p;
@@ -1287,6 +1506,11 @@ async function loadDetailDocs() {
   const box = document.getElementById('detail-docs');
   box.innerHTML = '';
   box.appendChild(emptyState('📄', 'Loading documents…', ''));
+  if (isGuest()) {
+    box.innerHTML = '';
+    box.appendChild(emptyState('📄', 'No documents yet', 'Sign in to upload receipts, warranty cards and manuals.'));
+    return;
+  }
   try {
     const data = await api('/products/' + currentProductId + '/documents');
     renderDetailDocs(data.documents || []);
@@ -1346,6 +1570,7 @@ function resetDocFile() {
 }
 
 async function uploadDoc() {
+  if (!requireAuth('upload a document')) return;
   if (!detailDocFile) { toast('Choose a file first', 'error'); return; }
   const type = document.getElementById('doc-type-select').value;
   const btn = document.getElementById('doc-upload-btn');
@@ -1367,6 +1592,7 @@ async function uploadDoc() {
 }
 
 async function retryDocOcr(docId) {
+  if (!requireAuth('retry OCR')) return;
   try {
     await api('/products/' + currentProductId + '/documents/' + docId + '/ocr', { method: 'POST' });
     toast('OCR started — takes ~10 seconds', 'success');
@@ -1377,6 +1603,7 @@ async function retryDocOcr(docId) {
 }
 
 async function deleteDoc(docId) {
+  if (!requireAuth('delete a document')) return;
   if (!window.confirm('Delete this document?')) return;
   try {
     await api('/products/' + currentProductId + '/documents/' + docId, { method: 'DELETE' });
@@ -1391,6 +1618,10 @@ async function deleteDoc(docId) {
 async function loadServiceHistory() {
   const box = document.getElementById('service-list');
   box.innerHTML = '';
+  if (isGuest()) {
+    box.appendChild(emptyState('🛠️', 'No service records', 'Sign in to add repairs and maintenance history.'));
+    return;
+  }
   try {
     const records = await api('/products/' + currentProductId + '/service-history');
     if (!records || !records.length) {
@@ -1428,6 +1659,7 @@ function toggleServiceForm(show) {
 }
 
 async function saveServiceRecord() {
+  if (!requireAuth('add a service record')) return;
   const payload = {
     serviceDate: document.getElementById('svc-date').value || undefined,
     serviceType: document.getElementById('svc-type').value,
@@ -1489,6 +1721,7 @@ function showCameraError(msg) {
 }
 
 async function handleCameraFile(file) {
+  if (!requireAuth('scan a receipt')) return;
   const pid = document.getElementById('camera-product-select').value;
   if (!pid) { toast('Please add a product first', 'error'); return; }
   if (!file || !file.type || !file.type.startsWith('image/')) {
@@ -1563,6 +1796,7 @@ async function renderCameraResult(doc) {
 }
 
 async function applyCameraToProduct() {
+  if (!requireAuth('apply OCR data')) return;
   const doc = cameraDoc;
   const pid = document.getElementById('camera-product-select').value;
   if (!doc || !pid || !doc.ocrData) return;
@@ -1589,6 +1823,10 @@ async function loadNotifications() {
   const list = document.getElementById('notification-list');
   list.innerHTML = '';
   list.appendChild(emptyState('🔔', 'Loading…', ''));
+  if (isGuest()) {
+    renderNotifications(demoNotifications());
+    return;
+  }
   try {
     const notifs = await api('/notifications');
     renderNotifications(Array.isArray(notifs) ? notifs : []);
@@ -1608,23 +1846,28 @@ function renderNotifications(notifs) {
   notifs.forEach(n => {
     const el = document.createElement('div');
     el.className = 'notification-item' + (n.isRead ? '' : ' unread');
+    let actions = '';
+    if (!isGuest()) {
+      actions = '<div class="doc-actions">' +
+        (n.isRead ? '' : '<button class="btn btn-ghost btn-small" onclick="markNotifRead(\'' + n._id + '\')">Mark read</button>') +
+        '<button class="btn btn-danger btn-small" onclick="deleteNotif(\'' + n._id + '\')">Delete</button>' +
+      '</div>';
+    }
     el.innerHTML =
       '<div class="notification-title">' + escapeHtml(n.title || n.notificationType || 'Alert') + '</div>' +
       (n.message ? '<div class="notification-message">' + escapeHtml(n.message) + '</div>' : '') +
       '<div class="notification-meta">' + fmtDate(n.createdAt) + '</div>' +
-      '<div class="doc-actions">' +
-        (n.isRead ? '' : '<button class="btn btn-ghost btn-small" onclick="markNotifRead(\'' + n._id + '\')">Mark read</button>') +
-        '<button class="btn btn-danger btn-small" onclick="deleteNotif(\'' + n._id + '\')">Delete</button>' +
-      '</div>';
+      actions;
     el.onclick = (ev) => {
       if (ev.target.tagName === 'BUTTON') return;
-      if (!n.isRead) markNotifRead(n._id);
+      if (!n.isRead && !isGuest()) markNotifRead(n._id);
     };
     list.appendChild(el);
   });
 }
 
 async function markNotifRead(id) {
+  if (!requireAuth('mark notifications as read')) return;
   try {
     await api('/notifications/' + id + '/read', { method: 'PUT' });
     loadNotifications();
@@ -1633,6 +1876,7 @@ async function markNotifRead(id) {
 }
 
 async function deleteNotif(id) {
+  if (!requireAuth('delete a notification')) return;
   try {
     await api('/notifications/' + id, { method: 'DELETE' });
     loadNotifications();
@@ -1641,6 +1885,7 @@ async function deleteNotif(id) {
 }
 
 async function markAllNotifsRead() {
+  if (!requireAuth('mark all notifications as read')) return;
   try {
     await api('/notifications/read-all', { method: 'PUT' });
     toast('All notifications marked as read', 'success');
@@ -1865,8 +2110,15 @@ function wireEvents() {
     });
   });
 
-  document.getElementById('logout-btn').addEventListener('click', logout);
-  document.getElementById('add-product-btn').addEventListener('click', () => openProductForm(null));
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    if (isGuest()) { openLogin(''); }
+    else logout();
+  });
+  document.getElementById('login-back-btn').addEventListener('click', () => enterApp());
+  document.getElementById('add-product-btn').addEventListener('click', () => {
+    if (!requireAuth('add a product')) return;
+    openProductForm(null);
+  });
 
   document.getElementById('product-form-close').addEventListener('click', closeProductForm);
   document.getElementById('pf-cancel-btn').addEventListener('click', closeProductForm);
@@ -1918,6 +2170,7 @@ function wireEvents() {
 }
 
 async function enterApp() {
+  applyGuestMode();
   showView('home');
   await Promise.all([loadDashboard(), loadProducts()]);
   populateCameraProducts();
@@ -1925,11 +2178,8 @@ async function enterApp() {
 
 function init() {
   wireEvents();
-  if (getToken()) {
-    enterApp();
-  } else {
-    showView('login');
-  }
+  applyGuestMode();
+  enterApp();
 }
 
 document.addEventListener('DOMContentLoaded', init);
