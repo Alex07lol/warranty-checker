@@ -2155,20 +2155,13 @@ async function openRepair() {
       realCentres = await fetchNearbyRepairCentres(lat, lng);
     } catch (err) {
       console.error('Google Places API error:', err);
-      // Live directory is down — tell the user, then fall back to samples.
-      toast('Live repair directory is unavailable right now. Showing sample centres instead.', 'error');
-      realCentres = null;
+      toast('Live repair directory is unavailable right now.', 'error');
     }
 
     if (realCentres && realCentres.length > 0) {
       renderRepairCentres(lat, lng, true, realCentres);
-    } else if (realCentres) {
-      // API answered but found no shops nearby — show the empty state
-      // instead of far-away sample data.
-      renderRepairCentres(lat, lng, true, []);
     } else {
-      // API unavailable — sample directory fallback.
-      renderRepairCentres(lat, lng, true, null);
+      renderRepairCentres(lat, lng, true, []);
     }
   } catch (err) {
     showRepairCoords('error', geoErrorMessage(err));
