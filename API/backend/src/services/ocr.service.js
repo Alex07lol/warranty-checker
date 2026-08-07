@@ -11,10 +11,10 @@ const OCR_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 function parseDate(text) {
   if (!text) return null;
   const keywordPattern =
-    /(expiry|expiration|expires|valid thru|valid through|warranty|good until|exp)\D{0,20}(\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4})/i;
+    /(expiry|expiration|expires|valid thru|valid through|warranty|good until|exp)\D{0,20}(\d{1,2}[/\-.\d]{1,3})/i;
   const match = text.match(keywordPattern);
   const candidate = match ? match[2] : null;
-  const fallback = (text.match(/(\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4})/) || [])[1];
+  const fallback = (text.match(/(\d{1,2}[/\-.\d]{1,3})/) || [])[1];
   const raw = candidate || fallback;
   if (!raw) return null;
   const date = new Date(raw);
