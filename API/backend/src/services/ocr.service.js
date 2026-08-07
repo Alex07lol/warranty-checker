@@ -45,10 +45,12 @@ function parsePrice(text) {
 
 function parseSerial(text) {
   if (!text) return null;
-  const match = text.match(
-    /(?:serial\s*(?:no\.?|number|#)?|s\/?n\.?)[\s:]*([A-Z0-9][A-Z0-9-]{3,})/i
-  );
-  return match ? match[1].toUpperCase() : null;
+  const SERIAL = /[A-Z0-9][A-Z0-9-]{3,}/i;
+  const SN = /s\/?n\.?|serial/i;
+  const m = SN.exec(text);
+  if (!m) return null;
+  const serialMatch = SERIAL.exec(text.slice(m.index + m[0].length));
+  return serialMatch ? serialMatch[0].toUpperCase() : null;
 }
 
 function parseDocumentText(text) {
