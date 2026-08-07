@@ -608,7 +608,7 @@
       padding: 8px 10px; border-radius: 20px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       border: none; background: none; color: rgba(255,255,255,0.5); flex: 1;
     }
-    .nav-item:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85); }
+    .nav-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
     .nav-item.active { color: #fff; background: rgba(255,255,255,0.14); box-shadow: 0 2px 12px rgba(255,255,255,0.08) inset; }
     .nav-item svg { width: 22px; height: 22px; transition: transform 0.2s ease; }
     .nav-item:hover svg { transform: scale(1.1); }
@@ -978,7 +978,7 @@
               <input type="date" id="svc-date" />
             </div>
             <div class="form-field">
-              <label for="svc-type">Type</label>
+              <label for="svc-type" id="svc-type-label">Type</label>
               <select id="svc-type">
                 <option value="repair">Repair</option>
                 <option value="maintenance">Maintenance</option>
