@@ -971,11 +971,11 @@
         <div id="service-form" style="display:none;">
           <div class="form-grid">
             <div class="form-field">
-              <label>Date</label>
+              <label for="svc-date">Date</label>
               <input type="date" id="svc-date" />
             </div>
             <div class="form-field">
-              <label>Type</label>
+              <label for="svc-type">Type</label>
               <select id="svc-type">
                 <option value="repair">Repair</option>
                 <option value="maintenance">Maintenance</option>
@@ -985,11 +985,11 @@
               </select>
             </div>
           </div>
-          <div class="form-field"><label>Provider</label><input type="text" id="svc-provider" placeholder="Service center name" /></div>
-          <div class="form-field"><label>Description</label><input type="text" id="svc-desc" placeholder="What was done?" /></div>
+          <div class="form-field"><label for="svc-provider">Provider</label><input type="text" id="svc-provider" placeholder="Service center name" /></div>
+          <div class="form-field"><label for="svc-desc">Description</label><input type="text" id="svc-desc" placeholder="What was done?" /></div>
           <div class="form-grid">
-            <div class="form-field"><label>Cost</label><input type="number" id="svc-cost" min="0" placeholder="0" /></div>
-            <div class="form-field"><label>Next service</label><input type="date" id="svc-next" /></div>
+            <div class="form-field"><label for="svc-cost">Cost</label><input type="number" id="svc-cost" min="0" placeholder="0" /></div>
+            <div class="form-field"><label for="svc-next">Next service</label><input type="date" id="svc-next" /></div>
           </div>
           <div class="form-actions">
             <button class="btn btn-primary" id="svc-save-btn">Save record</button>
@@ -1009,30 +1009,30 @@
         </div>
 
         <div class="form-field">
-          <label>Product name *</label>
+          <label for="pf-name">Product name *</label>
           <input type="text" id="pf-name" placeholder="e.g. Dell Monitor X27" />
         </div>
         <div class="form-grid">
-          <div class="form-field"><label>Brand</label><input type="text" id="pf-brand" placeholder="Dell" /></div>
-          <div class="form-field"><label>Model</label><input type="text" id="pf-model" placeholder="X27" /></div>
+          <div class="form-field"><label for="pf-brand">Brand</label><input type="text" id="pf-brand" placeholder="Dell" /></div>
+          <div class="form-field"><label for="pf-model">Model</label><input type="text" id="pf-model" placeholder="X27" /></div>
         </div>
         <div class="form-grid">
-          <div class="form-field"><label>Category</label><input type="text" id="pf-category" placeholder="Electronics" /></div>
-          <div class="form-field"><label>Serial number</label><input type="text" id="pf-serial" placeholder="ABC123" /></div>
+          <div class="form-field"><label for="pf-category">Category</label><input type="text" id="pf-category" placeholder="Electronics" /></div>
+          <div class="form-field"><label for="pf-serial">Serial number</label><input type="text" id="pf-serial" placeholder="ABC123" /></div>
         </div>
         <div class="form-grid">
-          <div class="form-field"><label>Purchase date</label><input type="date" id="pf-purchase-date" /></div>
-          <div class="form-field"><label>Price</label><input type="number" id="pf-price" min="0" placeholder="0" /></div>
+          <div class="form-field"><label for="pf-purchase-date">Purchase date</label><input type="date" id="pf-purchase-date" /></div>
+          <div class="form-field"><label for="pf-price">Price</label><input type="number" id="pf-price" min="0" placeholder="0" /></div>
         </div>
         <div class="form-grid">
-          <div class="form-field"><label>Currency</label><input type="text" id="pf-currency" placeholder="USD" /></div>
-          <div class="form-field"><label>Store</label><input type="text" id="pf-store" placeholder="Retailer" /></div>
+          <div class="form-field"><label for="pf-currency">Currency</label><input type="text" id="pf-currency" placeholder="USD" /></div>
+          <div class="form-field"><label for="pf-store">Store</label><input type="text" id="pf-store" placeholder="Retailer" /></div>
         </div>
         <div class="form-grid">
-          <div class="form-field"><label>Warranty period (months)</label><input type="number" id="pf-warranty-months" min="1" placeholder="12" /></div>
-          <div class="form-field"><label>Warranty expiry date</label><input type="date" id="pf-expiry" /></div>
+          <div class="form-field"><label for="pf-warranty-months">Warranty period (months)</label><input type="number" id="pf-warranty-months" min="1" placeholder="12" /></div>
+          <div class="form-field"><label for="pf-expiry">Warranty expiry date</label><input type="date" id="pf-expiry" /></div>
         </div>
-        <div class="form-field"><label>Notes</label><textarea id="pf-notes" rows="2" placeholder="Optional notes"></textarea></div>
+        <div class="form-field"><label for="pf-notes">Notes</label><textarea id="pf-notes" rows="2" placeholder="Optional notes"></textarea></div>
 
         <div class="form-actions">
           <button class="btn btn-primary" id="pf-save-btn">Save Product</button>

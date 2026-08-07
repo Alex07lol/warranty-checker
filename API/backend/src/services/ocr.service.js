@@ -1,6 +1,6 @@
-const path = require("path");
-const os = require("os");
-const fs = require("fs");
+const path = require("node:path");
+const os = require("node:os");
+const fs = require("node:fs");
 const { createWorker } = require("tesseract.js");
 const Document = require("../models/Document");
 const { applyOcrToProduct } = require("./product.service");
