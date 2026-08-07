@@ -1908,10 +1908,92 @@ const FALLBACK_CENTRES = [
   { name: 'QuickFix Rohini', city: 'New Delhi', address: 'Sector 7, Rohini, New Delhi 110085', phone: '+91 11 5678 9012', rating: 4.1, lat: 28.7044, lng: 77.1025 }
 ];
 
-// Fetch real repair/electronics shops from OpenStreetMap Overpass API
+// Public Overpass API mirrors, tried in order. We rotate through them to dodge
+// rate limits, IP blocks (some instances return HTTP 406 / HTML pages to
+// browser clients), timeouts and 5xx outages. All send
+// `Access-Control-Allow-Origin: *`, so CORS is not the blocker here.
+// Note: overpass.osm.ch only serves its own country's data — an empty answer
+// from it is treated as a soft miss and we simply try the next mirror.
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter'
+];
+const OVERPASS_TIMEOUT_MS = 10000; // 10s max per request
+
+// fetch() with an AbortController-based timeout. Throws AbortError on timeout.
+// Accept: application/json nudges Overpass into serving JSON instead of HTML.
+function fetchWithTimeout(url, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } })
+    .finally(() => clearTimeout(timer));
+}
+
+// Run a query against `attempts` Overpass mirrors (one request per attempt,
+// rotating through OVERPASS_ENDPOINTS). Returns { data, empty, error }:
+//   data  - parsed JSON body when a mirror returned elements (non-empty)
+//   empty - true when mirrors answered 200 JSON but found zero elements
+//           (could be a region-limited or stale snapshot — keep trying)
+//   error - last failure reason when every mirror hard-failed
+async function queryOverpass(query, attempts) {
+  let lastError = null;
+  let sawEmpty = false;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const endpoint = OVERPASS_ENDPOINTS[(attempt - 1) % OVERPASS_ENDPOINTS.length];
+    const url = endpoint + '?data=' + encodeURIComponent(query);
+    try {
+      const res = await fetchWithTimeout(url, OVERPASS_TIMEOUT_MS);
+
+      // Non-2xx — typically HTTP 429 (rate-limited) or 5xx. Body is usually HTML.
+      if (!res.ok) {
+        throw new Error('HTTP ' + res.status + ' from ' + endpoint);
+      }
+
+      // Overpass answers rate-limit / downtime pages with HTTP 200 + HTML.
+      // Detect that instead of blindly JSON.parse-ing an HTML page.
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.toLowerCase().includes('json')) {
+        throw new Error('non-JSON response (rate-limited or service page) from ' + endpoint);
+      }
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (e) {
+        throw new Error('invalid JSON from ' + endpoint);
+      }
+
+      // Overpass can return HTTP 200 with { "remark": "runtime error: ..." }.
+      if (data && typeof data.remark === 'string') {
+        throw new Error('runtime error: ' + data.remark);
+      }
+
+      const elements = (data && Array.isArray(data.elements)) ? data.elements : [];
+      if (elements.length > 0) return { data: data, empty: false, error: null };
+
+      // Mirror answered but found nothing. Could be a region-limited or stale
+      // snapshot — record it and try the next mirror before giving up.
+      sawEmpty = true;
+      lastError = new Error('no results from ' + endpoint);
+    } catch (err) {
+      lastError = (err && err.name === 'AbortError')
+        ? new Error('request timed out after ' + (OVERPASS_TIMEOUT_MS / 1000) + 's')
+        : err;
+    }
+    // Brief backoff before the retry attempt.
+    await new Promise(r => setTimeout(r, 500));
+  }
+  return { data: null, empty: sawEmpty, error: lastError };
+}
+
+// Fetch real repair/electronics shops from OpenStreetMap Overpass API.
+// Returns an array of centres (possibly empty). Throws if every mirror is
+// unreachable — the caller decides how to surface that to the user.
 async function fetchNearbyRepairCentres(lat, lng) {
-  // Overpass API: search within 15km radius for electronics repair shops globally
-  const query = `[out:json][timeout:15];
+  // Search within 15km for electronics repair shops. The server-side timeout
+  // (8s) stays below the 10s client timeout so the mirror gives up first.
+  const query = `[out:json][timeout:8];
     (
       node["shop"="electronics_repair"](around:15000,${lat},${lng});
       node["shop"="electronics"](around:15000,${lat},${lng});
@@ -1922,27 +2004,29 @@ async function fetchNearbyRepairCentres(lat, lng) {
     );
     out body 30;`;
 
-  try {
-    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-    const res = await fetch(url);
-    const data = await res.json();
+  // Try each mirror once (at minimum: try once, retry once on failure).
+  const result = await queryOverpass(query, OVERPASS_ENDPOINTS.length);
 
-    if (!data.elements || data.elements.length === 0) return null;
-
-    return data.elements.map(el => ({
-      name: el.tags.name || el.tags.brand || 'Local repair shop',
-      city: el.tags['addr:city'] || el.tags['addr:suburb'] || el.tags['addr:state'] || '',
-      address: [el.tags['addr:housenumber'], el.tags['addr:street'], el.tags['addr:city'], el.tags['addr:country']].filter(Boolean).join(', ') || 'Address not available',
-      phone: el.tags.phone || el.tags['contact:phone'] || '',
-      rating: el.tags.rating ? parseFloat(el.tags.rating) : (3.5 + Math.random()).toFixed(1),
-      lat: el.lat,
-      lng: el.lon,
-      shopType: el.tags.shop || el.tags.craft || el.tags.amenity || ''
-    }));
-  } catch (err) {
-    console.error('Overpass API error:', err);
-    return null;
+  if (!result.data) {
+    // Every mirror hard-failed (rate limit / timeout / outage) — signal the
+    // caller so it can tell the user and fall back to sample data.
+    if (!result.empty) {
+      throw new Error('Overpass API unavailable (' + (result.error && result.error.message) + ')');
+    }
+    // Mirrors answered but none had shops nearby — a genuine empty result.
+    return [];
   }
+
+  return result.data.elements.map(el => ({
+    name: el.tags.name || el.tags.brand || 'Local repair shop',
+    city: el.tags['addr:city'] || el.tags['addr:suburb'] || el.tags['addr:state'] || '',
+    address: [el.tags['addr:housenumber'], el.tags['addr:street'], el.tags['addr:city'], el.tags['addr:country']].filter(Boolean).join(', ') || 'Address not available',
+    phone: el.tags.phone || el.tags['contact:phone'] || '',
+    rating: el.tags.rating ? parseFloat(el.tags.rating) : (3.5 + Math.random()).toFixed(1),
+    lat: el.lat,
+    lng: el.lon,
+    shopType: el.tags.shop || el.tags.craft || el.tags.amenity || ''
+  }));
 }
 
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -2134,14 +2218,27 @@ async function openRepair() {
     const lng = pos.coords.longitude;
     showRepairCoords('ok', '📍 Your location: ' + lat.toFixed(5) + ', ' + lng.toFixed(5));
 
-    // Fetch real repair centres from OpenStreetMap
+    // Fetch real repair centres from OpenStreetMap (timeout + retry inside).
     list.innerHTML = '<div style="text-align:center;color:#888;padding:12px;">🔍 Searching for nearby electronics repair shops…</div>';
-    const realCentres = await fetchNearbyRepairCentres(lat, lng);
+
+    let realCentres = null;
+    try {
+      realCentres = await fetchNearbyRepairCentres(lat, lng);
+    } catch (err) {
+      console.error('Overpass API error:', err);
+      // Live directory is down — tell the user, then fall back to samples.
+      toast('Live repair directory is unavailable right now. Showing sample centres instead.', 'error');
+      realCentres = null;
+    }
 
     if (realCentres && realCentres.length > 0) {
       renderRepairCentres(lat, lng, true, realCentres);
+    } else if (realCentres) {
+      // API answered but found no shops nearby — show the empty state
+      // instead of far-away sample data.
+      renderRepairCentres(lat, lng, true, []);
     } else {
-      // Fall back to demo data if API returns nothing
+      // API unavailable — sample directory fallback.
       renderRepairCentres(lat, lng, true, null);
     }
   } catch (err) {
