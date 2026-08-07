@@ -2407,7 +2407,7 @@ async function openRepair() {
 function wireEvents() {
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => {
-      const v = btn.getAttribute('data-view');
+      const v = btn.dataset.view;
       if (v === 'home') loadDashboard();
       if (v === 'products') loadProducts();
       if (v === 'camera') { populateCameraProducts(); resetCamera(); }
