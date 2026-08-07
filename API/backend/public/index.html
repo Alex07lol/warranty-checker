@@ -1406,6 +1406,51 @@ function showView(target) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Dashboard (home)
 // ─────────────────────────────────────────────────────────────────────────────
+function renderExpiringProducts(products, listEl) {
+  const expiring = products
+    .map(p => ({ p, info: warrantyInfo(p) }))
+    .filter(x => x.info.days > 0 && x.info.days <= 30)
+    .sort((a, b) => a.info.days - b.info.days)
+    .map(x => x.p);
+
+  if (expiring.length) {
+    expiring.forEach(p => listEl.appendChild(makeProductCard(p)));
+  } else {
+    listEl.appendChild(emptyState('✅', 'All warranties in good standing', 'Nothing expiring in the next 30 days.'));
+  }
+}
+
+function renderRecentProducts(products, listEl) {
+  if (products.length) {
+    products.slice().reverse().forEach(p => listEl.appendChild(makeProductCard(p)));
+  } else {
+    listEl.appendChild(emptyState('📦', 'No products yet', 'Sign in to add your first product.'));
+  }
+}
+
+function renderGuestDashboard() {
+  const products = demoProducts();
+  const expiringSoon = products
+    .map(p => ({ p, info: warrantyInfo(p) }))
+    .filter(x => x.info.days > 0 && x.info.days <= 30)
+    .sort((a, b) => a.info.days - b.info.days)
+    .map(x => x.p);
+
+  document.getElementById('stat-products').textContent = products.length;
+  document.getElementById('stat-expiring').textContent = expiringSoon.length;
+  document.getElementById('stat-documents').textContent = 0;
+  document.getElementById('stat-unread').textContent = demoUnreadCount();
+  updateNavBadge(demoUnreadCount());
+
+  const list = document.getElementById('attention-list');
+  const recent = document.getElementById('recent-list');
+  list.innerHTML = '';
+  recent.innerHTML = '';
+
+  renderExpiringProducts(expiringSoon, list);
+  renderRecentProducts(products.slice().reverse(), recent);
+}
+
 async function loadDashboard() {
   const user = getUser();
   document.getElementById('greeting-name').textContent = (user && user.name) || 'Guest';
@@ -1419,32 +1464,7 @@ async function loadDashboard() {
   recent.innerHTML = '';
 
   if (isGuest()) {
-    // Guest mode: render demo/local data instead of the API.
-    const products = demoProducts();
-    const expiringSoon = products
-      .map(p => ({ p, info: warrantyInfo(p) }))
-      .filter(x => x.info.days > 0 && x.info.days <= 30)
-      .sort((a, b) => a.info.days - b.info.days)
-      .map(x => x.p);
-    const recentProducts = products.slice().reverse();
-
-    document.getElementById('stat-products').textContent = products.length;
-    document.getElementById('stat-expiring').textContent = expiringSoon.length;
-    document.getElementById('stat-documents').textContent = 0;
-    document.getElementById('stat-unread').textContent = demoUnreadCount();
-    updateNavBadge(demoUnreadCount());
-
-    if (expiringSoon.length) {
-      expiringSoon.forEach(p => list.appendChild(makeProductCard(p)));
-    } else {
-      list.appendChild(emptyState('✅', 'All warranties in good standing', 'Nothing expiring in the next 30 days.'));
-    }
-
-    if (recentProducts.length) {
-      recentProducts.forEach(p => recent.appendChild(makeProductCard(p)));
-    } else {
-      recent.appendChild(emptyState('📦', 'No products yet', 'Sign in to add your first product.'));
-    }
+    renderGuestDashboard();
     return;
   }
 
@@ -1456,17 +1476,8 @@ async function loadDashboard() {
     document.getElementById('stat-unread').textContent = d.unreadNotificationsCount;
     updateNavBadge(d.unreadNotificationsCount);
 
-    if (d.expiringSoon && d.expiringSoon.length) {
-      d.expiringSoon.forEach(p => list.appendChild(makeProductCard(p)));
-    } else {
-      list.appendChild(emptyState('✅', 'All warranties in good standing', 'Nothing expiring in the next 30 days.'));
-    }
-
-    if (d.recentProducts && d.recentProducts.length) {
-      d.recentProducts.forEach(p => recent.appendChild(makeProductCard(p)));
-    } else {
-      recent.appendChild(emptyState('📦', 'No products yet', 'Add your first product in the Products tab.'));
-    }
+    renderExpiringProducts(d.expiringSoon || [], list);
+    renderRecentProducts(d.recentProducts || [], recent);
   } catch (e) {
     list.appendChild(emptyState('⚠️', 'Could not load dashboard', e.message));
   }
@@ -1537,22 +1548,27 @@ async function searchProducts(q) {
 
 let editingProductId = null;
 
+function populateProductForm(product) {
+  const p = product || {};
+  document.getElementById('pf-name').value = p.productName || '';
+  document.getElementById('pf-brand').value = p.brand || '';
+  document.getElementById('pf-model').value = p.model || '';
+  document.getElementById('pf-category').value = p.category || '';
+  document.getElementById('pf-serial').value = p.serialNumber || '';
+  document.getElementById('pf-purchase-date').value = p.purchaseDate ? new Date(p.purchaseDate).toISOString().slice(0, 10) : '';
+  document.getElementById('pf-price').value = p.purchasePrice != null ? p.purchasePrice : '';
+  document.getElementById('pf-currency').value = p.currency || '';
+  document.getElementById('pf-store').value = p.purchaseStore || '';
+  document.getElementById('pf-warranty-months').value = p.warrantyPeriodMonths != null ? p.warrantyPeriodMonths : '';
+  document.getElementById('pf-expiry').value = p.warrantyExpiryDate ? new Date(p.warrantyExpiryDate).toISOString().slice(0, 10) : '';
+  document.getElementById('pf-notes').value = p.notes || '';
+}
+
 function openProductForm(product) {
   if (!requireAuth('add or edit a product')) return;
   editingProductId = product ? product._id : null;
   document.getElementById('product-form-title').textContent = product ? 'Edit Product' : 'Add Product';
-  document.getElementById('pf-name').value = product ? product.productName || '' : '';
-  document.getElementById('pf-brand').value = product ? product.brand || '' : '';
-  document.getElementById('pf-model').value = product ? product.model || '' : '';
-  document.getElementById('pf-category').value = product ? product.category || '' : '';
-  document.getElementById('pf-serial').value = product ? product.serialNumber || '' : '';
-  document.getElementById('pf-purchase-date').value = product && product.purchaseDate ? new Date(product.purchaseDate).toISOString().slice(0, 10) : '';
-  document.getElementById('pf-price').value = product && product.purchasePrice != null ? product.purchasePrice : '';
-  document.getElementById('pf-currency').value = product ? product.currency || '' : '';
-  document.getElementById('pf-store').value = product ? product.purchaseStore || '' : '';
-  document.getElementById('pf-warranty-months').value = product && product.warrantyPeriodMonths != null ? product.warrantyPeriodMonths : '';
-  document.getElementById('pf-expiry').value = product && product.warrantyExpiryDate ? new Date(product.warrantyExpiryDate).toISOString().slice(0, 10) : '';
-  document.getElementById('pf-notes').value = product ? product.notes || '' : '';
+  populateProductForm(product);
   document.getElementById('pf-err').textContent = '';
   document.getElementById('product-form-overlay').classList.add('open');
 }
@@ -1911,31 +1927,37 @@ function showCameraError(msg) {
   document.getElementById('camera-error').style.display = '';
 }
 
+function validateCameraFile(file) {
+  if (!file || !file.type || !file.type.startsWith('image/')) {
+    toast('Please choose an image (JPEG, PNG or WEBP)', 'error');
+    return false;
+  }
+  return true;
+}
+
+function showCameraProgress(message, percent) {
+  document.getElementById('camera-upload-area').style.display = 'none';
+  document.getElementById('camera-progress').style.display = '';
+  document.getElementById('camera-progress-fill').style.width = percent + '%';
+  document.getElementById('camera-status-text').textContent = message;
+}
+
 async function handleCameraFile(file) {
   if (!requireAuth('scan a receipt')) return;
   const pid = document.getElementById('camera-product-select').value;
   if (!pid) { toast('Please add a product first', 'error'); return; }
-  if (!file || !file.type || !file.type.startsWith('image/')) {
-    toast('Please choose an image (JPEG, PNG or WEBP)', 'error');
-    return;
-  }
+  if (!validateCameraFile(file)) return;
 
   resetCamera();
-  document.getElementById('camera-upload-area').style.display = 'none';
-  document.getElementById('camera-progress').style.display = '';
-  const fill = document.getElementById('camera-progress-fill');
-  const status = document.getElementById('camera-status-text');
-  fill.style.width = '18%';
-  status.textContent = 'Uploading…';
+  showCameraProgress('Uploading…', '18');
 
   try {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('documentType', 'receipt');
     const doc = await api('/products/' + pid + '/documents', { method: 'POST', body: fd });
-    status.textContent = 'Uploaded — running OCR…';
-    fill.style.width = '45%';
-    await pollCameraOcr(pid, doc, status, fill);
+    showCameraProgress('Uploaded — running OCR…', '45');
+    await pollCameraOcr(pid, doc, document.getElementById('camera-status-text'), document.getElementById('camera-progress-fill'));
   } catch (e) {
     showCameraError(e.message);
   }
