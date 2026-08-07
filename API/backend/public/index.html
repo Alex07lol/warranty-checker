@@ -1104,7 +1104,7 @@ function getUser() {
 function setUser(u) { localStorage.setItem(USER_KEY, JSON.stringify(u)); }
 
 async function api(path, opts = {}) {
-  const headers = Object.assign({}, opts.headers || {});
+  const headers = { ...opts.headers };
   const token = getToken();
   if (token) headers.Authorization = 'Bearer ' + token;
   if (opts.body && !(opts.body instanceof FormData)) {
@@ -1114,7 +1114,7 @@ async function api(path, opts = {}) {
 
   let res;
   try {
-    res = await fetch(API + path, Object.assign({}, opts, { headers }));
+    res = await fetch(API + path, { ...opts, headers });
   } catch (e) {
     throw new Error('Network error — is the server running?');
   }
@@ -2165,7 +2165,7 @@ async function fetchNearbyRepairCentres(lat, lng, brand) {
       city: place.vicinity || place.formatted_address || '',
       address: place.formatted_address || 'Address not available',
       phone: place.formatted_phone_number || '',
-      rating: place.rating || (3.5 + Math.random()).toFixed(1),
+      rating: place.rating || (3.5 + 0).toFixed(1),  // Placeholder rating
       lat: place.geometry.location.lat,
       lng: place.geometry.location.lng,
       shopType: place.types && place.types[0] || 'electronics'
@@ -2224,7 +2224,8 @@ function getPosition() {
 function showRepairCoords(type, text) {
   const el = document.getElementById('repair-coords');
   el.hidden = false;
-  el.className = 'repair-coords' + (type === 'error' ? ' error' : (type === 'pending' ? ' pending' : ''));
+  const classMap = { error: ' error', pending: ' pending' };
+  el.className = 'repair-coords' + (classMap[type] || '');
   el.textContent = text;
 }
 
