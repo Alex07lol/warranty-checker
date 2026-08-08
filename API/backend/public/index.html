@@ -8,6 +8,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
+    :root {
+      /* Global UI scale — bump to make every element larger (e.g. 1.15 = 15% bigger). */
+      --ui-scale: 1.15;
+    }
+
+    html {
+      zoom: var(--ui-scale);
+    }
+
     *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
@@ -180,6 +189,12 @@
     }
     .stat-card:hover { transform: translateY(-4px); box-shadow: 0 2px 4px rgba(17,17,17,0.04), 0 14px 30px rgba(17,17,17,0.09); }
     .stat-card .stat-value { font-size: 32px; font-weight: 800; color: #111; letter-spacing: -0.6px; position: relative; }
+    .stat-card .stat-value.count-up { animation: statCountPop 0.5s ease-out; }
+    @keyframes statCountPop {
+      0%   { opacity: 0.35; transform: scale(0.9); }
+      60%  { opacity: 1; transform: scale(1.05); }
+      100% { opacity: 1; transform: scale(1); }
+    }
     .stat-card .stat-label { font-size: 11px; color: #8a8a8e; font-weight: 500; letter-spacing: 0.2px; margin-top: 3px; position: relative; }
     .stat-card.accent {
       background: linear-gradient(150deg, #1a1a2e 0%, #16213e 60%, #1e2a4a 100%);
@@ -218,13 +233,14 @@
       border-color: rgba(57,73,171,0.18);
     }
     .product-card:active { transform: scale(0.985); }
-    .product-card:nth-child(2) { animation-delay: 0.04s; }
-    .product-card:nth-child(3) { animation-delay: 0.08s; }
-    .product-card:nth-child(4) { animation-delay: 0.12s; }
-    .product-card:nth-child(5) { animation-delay: 0.16s; }
-    .product-card:nth-child(6) { animation-delay: 0.2s; }
-    .product-card:nth-child(7) { animation-delay: 0.24s; }
-    .product-card:nth-child(8) { animation-delay: 0.28s; }
+    /* Staggered card entrance — JS adds .animate-in and an index-based animation-delay */
+    .animate-in {
+      animation: slideUpFadeIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    }
+    @keyframes slideUpFadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
     .product-img {
       width: 80px; height: 80px; border-radius: 14px; object-fit: cover;
@@ -249,6 +265,44 @@
     .badge-critical { background: #fff3e0; color: #bf360c; }
     .badge-soon { background: #fffde7; color: #b45309; }
     .badge-safe { background: #e8f5e9; color: #2e7d32; }
+
+    /* ---- SKELETON LOADING (shimmer placeholders) ---- */
+    .skeleton {
+      position: relative;
+      overflow: hidden;
+      background: #e9e9ee;
+      border-radius: 8px;
+    }
+    .skeleton::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent);
+      transform: translateX(-100%);
+      animation: skeletonShimmer 1.4s ease-in-out infinite;
+    }
+    @keyframes skeletonShimmer {
+      100% { transform: translateX(100%); }
+    }
+    .skeleton-card {
+      background: linear-gradient(160deg, #ffffff 0%, #fafbfc 100%);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 14px;
+      border: 1px solid rgba(17,17,17,0.04);
+      box-shadow: 0 1px 2px rgba(17,17,17,0.04), 0 6px 18px rgba(17,17,17,0.05);
+    }
+    .skeleton-card.product { display: flex; align-items: center; gap: 18px; }
+    .skeleton-img {
+      width: 80px; height: 80px; border-radius: 14px; flex-shrink: 0;
+    }
+    .skeleton-lines { flex: 1; }
+    .skeleton-line { margin-bottom: 8px; }
+    .skeleton-line:last-child { margin-bottom: 0; }
+    .skeleton-line.name { height: 15px; width: 60%; border-radius: 7px; }
+    .skeleton-line.meta { height: 11px; width: 42%; border-radius: 6px; }
+    .skeleton-badge { width: 56px; height: 20px; border-radius: 20px; flex-shrink: 0; }
+    .skeleton-stat-num { width: 56%; height: 32px; border-radius: 8px; }
+    .skeleton-stat-label { width: 44%; height: 11px; border-radius: 6px; margin-top: 10px; }
 
     /* ---- TOOLBAR + BUTTONS ---- */
     .toolbar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
@@ -414,12 +468,41 @@
 
     /* ---- DETAIL OVERLAY ---- */
     .detail-overlay {
-      position: absolute; inset: 0; background: linear-gradient(180deg, #f5f5f7 0%, #eceef2 100%); z-index: 20;
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(245,245,247,0.82) 0%, rgba(236,238,242,0.9) 100%);
+      -webkit-backdrop-filter: blur(16px) saturate(160%);
+      backdrop-filter: blur(16px) saturate(160%);
+      z-index: 20;
       display: flex; flex-direction: column;
-      transform: translateX(100%); transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
-      box-shadow: -20px 0 60px rgba(17,17,17,0.08);
+      transform: translateX(100%);
+      visibility: hidden;
+      transition: transform 0.52s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.52s;
+      box-shadow: -20px 0 60px rgba(17,17,17,0.14);
     }
-    .detail-overlay.open { transform: translateX(0); }
+    .detail-overlay.open {
+      transform: translateX(0);
+      visibility: visible;
+      transition: transform 0.52s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Staggered reveal of detail content after the sheet slides in */
+    .detail-overlay.open .detail-body > * {
+      animation: detailStagger 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .detail-overlay.open .detail-body > *:nth-child(1) { animation-delay: 0.08s; }
+    .detail-overlay.open .detail-body > *:nth-child(2) { animation-delay: 0.14s; }
+    .detail-overlay.open .detail-body > *:nth-child(3) { animation-delay: 0.20s; }
+    .detail-overlay.open .detail-body > *:nth-child(4) { animation-delay: 0.26s; }
+    .detail-overlay.open .detail-body > *:nth-child(5) { animation-delay: 0.32s; }
+    .detail-overlay.open .detail-body > *:nth-child(6) { animation-delay: 0.38s; }
+    .detail-overlay.open .detail-body > *:nth-child(7) { animation-delay: 0.44s; }
+    .detail-overlay.open .detail-body > *:nth-child(8) { animation-delay: 0.50s; }
+    .detail-overlay.open .detail-body > *:nth-child(n+9) { animation-delay: 0.56s; }
+
+    @keyframes detailStagger {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
     .detail-image-area { height: 200px; position: relative; flex-shrink: 0; background: #e0e0e0; }
     .detail-image-area img { width: 100%; height: 100%; object-fit: cover; }
@@ -589,6 +672,17 @@
       background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
       box-shadow: 0 2px 4px rgba(22,33,62,0.2), 0 12px 28px rgba(22,33,62,0.32), inset 0 0 0 1px rgba(255,255,255,0.12);
     }
+    .login-logo svg { width: 30px; height: 30px; display: block; }
+    .login-logo path { fill: none; stroke: #fff; }
+
+    /* WebGL aurora canvas behind the login card */
+    #aurora-canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.7;
+    }
     .login-title {
       font-size: 27px; font-weight: 800; text-align: center; letter-spacing: -0.6px;
       background: linear-gradient(135deg, #111 20%, #3949ab 100%);
@@ -653,15 +747,66 @@
 
     /* ---- TOAST ---- */
     .toast {
-      position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+      position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(24px);
       background: #111; color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 13px;
-      font-weight: 500; opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
-      z-index: 99; max-width: 90vw; text-align: center;
+      font-weight: 500; opacity: 0; pointer-events: none; z-index: 99; max-width: 90vw; text-align: center;
       box-shadow: 0 10px 30px rgba(17,17,17,0.28);
+      transition: opacity 0.35s ease, transform 0.35s ease;
     }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.show {
+      opacity: 1; transform: translateX(-50%) translateY(0);
+      animation: toast-in 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .toast.show.success { animation-name: toast-in-success; animation-duration: 0.55s; }
+    .toast.show.error { animation-name: toast-in-error; animation-duration: 0.55s; }
     .toast.error { background: #c62828; }
     .toast.success { background: #2e7d32; }
+
+    @keyframes toast-in {
+      0%   { opacity: 0; transform: translateX(-50%) translateY(24px) scale(0.95); }
+      60%  { opacity: 1; transform: translateX(-50%) translateY(-4px) scale(1.02); }
+      100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    }
+    @keyframes toast-in-success {
+      0%   { opacity: 0; transform: translateX(-50%) translateY(24px) scale(0.9); }
+      50%  { opacity: 1; transform: translateX(-50%) translateY(-10px) scale(1.05); }
+      75%  { transform: translateX(-50%) translateY(3px) scale(1); }
+      100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    }
+    @keyframes toast-in-error {
+      0%   { opacity: 0; transform: translateX(-50%) translateY(24px) scale(0.95); }
+      25%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.02) translateX(6px); }
+      40%  { transform: translateX(-50%) translateY(0) scale(1) translateX(-6px); }
+      55%  { transform: translateX(-50%) translateY(0) scale(1) translateX(4px); }
+      70%  { transform: translateX(-50%) translateY(0) scale(1) translateX(-2px); }
+      100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1) translateX(0); }
+    }
+
+    /* Respect reduced-motion preferences: disable decorative entrance/loop animations */
+    @media (prefers-reduced-motion: reduce) {
+      .view.active,
+      .view.active .view-scroll > *,
+      .home-header,
+      .stat-grid .stat-card,
+      .stat-card .stat-value.count-up,
+      .product-card,
+      .animate-in,
+      .skeleton::after,
+      .form-overlay.open .form-sheet,
+      .detail-overlay.open .detail-body > *,
+      .toast.show,
+      .toast.show.success,
+      .toast.show.error,
+      .login-card,
+      .login-screen::before,
+      .login-screen::after {
+        animation: none !important;
+      }
+      .detail-overlay,
+      .detail-overlay.open {
+        transition: none;
+      }
+    }
 
     /* Guest mode + login prompt */
     .guest-badge {
@@ -721,9 +866,13 @@
         display: flex; flex-wrap: wrap; justify-content: center; gap: 14px;
       }
       #attention-list > .product-card,
+      #attention-list > .skeleton-card,
       #recent-list > .product-card,
+      #recent-list > .skeleton-card,
       #products-list > .product-card,
-      #notification-list > .notification-item {
+      #products-list > .skeleton-card,
+      #notification-list > .notification-item,
+      #notification-list > .skeleton-card {
         flex: 1 1 300px; min-width: 300px; max-width: 340px; margin-bottom: 0;
       }
       #attention-list > .empty-state,
@@ -759,10 +908,16 @@
     <!-- ======================== LOGIN VIEW ======================== -->
     <div class="view" id="view-login">
       <div class="login-screen">
+        <canvas id="aurora-canvas" aria-hidden="true"></canvas>
         <div class="login-card">
-          <div class="login-logo">🔒</div>
-          <div class="login-title">WarrantyVault</div>
-          <div class="login-sub">Your digital ownership companion</div>
+          <div class="login-logo" id="login-logo">
+            <svg viewBox="0 0 48 48" aria-hidden="true">
+              <path id="shield-path" d="M24 4 L40 9 V21 C40 33 33 42 24 45 C15 42 8 33 8 21 V9 Z" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+              <path id="check-path" d="M16 25 L22 31 L32 19" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="login-title" id="login-title">WarrantyVault</div>
+          <div class="login-sub" id="login-sub">Your digital ownership companion</div>
           <div class="login-prompt" id="login-prompt-msg"></div>
 
           <div class="login-tab-row">
@@ -824,10 +979,16 @@
         </div>
 
         <div class="attention-label">Expiring Soon</div>
-        <div id="attention-list"><div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Loading…</div></div></div>
+        <div id="attention-list">
+          <div class="skeleton-card product"><div class="skeleton skeleton-img"></div><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div><div class="skeleton skeleton-badge"></div></div>
+          <div class="skeleton-card product"><div class="skeleton skeleton-img"></div><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div><div class="skeleton skeleton-badge"></div></div>
+        </div>
 
         <div class="attention-label" style="margin-top: 28px;">Recent Products</div>
-        <div id="recent-list"><div class="empty-state"><div class="empty-title">Loading…</div></div></div>
+        <div id="recent-list">
+          <div class="skeleton-card product"><div class="skeleton skeleton-img"></div><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div><div class="skeleton skeleton-badge"></div></div>
+          <div class="skeleton-card product"><div class="skeleton skeleton-img"></div><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div><div class="skeleton skeleton-badge"></div></div>
+        </div>
       </div>
     </div>
 
@@ -845,7 +1006,11 @@
           <label for="products-search" class="sr-only">Search products</label>
           <input type="search" class="search-input" id="products-search" placeholder="Search by name, brand, or model…" />
         </div>
-        <div id="products-list"><div class="empty-state"><div class="empty-icon">📦</div><div class="empty-title">Loading…</div></div></div>
+        <div id="products-list">
+          <div class="skeleton-card product"><div class="skeleton skeleton-img"></div><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div><div class="skeleton skeleton-badge"></div></div>
+          <div class="skeleton-card product"><div class="skeleton skeleton-img"></div><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div><div class="skeleton skeleton-badge"></div></div>
+          <div class="skeleton-card product"><div class="skeleton skeleton-img"></div><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div><div class="skeleton skeleton-badge"></div></div>
+        </div>
       </div>
     </div>
 
@@ -929,7 +1094,11 @@
         <button class="btn btn-ghost btn-small" id="read-all-btn" style="margin-top:6px;">Mark all read</button>
       </div>
       <div class="view-scroll">
-        <div id="notification-list"><div class="empty-state"><div class="empty-icon">🔔</div><div class="empty-title">Loading…</div></div></div>
+        <div id="notification-list">
+          <div class="skeleton-card"><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div></div>
+          <div class="skeleton-card"><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div></div>
+          <div class="skeleton-card"><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div></div>
+        </div>
       </div>
     </div>
 
@@ -998,7 +1167,10 @@
           </select>
           <button class="btn btn-primary btn-small" id="doc-upload-btn">Upload</button>
         </div>
-        <div id="detail-docs"><div class="empty-state"><div class="empty-title">Loading…</div></div></div>
+        <div id="detail-docs">
+          <div class="skeleton-card"><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div></div>
+          <div class="skeleton-card"><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div></div>
+        </div>
 
         <div class="detail-section-title">Service History</div>
         <button class="btn btn-ghost btn-small" id="add-service-btn" style="width:100%;margin-bottom:12px;">+ Add service record</button>
@@ -1204,6 +1376,33 @@ function fmtDate(d) {
   return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+// Animate a stat value from 0 to `target` with a smooth count-up effect.
+const statAnimations = new WeakMap();
+function animateCountUp(el, target, duration = 500) {
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    el.textContent = Number(target).toLocaleString('en-US');
+    return;
+  }
+  const prev = statAnimations.get(el);
+  if (prev) cancelAnimationFrame(prev);
+  el.classList.remove('count-up');
+  void el.offsetWidth; // restart the CSS pop animation
+  el.classList.add('count-up');
+  const start = performance.now();
+  const frame = (now) => {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(target * eased).toLocaleString('en-US');
+    if (progress < 1) {
+      statAnimations.set(el, requestAnimationFrame(frame));
+    } else {
+      el.textContent = Number(target).toLocaleString('en-US');
+      statAnimations.delete(el);
+    }
+  };
+  statAnimations.set(el, requestAnimationFrame(frame));
+}
+
 // Warranty status from the product's warrantyExpiryDate
 function warrantyInfo(p) {
   if (!p.warrantyExpiryDate) return { status: 'none', label: 'No expiry set', badgeClass: 'badge-safe', blockClass: 'safe', valueClass: 'safe', days: Infinity };
@@ -1223,10 +1422,11 @@ function productImage(p) {
   return 'https://source.unsplash.com/160x160/?' + q;
 }
 
-function makeProductCard(p) {
+function makeProductCard(p, index) {
   const info = warrantyInfo(p);
   const card = document.createElement('div');
-  card.className = 'product-card';
+  card.className = 'product-card animate-in';
+  card.style.animationDelay = (Math.min(index || 0, 8) * 0.05) + 's';
   card.onclick = () => openDetail(p._id);
   card.innerHTML =
     '<img class="product-img" src="' + escapeHtml(productImage(p)) + '" alt="" ' +
@@ -1247,6 +1447,60 @@ function emptyState(icon, title, sub) {
     '<div class="empty-title">' + escapeHtml(title) + '</div>' +
     (sub ? '<div class="empty-sub">' + escapeHtml(sub) + '</div>' : '');
   return el;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Skeleton loading placeholders
+// ─────────────────────────────────────────────────────────────────────────────
+function skeletonBlock(cls) {
+  const el = document.createElement('div');
+  el.className = 'skeleton ' + cls;
+  return el;
+}
+
+function skeletonProductCards(count) {
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < count; i++) {
+    const card = document.createElement('div');
+    card.className = 'skeleton-card product';
+    card.appendChild(skeletonBlock('skeleton-img'));
+    const lines = document.createElement('div');
+    lines.className = 'skeleton-lines';
+    lines.appendChild(skeletonBlock('skeleton-line name'));
+    lines.appendChild(skeletonBlock('skeleton-line meta'));
+    card.appendChild(lines);
+    card.appendChild(skeletonBlock('skeleton-badge'));
+    frag.appendChild(card);
+  }
+  return frag;
+}
+
+function skeletonLineCards(count) {
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < count; i++) {
+    const card = document.createElement('div');
+    card.className = 'skeleton-card';
+    const lines = document.createElement('div');
+    lines.className = 'skeleton-lines';
+    lines.appendChild(skeletonBlock('skeleton-line name'));
+    lines.appendChild(skeletonBlock('skeleton-line meta'));
+    card.appendChild(lines);
+    frag.appendChild(card);
+  }
+  return frag;
+}
+
+const STAT_GRID_HTML = document.getElementById('stat-grid').innerHTML;
+const STAT_SKELETON_HTML =
+  '<div class="stat-card"><div class="skeleton skeleton-stat-num"></div><div class="skeleton skeleton-stat-label"></div></div>' +
+  '<div class="stat-card accent"><div class="skeleton skeleton-stat-num"></div><div class="skeleton skeleton-stat-label"></div></div>' +
+  '<div class="stat-card"><div class="skeleton skeleton-stat-num"></div><div class="skeleton skeleton-stat-label"></div></div>' +
+  '<div class="stat-card"><div class="skeleton skeleton-stat-num"></div><div class="skeleton skeleton-stat-label"></div></div>';
+
+function setStatsSkeleton(show) {
+  const grid = document.getElementById('stat-grid');
+  if (!grid) return;
+  grid.innerHTML = show ? STAT_SKELETON_HTML : STAT_GRID_HTML;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1448,7 +1702,7 @@ function renderExpiringProducts(products, listEl) {
     .map(x => x.p);
 
   if (expiring.length) {
-    expiring.forEach(p => listEl.appendChild(makeProductCard(p)));
+    expiring.forEach((p, i) => listEl.appendChild(makeProductCard(p, i)));
   } else {
     listEl.appendChild(emptyState('✅', 'All warranties in good standing', 'Nothing expiring in the next 30 days.'));
   }
@@ -1456,13 +1710,14 @@ function renderExpiringProducts(products, listEl) {
 
 function renderRecentProducts(products, listEl) {
   if (products.length) {
-    products.slice().reverse().forEach(p => listEl.appendChild(makeProductCard(p)));
+    products.slice().reverse().forEach((p, i) => listEl.appendChild(makeProductCard(p, i)));
   } else {
     listEl.appendChild(emptyState('📦', 'No products yet', 'Sign in to add your first product.'));
   }
 }
 
 function renderGuestDashboard() {
+  setStatsSkeleton(false);
   const products = demoProducts();
   const expiringSoon = products
     .map(p => ({ p, info: warrantyInfo(p) }))
@@ -1470,10 +1725,10 @@ function renderGuestDashboard() {
     .sort((a, b) => a.info.days - b.info.days)
     .map(x => x.p);
 
-  document.getElementById('stat-products').textContent = products.length;
-  document.getElementById('stat-expiring').textContent = expiringSoon.length;
-  document.getElementById('stat-documents').textContent = 0;
-  document.getElementById('stat-unread').textContent = demoUnreadCount();
+  animateCountUp(document.getElementById('stat-products'), products.length);
+  animateCountUp(document.getElementById('stat-expiring'), expiringSoon.length);
+  animateCountUp(document.getElementById('stat-documents'), 0);
+  animateCountUp(document.getElementById('stat-unread'), demoUnreadCount());
   updateNavBadge(demoUnreadCount());
 
   const list = document.getElementById('attention-list');
@@ -1496,6 +1751,9 @@ async function loadDashboard() {
   const recent = document.getElementById('recent-list');
   list.innerHTML = '';
   recent.innerHTML = '';
+  list.appendChild(skeletonProductCards(2));
+  recent.appendChild(skeletonProductCards(2));
+  setStatsSkeleton(true);
 
   if (isGuest()) {
     renderGuestDashboard();
@@ -1504,15 +1762,21 @@ async function loadDashboard() {
 
   try {
     const d = await api('/dashboard');
-    document.getElementById('stat-products').textContent = d.totalProducts;
-    document.getElementById('stat-expiring').textContent = d.expiringSoonCount;
-    document.getElementById('stat-documents').textContent = d.totalDocuments;
-    document.getElementById('stat-unread').textContent = d.unreadNotificationsCount;
+    setStatsSkeleton(false);
+    list.innerHTML = '';
+    recent.innerHTML = '';
+    animateCountUp(document.getElementById('stat-products'), d.totalProducts);
+    animateCountUp(document.getElementById('stat-expiring'), d.expiringSoonCount);
+    animateCountUp(document.getElementById('stat-documents'), d.totalDocuments);
+    animateCountUp(document.getElementById('stat-unread'), d.unreadNotificationsCount);
     updateNavBadge(d.unreadNotificationsCount);
 
     renderExpiringProducts(d.expiringSoon || [], list);
     renderRecentProducts(d.recentProducts || [], recent);
   } catch (e) {
+    setStatsSkeleton(false);
+    list.innerHTML = '';
+    recent.innerHTML = '';
     list.appendChild(emptyState('⚠️', 'Could not load dashboard', e.message));
   }
 }
@@ -1534,7 +1798,7 @@ let productsSearchTimer = null;
 async function loadProducts() {
   const list = document.getElementById('products-list');
   list.innerHTML = '';
-  list.appendChild(emptyState('📦', 'Loading…', ''));
+  list.appendChild(skeletonProductCards(3));
   if (isGuest()) {
     productsCache = demoProducts();
     renderProducts(productsCache);
@@ -1557,7 +1821,7 @@ function renderProducts(items) {
     list.appendChild(emptyState('📦', 'No products yet', 'Tap “+ Add” to register your first product.'));
     return;
   }
-  items.forEach(p => list.appendChild(makeProductCard(p)));
+  items.forEach((p, i) => list.appendChild(makeProductCard(p, i)));
 }
 
 async function searchProducts(q) {
@@ -1746,7 +2010,7 @@ function renderDetailSpecs(p) {
 async function loadDetailDocs() {
   const box = document.getElementById('detail-docs');
   box.innerHTML = '';
-  box.appendChild(emptyState('📄', 'Loading documents…', ''));
+  box.appendChild(skeletonLineCards(2));
   if (isGuest()) {
     box.innerHTML = '';
     box.appendChild(emptyState('📄', 'No documents yet', 'Sign in to upload receipts, warranty cards and manuals.'));
@@ -2069,7 +2333,7 @@ async function applyCameraToProduct() {
 async function loadNotifications() {
   const list = document.getElementById('notification-list');
   list.innerHTML = '';
-  list.appendChild(emptyState('🔔', 'Loading…', ''));
+  list.appendChild(skeletonLineCards(4));
   if (isGuest()) {
     renderNotifications(demoNotifications());
     return;
@@ -2525,6 +2789,282 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+</script>
+
+<script type="module">
+/* ─────────────────────────────────────────────────────────────────────────────
+   Enhanced motion — WebGL aurora + anime.js login intro + motion.dev springs
+
+   Libraries are vendored locally (public/vendor/). Every part degrades
+   gracefully: if a vendor module fails to load, the app works exactly as
+   before. All effects respect prefers-reduced-motion.
+   ───────────────────────────────────────────────────────────────────────────── */
+(() => {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = (id) => document.getElementById(id);
+  const loginHooks = [];   // run every time the login view is opened
+
+  /* ────────────────────────────────────────────────────────────────
+     1. WebGL2 aurora — flowing indigo gradient behind the login card
+     Zero dependencies; raw WebGL2 quad + fbm noise fragment shader.
+     Half-resolution rendering, DPR capped at 1.5, paints only while
+     the login view is visible. Renders one calm static frame under
+     prefers-reduced-motion.                                       */
+  function startAurora() {
+    const canvas = $('aurora-canvas');
+    if (!canvas) return;
+    let gl = null, prog = null, uRes = null, uTime = null;
+
+    const VS = `
+      attribute vec2 a_pos;
+      void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
+    `;
+    const FS = `
+      precision highp float;
+      uniform vec2 u_res;
+      uniform float u_time;
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p){
+        vec2 i = floor(p), f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+                   mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+      }
+      float fbm(vec2 p){
+        float v = 0.0, a = 0.5;
+        for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.02; a *= 0.5; }
+        return v;
+      }
+      void main(){
+        vec2 uv = gl_FragCoord.xy / u_res;
+        vec2 p = (uv - 0.5) * vec2(u_res.x / u_res.y, 1.0);
+        float t = u_time * 0.06;
+        float n1 = fbm(p * 1.8 + vec2(t, -t * 0.5));
+        float n2 = fbm(p * 1.8 + vec2(-t * 0.6, t * 0.5) + n1 * 1.6);
+        float n3 = fbm(p * 2.6 + vec2(t * 0.5, -t * 0.4) + n2 * 1.3);
+        float wisp = smoothstep(0.25, 0.85, n3) * (0.6 + 0.4 * sin(n2 * 6.28 + t * 4.0));
+        vec3 deep     = vec3(0.30, 0.34, 0.60);
+        vec3 indigo   = vec3(0.55, 0.62, 0.95);
+        vec3 lavender = vec3(0.72, 0.75, 0.96);
+        vec3 col = mix(mix(deep, indigo, n1), lavender, n2 * 0.6 + wisp * 0.5);
+        float fade = smoothstep(0.0, 0.55, 1.0 - abs(p.y * 0.9));
+        gl_FragColor = vec4(col * (0.55 + 0.45 * wisp) * fade, 0.28 + 0.32 * wisp);
+      }
+    `;
+
+    // (Re-)initialise the WebGL pipeline; safe to call again after a
+    // webglcontextrestored event so the aurora survives GPU/driver resets.
+    function setup() {
+      try {
+        gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: false, antialias: false });
+      } catch (e) { gl = null; }
+      if (!gl) return false;
+      const compile = (type, src) => {
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, src);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { gl.deleteShader(sh); return null; }
+        return sh;
+      };
+      const vs = compile(gl.VERTEX_SHADER, VS);
+      const fs = compile(gl.FRAGMENT_SHADER, FS);
+      if (!vs || !fs) return false;
+      prog = gl.createProgram();
+      gl.attachShader(prog, vs); gl.attachShader(prog, fs);
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return false;
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, 'a_pos');
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      uRes = gl.getUniformLocation(prog, 'u_res');
+      uTime = gl.getUniformLocation(prog, 'u_time');
+      gl.useProgram(prog);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      return true;
+    }
+    if (!setup()) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    let lastW = 0, lastH = 0, loopStarted = false;
+    function ensureSize() {
+      const w = canvas.clientWidth || 1;
+      const h = canvas.clientHeight || 1;
+      if (w === lastW && h === lastH) return;
+      lastW = w; lastH = h;
+      canvas.width = Math.max(1, Math.round((w * dpr) / 2));
+      canvas.height = Math.max(1, Math.round((h * dpr) / 2));
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+    }
+    const paint = (t) => { gl.uniform1f(uTime, t); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
+    window.addEventListener('resize', () => ensureSize());
+
+    // Survive GPU/driver resets instead of dying silently.
+    canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
+    canvas.addEventListener('webglcontextrestored', () => { setup(); ensureSize(); }, false);
+
+    const loginVisible = () => {
+      const v = $('view-login');
+      return !!v && v.classList.contains('active') && document.visibilityState === 'visible';
+    };
+    function loop() {
+      if (loginVisible()) { ensureSize(); paint(performance.now() / 1000); }
+      requestAnimationFrame(loop);
+    }
+
+    // Lazy loop: it only starts once the login view is actually opened, so a
+    // user who never visits the login screen pays zero idle RAF cost.
+    const onLoginShown = () => {
+      ensureSize();
+      if (reduceMotion) { paint(0); return; }   // one calm static frame
+      if (!loopStarted) { loopStarted = true; requestAnimationFrame(loop); }
+    };
+    loginHooks.push(onLoginShown);
+  }
+  startAurora();
+
+  /* Install the openLogin wrapper immediately — the aurora hook is already
+     queued, so even an instant "Sign In" click runs it. The intro/springs
+     hooks are pushed when the vendored modules resolve and fire on the
+     next open. */
+  const origOpenLogin = window.openLogin;
+  if (typeof origOpenLogin === 'function') {
+    window.openLogin = function (...args) {
+      const r = origOpenLogin.apply(this, args);
+      loginHooks.forEach((fn) => { try { fn(); } catch (e) {} });
+      return r;
+    };
+  }
+
+  /* Load the vendored libraries independently so one failure never breaks
+     the other (or the app). */
+  let animeNS = null, motion = null;
+  Promise.all([
+    import('./vendor/anime.esm.min.js').then((m) => { animeNS = m; }).catch(() => {}),
+    import('./vendor/motionone.dom.js').then((m) => { motion = m; }).catch(() => {})
+  ]).then(() => {
+    if (animeNS) wireLoginIntro(animeNS);
+    if (motion) wireMicroInteractions(motion);
+  });
+
+  /* ────────────────────────────────────────────────────────────────
+     2. anime.js login intro — SVG shield draws itself, then the
+     title / subtitle / tabs / form stagger in on a springy ease. */
+  function wireLoginIntro(anime) {
+    const { svg, createTimeline, stagger } = anime;
+    if (reduceMotion) return;
+
+    const shield = $('shield-path');
+    const check = $('check-path');
+    const logo = $('login-logo');
+    const title = $('login-title');
+    const sub = $('login-sub');
+    const tabRow = document.querySelector('.login-tab-row');
+    const form = $('form-login');
+    if (!shield || !check || !logo) return;
+
+    const resetState = () => {
+      shield.style.strokeDasharray = '';
+      shield.style.strokeDashoffset = '';
+      check.style.strokeDasharray = '';
+      check.style.strokeDashoffset = '';
+      [logo, title, sub, tabRow, form].forEach((el) => {
+        if (el) { el.style.opacity = ''; el.style.transform = ''; }
+      });
+    };
+
+    function runIntro() {
+      let shieldLen, checkLen;
+      try {
+        shieldLen = svg.getTotalLength(shield);
+        checkLen = svg.getTotalLength(check);
+      } catch (e) {
+        shieldLen = shield.getTotalLength();
+        checkLen = check.getTotalLength();
+      }
+      if (!shieldLen) { resetState(); return; }
+
+      shield.style.strokeDasharray = shieldLen;
+      shield.style.strokeDashoffset = shieldLen;
+      check.style.strokeDasharray = checkLen;
+      check.style.strokeDashoffset = checkLen;
+      const targets = [title, sub, tabRow, form].filter(Boolean);
+      targets.forEach((el) => {
+        el.style.opacity = 0;
+        el.style.transform = 'translateY(12px)';
+      });
+      logo.style.transform = 'scale(0.6)';
+
+      try {
+        createTimeline({ defaults: { ease: 'out(3)', duration: 500 } })
+          .add(shield, { strokeDashoffset: [shieldLen, 0], duration: 750 })
+          .add(check, { strokeDashoffset: [checkLen, 0], duration: 380 }, '-=260')
+          .add(logo, { scale: 1, duration: 420, ease: 'out(4)' }, '-=320')
+          .add(targets, { opacity: [0, 1], translateY: ['12px', '0px'], duration: 460, delay: stagger(55) }, '-=260');
+      } catch (e) {
+        resetState();   // never leave the login hidden behind stuck styles
+      }
+    }
+
+    loginHooks.push(runIntro);
+  }
+
+  /* ────────────────────────────────────────────────────────────────
+     3. motion.dev springs — press feedback on interactive elements
+     and one-time in-view reveals for section labels.              */
+  function wireMicroInteractions(motion) {
+    const { animate, spring, inView } = motion;
+    if (reduceMotion) return;
+
+    const PRESS = '.btn, .product-card, .notification-item, .nav-item, .login-tab, .login-btn';
+    const springPress = spring({ stiffness: 420, damping: 34, mass: 0.55 });
+    const springBack = spring({ stiffness: 260, damping: 18 });
+
+    // Track the pressed element so a drag-off release (pointerup landing
+    // outside the element) can still spring it back — otherwise the element
+    // would stay stuck at `transition: none` + scale forever.
+    let pressedEl = null;
+    function pressEl(el) {
+      if (el.dataset.mpActive) return;
+      el.dataset.mpActive = '1';
+      el.dataset.mpPrevTransition = el.style.transition || '';
+      el.style.transition = 'none';   // keep the spring crisp, no CSS lag
+      animate(el, { scale: 0.96 }, { duration: 0.16, easing: springPress });
+      pressedEl = el;
+    }
+    function releaseEl(el) {
+      if (!el) return;
+      if (pressedEl === el) pressedEl = null;
+      if (!el.dataset.mpActive) return;
+      delete el.dataset.mpActive;
+      const prev = el.dataset.mpPrevTransition || '';
+      delete el.dataset.mpPrevTransition;
+      animate(el, { scale: 1 }, { duration: 0.4, easing: springBack });
+      setTimeout(() => {
+        if (el.dataset.mpActive) return;   // re-pressed mid-flight — let the new gesture win
+        el.style.transition = prev;
+        el.style.transform = '';           // hand back to CSS (e.g. hover lift)
+      }, 520);
+    }
+    const closest = (e) => (e.target && e.target.closest ? e.target.closest(PRESS) : null);
+    document.addEventListener('pointerdown', (e) => { const el = closest(e); if (el) pressEl(el); }, true);
+    document.addEventListener('pointerup', () => { if (pressedEl) releaseEl(pressedEl); }, true);
+    document.addEventListener('pointercancel', () => { if (pressedEl) releaseEl(pressedEl); }, true);
+    document.addEventListener('pointerleave', () => { if (pressedEl) releaseEl(pressedEl); });
+
+    // Section labels have no CSS entrance animation, so a once-only inView
+    // reveal adds motion without double-animating anything.
+    document.querySelectorAll('.attention-label, .detail-section-title').forEach((el) => {
+      inView(el, () => {
+        animate(el, { opacity: [0, 1], y: [10, 0] }, { duration: 0.55, easing: springBack });
+      }, { once: true, amount: 0.3 });
+    });
+  }
+})();
 </script>
 </body>
 </html>
