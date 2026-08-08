@@ -176,7 +176,7 @@ app.get("/api/v1/places/details", async (req, res) => {
   }
 
   try {
-    const fields = "formatted_phone_number,opening_hours,user_ratings_total,rating";
+    const fields = "formatted_phone_number,international_phone_number,website,opening_hours,user_ratings_total,rating";
     const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=${encodeURIComponent(fields)}&key=${apiKey}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
