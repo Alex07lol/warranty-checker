@@ -70,6 +70,7 @@
       display: none;
       flex-direction: column;
       overflow: hidden;
+      z-index: 1;   /* sits above the ambient WebGL canvas (#app-aurora-canvas) */
     }
 
     .view.active {
@@ -737,6 +738,13 @@
       pointer-events: none;
       opacity: 0.7;
     }
+    /* WebGL ambient aurora behind the whole app UI */
+    #app-aurora-canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
     .login-title {
       font-size: 27px; font-weight: 800; text-align: center; letter-spacing: -0.6px;
       background: linear-gradient(135deg, #111 20%, #3949ab 100%);
@@ -959,6 +967,7 @@
 <div class="phone">
 
   <div class="screen">
+    <canvas id="app-aurora-canvas" aria-hidden="true"></canvas>
 
     <!-- ======================== LOGIN VIEW ======================== -->
     <div class="view" id="view-login">
@@ -3151,6 +3160,144 @@ document.addEventListener('DOMContentLoaded', init);
     loginHooks.push(onLoginShown);
   }
   startAurora();
+
+  /* ────────────────────────────────────────────────────────────────
+     1b. WebGL2 ambient app aurora — flowing indigo field behind the
+     whole app UI. Same zero-dependency WebGL2 quad pipeline, tuned to
+     sit *under* the content: softer alpha keeps cards readable, a
+     faint glow follows the cursor, and it only paints while a main
+     view is visible (the opaque login screen hides it; a hidden tab
+     skips painting). One static frame under prefers-reduced-motion. */
+  function startAppAurora() {
+    const canvas = $('app-aurora-canvas');
+    if (!canvas) return;
+    let gl = null, prog = null, uRes = null, uTime = null, uMouse = null;
+
+    const VS = `
+      attribute vec2 a_pos;
+      void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
+    `;
+    const FS = `
+      precision highp float;
+      uniform vec2 u_res;
+      uniform float u_time;
+      uniform vec2 u_mouse;
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float noise(vec2 p){
+        vec2 i = floor(p), f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+                   mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+      }
+      float fbm(vec2 p){
+        float v = 0.0, a = 0.5;
+        for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.02; a *= 0.5; }
+        return v;
+      }
+      void main(){
+        vec2 uv = gl_FragCoord.xy / u_res;
+        vec2 p = (uv - 0.5) * vec2(u_res.x / u_res.y, 1.0);
+        float t = u_time * 0.05;
+        vec2 m = (u_mouse - 0.5) * 0.4;
+        float n1 = fbm(p * 1.6 + vec2(t, -t * 0.4) + m);
+        float n2 = fbm(p * 1.6 + vec2(-t * 0.5, t * 0.4) + n1 * 1.4 + m * 0.5);
+        float n3 = fbm(p * 2.4 + vec2(t * 0.4, -t * 0.35) + n2 * 1.2);
+        float wisp = smoothstep(0.3, 0.85, n3) * (0.5 + 0.5 * sin(n2 * 6.28 + t * 3.0));
+        vec3 deep     = vec3(0.28, 0.32, 0.58);
+        vec3 indigo   = vec3(0.52, 0.60, 0.92);
+        vec3 lavender = vec3(0.70, 0.73, 0.95);
+        vec3 col = mix(mix(deep, indigo, n1), lavender, n2 * 0.55 + wisp * 0.5);
+        float glow = exp(-distance(uv, u_mouse) * 5.0);
+        col += vec3(0.55, 0.60, 0.95) * glow * 0.14;
+        float fade = smoothstep(0.0, 0.5, 1.0 - abs(p.y * 0.85));
+        gl_FragColor = vec4(col * (0.62 + 0.38 * wisp) * fade, 0.28 + 0.26 * wisp);
+      }
+    `;
+
+    // (Re-)initialise the WebGL pipeline; safe to call again after a
+    // webglcontextrestored event so the aurora survives GPU/driver resets.
+    function setup() {
+      try {
+        gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: false, antialias: false });
+      } catch (e) { gl = null; }
+      if (!gl) return false;
+      const compile = (type, src) => {
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, src);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { gl.deleteShader(sh); return null; }
+        return sh;
+      };
+      const vs = compile(gl.VERTEX_SHADER, VS);
+      const fs = compile(gl.FRAGMENT_SHADER, FS);
+      if (!vs || !fs) return false;
+      prog = gl.createProgram();
+      gl.attachShader(prog, vs); gl.attachShader(prog, fs);
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return false;
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, 'a_pos');
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      uRes = gl.getUniformLocation(prog, 'u_res');
+      uTime = gl.getUniformLocation(prog, 'u_time');
+      uMouse = gl.getUniformLocation(prog, 'u_mouse');
+      gl.useProgram(prog);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      return true;
+    }
+    if (!setup()) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+    const mouse = { x: 0.5, y: 0.5 };
+    let lastW = 0, lastH = 0, loopStarted = false;
+
+    window.addEventListener('pointermove', (e) => {
+      mouse.x = e.clientX / (window.innerWidth || 1);
+      mouse.y = e.clientY / (window.innerHeight || 1);
+    }, { passive: true });
+
+    function ensureSize() {
+      const w = canvas.clientWidth || 1;
+      const h = canvas.clientHeight || 1;
+      if (w === lastW && h === lastH) return;
+      lastW = w; lastH = h;
+      canvas.width = Math.max(1, Math.round((w * dpr) / 2));
+      canvas.height = Math.max(1, Math.round((h * dpr) / 2));
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+    }
+    const paint = (t) => {
+      gl.uniform1f(uTime, t);
+      if (uMouse !== null) gl.uniform2f(uMouse, mouse.x, mouse.y);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    };
+    window.addEventListener('resize', () => ensureSize());
+    canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
+    canvas.addEventListener('webglcontextrestored', () => { setup(); ensureSize(); }, false);
+
+    // Paint only while a main view is visible: the opaque login screen hides
+    // the canvas anyway, and a hidden tab shouldn't burn GPU cycles.
+    const mainVisible = () => {
+      const login = $('view-login');
+      const loginOn = !!login && login.classList.contains('active');
+      return !loginOn && document.visibilityState === 'visible';
+    };
+    function loop() {
+      if (mainVisible()) { ensureSize(); paint(performance.now() / 1000); }
+      requestAnimationFrame(loop);
+    }
+
+    // The app boots onto the dashboard, so kick off immediately; reduced-motion
+    // users get one calm static frame instead of a live animation.
+    ensureSize();
+    if (reduceMotion) { paint(0); }
+    else { loopStarted = true; requestAnimationFrame(loop); }
+  }
+  startAppAurora();
 
   /* Install the openLogin wrapper immediately — the aurora hook is already
      queued, so even an instant "Sign In" click runs it. The intro/springs
