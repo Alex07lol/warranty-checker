@@ -106,6 +106,9 @@ app.get("/api/v1/places/nearby", async (req, res) => {
 
 // Reverse-geocode a lat/lng into a human-readable place name/address so the
 // app can show "Near Connaught Place, New Delhi" instead of raw coordinates.
+// Tries Google first; if the Geocoding API is disabled/empty for this key it
+// falls back to OpenStreetMap's free Nominatim reverse geocoder so the UI
+// always has a place name to display.
 app.get("/api/v1/places/geocode", async (req, res) => {
   const { lat, lng } = req.query;
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
@@ -115,7 +118,66 @@ app.get("/api/v1/places/geocode", async (req, res) => {
   }
 
   try {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${encodeURIComponent(lat)},${encodeURIComponent(lng)}&key=${apiKey}`;
+    let googleData = null;
+    try {
+      const googleUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${encodeURIComponent(lat)},${encodeURIComponent(lng)}&key=${apiKey}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(googleUrl, {
+        signal: controller.signal,
+        headers: { "Accept": "application/json" }
+      });
+      clearTimeout(timeoutId);
+      googleData = await response.json();
+    } catch (err) {
+      googleData = null;
+    }
+
+    if (googleData && googleData.status === "OK" && googleData.results && googleData.results.length) {
+      return res.json(googleData);
+    }
+
+    // Nominatim's public instance allows ~1 req/sec — fine for one lookup per
+    // repair-tab open, but keep it a fallback only (Google is the primary).
+    try {
+      const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=jsonv2&accept-language=en`;
+      const nomController = new AbortController();
+      const nomTimeout = setTimeout(() => nomController.abort(), 10000);
+      const nomResponse = await fetch(nominatimUrl, {
+        signal: nomController.signal,
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "WarrantyVault/1.0 (warranty-tracker demo)"
+        }
+      });
+      clearTimeout(nomTimeout);
+      const nomData = await nomResponse.json();
+      if (nomData && nomData.display_name) {
+        return res.json({ status: "OK", results: [{ formatted_address: nomData.display_name }] });
+      }
+    } catch (err) {
+      // Nominatim unavailable too — fall through to Google's original answer.
+    }
+
+    res.json(googleData || { status: "ERROR", results: [], error_message: "No reverse geocoding result" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to reverse geocode location", details: error.message });
+  }
+});
+
+// Google Places Details proxy — enriches repair centres with real phone
+// numbers, full opening hours, review counts and the canonical Maps URL.
+app.get("/api/v1/places/details", async (req, res) => {
+  const placeId = req.query.place_id;
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+
+  if (!placeId) {
+    return res.status(400).json({ error: "place_id is required" });
+  }
+
+  try {
+    const fields = "formatted_phone_number,opening_hours,user_ratings_total,rating";
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=${encodeURIComponent(fields)}&key=${apiKey}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -129,7 +191,7 @@ app.get("/api/v1/places/geocode", async (req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: "Failed to reverse geocode location", details: error.message });
+    res.status(500).json({ error: "Failed to fetch place details", details: error.message });
   }
 });
 

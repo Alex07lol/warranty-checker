@@ -500,6 +500,25 @@
       display: inline-flex; align-items: center; gap: 5px;
     }
     .repair-card-distance.unknown { color: #9a9a9a; font-weight: 500; }
+    .repair-card-reviews { color: #8a8a8e; font-size: 11px; font-weight: 500; margin-left: 2px; }
+    .repair-card-phone a { color: inherit; text-decoration: none; }
+    .repair-card-phone a:hover { text-decoration: underline; }
+    .repair-card-hours { margin-top: 8px; border-top: 1px dashed #e5e5ea; padding-top: 8px; }
+    .repair-hours-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #f5f5f7; border: 1px solid #e8e8ec; color: #555;
+      font-size: 11.5px; font-weight: 600; font-family: 'Inter', sans-serif;
+      border-radius: 10px; padding: 5px 10px; cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+    .repair-hours-btn:hover { background: #eef0ff; color: #3949ab; border-color: #c5cae9; }
+    .repair-hours-btn .repair-hours-caret { font-size: 9px; transition: transform 0.2s ease; }
+    .repair-hours-btn.active .repair-hours-caret { transform: rotate(180deg); }
+    .repair-hours-list { display: none; margin-top: 8px; }
+    .repair-hours-list.open { display: block; }
+    .repair-hours-row { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: #555; padding: 3px 0; }
+    .repair-hours-row span:first-child { text-transform: capitalize; }
+    .repair-hours-row.today { font-weight: 700; color: #111; }
 
     /* ---- DETAIL OVERLAY ---- */
     .detail-overlay {
@@ -2517,6 +2536,17 @@ async function fetchNearbyRepairCentres(lat, lng, brand) {
   }
 }
 
+// Shorten a full address to a compact place name for the location banner
+// (e.g. "Island South, Chullickal, Kochi, Ernakulam, Kerala, 682005, India"
+// becomes "Island South, Chullickal").
+function shortPlaceName(addr) {
+  const parts = String(addr || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!parts.length) return '';
+  let n = Math.min(parts.length, 2);
+  if (parts.slice(0, n).join(', ').length < 12 && parts.length > n) n++;
+  return parts.slice(0, n).join(', ');
+}
+
 // Reverse-geocode a lat/lng pair into a human-readable place name/address so
 // the app can say "Near Connaught Place, New Delhi" instead of raw coordinates.
 // Returns null when the lookup fails so callers can fall back gracefully.
@@ -2538,6 +2568,54 @@ async function reverseGeocode(lat, lng) {
     console.warn('Reverse geocode failed:', err);
   }
   return null;
+}
+
+// Fetch full details (real phone number, opening hours, review count) for a
+// place via the backend Google Places Details proxy. Returns null on failure.
+async function fetchPlaceDetails(placeId) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const response = await fetch('/api/v1/places/details?place_id=' + encodeURIComponent(placeId), {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    const data = await response.json();
+    if (data.status === 'OK' && data.result) return data.result;
+  } catch (err) {
+    console.warn('Place details failed:', err);
+  }
+  return null;
+}
+
+// Enrich centres with Google Place Details (real phone numbers, full opening
+// hours, review counts). Best-effort: centres that can't be enriched keep
+// their base Nearby Search data.
+async function enrichCentres(centres) {
+  const withPlaceId = centres.filter(c => c.placeId);
+  if (!withPlaceId.length) return centres;
+  const settled = await Promise.allSettled(withPlaceId.map(async c => ({
+    placeId: c.placeId,
+    details: await fetchPlaceDetails(c.placeId)
+  })));
+  const byId = {};
+  settled.forEach(r => {
+    if (r.status === 'fulfilled' && r.value.details) byId[r.value.placeId] = r.value.details;
+  });
+  return centres.map(c => {
+    const d = byId[c.placeId];
+    if (!d) return c;
+    return Object.assign({}, c, {
+      phone: d.formatted_phone_number || c.phone,
+      openNow: (d.opening_hours && typeof d.opening_hours.open_now === 'boolean')
+        ? d.opening_hours.open_now
+        : c.openNow,
+      hours: (d.opening_hours && d.opening_hours.weekday_text) || c.hours || null,
+      reviews: d.user_ratings_total || null
+    });
+  });
 }
 
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -2701,6 +2779,32 @@ function repairCentreCard(c) {
     ? '<div class="repair-card-address">' + escapeHtml(c.address) + '</div>'
     : '';
 
+  // Expandable full opening hours (from Place Details enrichment).
+  const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const hoursHtml = c.hours && c.hours.length
+    ? '<div class="repair-card-hours">' +
+        '<button type="button" class="repair-hours-btn" ' +
+          'onclick="var p=this.parentNode;p.querySelector(\'.repair-hours-list\').classList.toggle(\'open\');this.classList.toggle(\'active\');">' +
+          '🕒 Hours <span class="repair-hours-caret">▾</span>' +
+        '</button>' +
+        '<div class="repair-hours-list">' +
+          c.hours.map(line => {
+            const idx = line.indexOf(':');
+            const day = (idx > -1 ? line.slice(0, idx) : line).trim();
+            const time = (idx > -1 ? line.slice(idx + 1) : '').trim();
+            return '<div class="repair-hours-row' + (day === todayName ? ' today' : '') + '">' +
+              '<span>' + escapeHtml(day) + '</span>' +
+              (time ? '<span>' + escapeHtml(time) + '</span>' : '') +
+            '</div>';
+          }).join('') +
+        '</div>' +
+      '</div>'
+    : '';
+
+  const phoneHtml = c.phone
+    ? '<span class="repair-card-phone">📞 <a href="tel:' + encodeURIComponent(c.phone) + '">' + escapeHtml(c.phone) + '</a></span>'
+    : '';
+
   return '<div class="repair-card">' +
     thumbHtml +
     '<div class="repair-card-body">' +
@@ -2711,9 +2815,12 @@ function repairCentreCard(c) {
       '<div class="repair-card-city">' + escapeHtml(c.city) + '</div>' +
       addressHtml +
       '<div class="repair-card-details">' +
-        (c.phone ? '<span class="repair-card-phone">📞 ' + escapeHtml(c.phone) + '</span>' : '') +
-        '<span class="repair-card-rating">★ ' + escapeHtml(String(c.rating)) + '</span>' +
+        phoneHtml +
+        '<span class="repair-card-rating">★ ' + escapeHtml(String(c.rating)) +
+          (c.reviews ? '<span class="repair-card-reviews">(' + escapeHtml(String(c.reviews)) + ')</span>' : '') +
+        '</span>' +
       '</div>' +
+      hoursHtml +
       distHtml +
     '</div>' +
     locateHtml +
@@ -2786,8 +2893,8 @@ async function openRepair() {
     reverseGeocode(lat, lng).then(placeName => {
       if (bannerFinal) return;
       showRepairCoords('ok', placeName
-        ? '📍 Near ' + placeName
-        : '📍 Your location: ' + lat.toFixed(5) + ', ' + lng.toFixed(5));
+        ? '📍 Near ' + shortPlaceName(placeName)
+        : '📍 Location detected');
     });
 
     // Fetch real repair centres from Google Places (timeout + retry inside).
@@ -2803,7 +2910,10 @@ async function openRepair() {
     }
 
     if (realCentres && realCentres.length > 0) {
-      renderRepairCentres(lat, lng, true, realCentres);
+      // Enrich with real phone numbers + full opening hours from Google Place
+      // Details (best-effort) before rendering, so cards appear complete once.
+      const enriched = await enrichCentres(realCentres);
+      renderRepairCentres(lat, lng, true, enriched && enriched.length ? enriched : realCentres);
     } else {
       renderRepairCentres(lat, lng, true, []);
     }

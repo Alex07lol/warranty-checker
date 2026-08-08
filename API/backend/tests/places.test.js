@@ -98,4 +98,63 @@ describe("Places API", () => {
     expect(response.headers.location).toContain("photo_reference=CmRa-photo-ref");
     expect(response.headers.location).toContain("key=test-google-key");
   });
+
+  test("geocode falls back to Nominatim when Google is unavailable", async () => {
+    // First call = Google (denied), second call = Nominatim (success).
+    global.fetch = jest.fn(async (url) => {
+      if (String(url).includes("maps.googleapis.com")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "REQUEST_DENIED",
+            results: [],
+            error_message: "This API is not activated on your API project."
+          })
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({ display_name: "Kochi, Kerala, India" })
+      };
+    });
+
+    const response = await request(app)
+      .get("/api/v1/places/geocode")
+      .query({ lat: 9.9406, lng: 76.2653 });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.status).toBe("OK");
+    expect(response.body.results[0].formatted_address).toBe("Kochi, Kerala, India");
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  test("details requires place_id", async () => {
+    const response = await request(app).get("/api/v1/places/details");
+    expect(response.statusCode).toBe(400);
+    expect(response.body.error).toBe("place_id is required");
+  });
+
+  test("details proxies Google Place Details (phone + hours)", async () => {
+    mockFetch({
+      status: "OK",
+      result: {
+        name: "TechCare",
+        formatted_phone_number: "+91 11 4567 8901",
+        opening_hours: {
+          open_now: true,
+          weekday_text: ["Monday: 10:00 AM – 8:00 PM"]
+        },
+        user_ratings_total: 128
+      }
+    });
+
+    const response = await request(app)
+      .get("/api/v1/places/details")
+      .query({ place_id: "ChIJN1t_tDeuEmsRUsoyG83frY4" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.result.formatted_phone_number).toBe("+91 11 4567 8901");
+    expect(response.body.result.opening_hours.weekday_text[0]).toContain("Monday");
+    expect(response.body.result.user_ratings_total).toBe(128);
+  });
 });
