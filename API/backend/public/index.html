@@ -432,10 +432,6 @@
       background: linear-gradient(150deg, #eef0f6 0%, #dfe4f0 100%);
     }
     .repair-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .repair-card-cover-fallback {
-      display: flex; align-items: center; justify-content: center;
-      width: 100%; height: 100%; font-size: 42px;
-    }
     .repair-card-body { padding: 14px 16px 16px; }
     .repair-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
     .repair-card-name { font-size: 15px; font-weight: 600; color: #111; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -482,35 +478,6 @@
     @keyframes repairPulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.45; transform: scale(0.82); }
-    }
-    .repair-map {
-      position: relative; height: 240px; border-radius: 16px; margin-bottom: 16px;
-      overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.06);
-      background:
-        radial-gradient(circle at center, rgba(57,73,171,0.07) 0%, rgba(57,73,171,0) 60%),
-        linear-gradient(180deg, #eef6ee 0%, #dceee0 100%);
-    }
-    .repair-map::before {
-      content: 'N'; position: absolute; top: 8px; right: 12px;
-      font-size: 11px; font-weight: 700; color: rgba(17,17,17,0.45);
-    }
-    .map-pin {
-      position: absolute; transform: translate(-50%, -50%);
-      width: 14px; height: 14px; border-radius: 50%;
-      background: #3949ab; border: 2.5px solid #fff;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.28); cursor: default;
-    }
-    .map-pin.user {
-      width: 18px; height: 18px; background: #e53935;
-      box-shadow: 0 0 0 4px rgba(229,57,53,0.22), 0 2px 6px rgba(0,0,0,0.28);
-      cursor: default; z-index: 2;
-    }
-    .map-pin-label {
-      position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-      margin-top: 5px; background: rgba(17,17,17,0.85); color: #fff;
-      font-size: 10px; font-weight: 600; line-height: 1.3; white-space: nowrap;
-      padding: 3px 7px; border-radius: 6px; pointer-events: none;
-      max-width: 130px; overflow: hidden; text-overflow: ellipsis;
     }
     .repair-card-distance {
       margin-top: 8px; margin-right: 36px; font-size: 12px; font-weight: 600; color: #2e7d32;
@@ -1168,7 +1135,6 @@
       <div class="view-scroll">
         <div id="repair-filter"></div>
         <div id="repair-coords" class="repair-coords pending" hidden>📍 Detecting your location…</div>
-        <div id="repair-map" class="repair-map" hidden></div>
         <div id="repair-list">
           <div style="color:#888;font-size:13px;padding:20px 0;">Select a product and tap "Find Repair Center" to see options for that brand.</div>
         </div>
@@ -2526,7 +2492,7 @@ const FALLBACK_CENTRES = [
 async function fetchNearbyRepairCentres(lat, lng, brand) {
   // Route through backend proxy to avoid CORS issues with Google Places API
   const keyword = brand ? brand + ' repair' : 'repair';
-  const url = `/api/v1/places/nearby?lat=${lat}&lng=${lng}&radius=10000&type=electronics_store&keyword=${encodeURIComponent(keyword)}`;
+  const url = `/api/v1/places/nearby?lat=${lat}&lng=${lng}&radius=20000&type=electronics_store&keyword=${encodeURIComponent(keyword)}`;
 
   try {
     const controller = new AbortController();
@@ -2672,18 +2638,8 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return 2 * R * Math.asin(Math.sqrt(clampedA));
 }
 
-function bearingDeg(lat1, lng1, lat2, lng2) {
-  const toRad = d => d * Math.PI / 180;
-  const toDeg = r => r * 180 / Math.PI;
-  const dLng = toRad(lng2 - lng1);
-  const y = Math.sin(dLng) * Math.cos(toRad(lat2));
-  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
-}
-
 function geoErrorMessage(err) {
-  if (err && err.code === 1) return 'Location permission denied. Enable location access in your browser to see distances and the map.';
+  if (err && err.code === 1) return 'Location permission denied. Enable location access in your browser to see nearby centres.';
   if (err && err.code === 2) return 'Your location is unavailable right now (GPS signal lost). Showing centres without distances.';
   if (err && err.code === 3) return 'Location request timed out. Tap "Find Repair Center" to try again.';
   return (err && err.message) || 'Could not get your location.';
@@ -2715,69 +2671,6 @@ function fmtKm(km) {
   return km < 10 ? km.toFixed(1) : String(Math.round(km));
 }
 
-function renderRepairMap(lat, lng, centres) {
-  const mapEl = document.getElementById('repair-map');
-  mapEl.innerHTML = '';
-  mapEl.hidden = false;
-
-  const w = mapEl.clientWidth;
-  const h = mapEl.clientHeight;
-
-  // Guard: if the view isn't visible (display:none), dimensions are 0.
-  // Fall back to CSS-defined dimensions (240px height).
-  const mapWidth = w || mapEl.offsetWidth || 300;
-  const mapHeight = h || 240;
-
-  const cx = mapWidth / 2;
-  const cy = mapHeight / 2;
-  const maxRadius = Math.min(mapWidth, mapHeight) / 2 - 46;
-
-  // Filter centres that have valid coordinates
-  const validCentres = centres.filter(c =>
-    c.lat != null && c.lng != null && Number.isFinite(c.lat) && Number.isFinite(c.lng)
-  );
-
-  if (validCentres.length === 0) {
-    mapEl.hidden = true;
-    return;
-  }
-
-  const maxDist = Math.max(...validCentres.map(c => c.distKm || 0)) || 1;
-
-  // Place user pin at center
-  const userPin = document.createElement('div');
-  userPin.className = 'map-pin user';
-  userPin.style.left = cx + 'px';
-  userPin.style.top = cy + 'px';
-  const userLabel = document.createElement('div');
-  userLabel.className = 'map-pin-label';
-  userLabel.textContent = 'You';
-  userPin.appendChild(userLabel);
-  mapEl.appendChild(userPin);
-
-  validCentres.forEach(c => {
-    const bearing = bearingDeg(lat, lng, c.lat, c.lng);
-    const ratio = Math.max(0.14, Math.min(1, (c.distKm || 0) / maxDist));
-    const rad = ratio * maxRadius;
-    // Fix: swap sin/cos for correct "N = top" orientation
-    const x = cx + Math.sin(bearing * Math.PI / 180) * rad;
-    const y = cy - Math.cos(bearing * Math.PI / 180) * rad;
-
-    const pin = document.createElement('div');
-    pin.className = 'map-pin';
-    pin.style.left = x + 'px';
-    pin.style.top = y + 'px';
-    pin.title = c.name + ' — ' + fmtKm(c.distKm || 0) + ' km away';
-    // No click handler — pins are visual only, cards below provide interactivity
-    pin.style.cursor = 'default';
-    const label = document.createElement('div');
-    label.className = 'map-pin-label';
-    label.textContent = c.name;
-    pin.appendChild(label);
-    mapEl.appendChild(pin);
-  });
-}
-
 function repairCentreCard(c) {
   const distHtml = c.distKm != null
     ? '<div class="repair-card-distance">📍 ' + fmtKm(c.distKm) + ' km away</div>'
@@ -2803,15 +2696,15 @@ function repairCentreCard(c) {
     : '';
 
   // Google Places cover photo (served through the backend proxy so the API key
-  // stays server-side), with a wrench placeholder behind it in case it fails.
+  // stays server-side). No placeholder: stores without a photo simply get no
+  // cover, and a failed image hides the cover instead of showing a fallback.
   const coverHtml = c.photoRef
     ? '<span class="repair-card-cover">' +
         '<img loading="lazy" alt="Photo of ' + escapeHtml(c.name) + '" ' +
           'src="/api/v1/places/photo?reference=' + encodeURIComponent(c.photoRef) + '&amp;maxwidth=400" ' +
-          'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';" />' +
-        '<span class="repair-card-cover-fallback" style="display:none;">🔧</span>' +
+          'onerror="var cv=this.closest(\'.repair-card-cover\');if(cv)cv.style.display=\'none\';" />' +
       '</span>'
-    : '<span class="repair-card-cover"><span class="repair-card-cover-fallback">🔧</span></span>';
+    : '';
 
   const openHtml = typeof c.openNow === 'boolean'
     ? '<span class="repair-open-chip ' + (c.openNow ? 'open' : 'closed') + '">' + (c.openNow ? 'Open now' : 'Closed') + '</span>'
@@ -2887,12 +2780,8 @@ function renderRepairCentres(lat, lng, withLocation, centres = null) {
     centresList.forEach(c => { c.distKm = haversineKm(lat, lng, c.lat, c.lng); });
     // Sort ascending by distance so the nearest centre appears first.
     centresList.sort((a, b) => (a.distKm || 0) - (b.distKm || 0));
-    renderRepairMap(lat, lng, centresList);
   } else {
     centresList.forEach(c => { c.distKm = null; });
-    const mapEl = document.getElementById('repair-map');
-    mapEl.hidden = true;
-    mapEl.innerHTML = '';
   }
 
   if (!centresList.length) {
@@ -2912,8 +2801,6 @@ async function openRepair() {
     ? '<span class="repair-brand-tag">🔧 ' + escapeHtml(brand) + ' repair centres</span>'
     : '';
 
-  document.getElementById('repair-map').hidden = true;
-  document.getElementById('repair-map').innerHTML = '';
   showRepairCoords('pending', '📍 Detecting your location…');
 
   const list = document.getElementById('repair-list');
