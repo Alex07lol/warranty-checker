@@ -73,6 +73,37 @@
       to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
+    /* ─── Tab switching slide indicator ─── */
+    .nav-item::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      height: 3px;
+      background: #3949ab;
+      border-radius: 3px;
+      transform: translateX(-50%);
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .nav-item { position: relative; }
+    .nav-item.active::before { width: 24px; }
+
+    /* ─── View scroll reveal ─── */
+    .view.active .view-scroll > * {
+      animation: contentReveal 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .view.active .view-scroll > *:nth-child(1) { animation-delay: 0s; }
+    .view.active .view-scroll > *:nth-child(2) { animation-delay: 0.04s; }
+    .view.active .view-scroll > *:nth-child(3) { animation-delay: 0.08s; }
+    .view.active .view-scroll > *:nth-child(4) { animation-delay: 0.12s; }
+    .view.active .view-scroll > *:nth-child(5) { animation-delay: 0.16s; }
+
+    @keyframes contentReveal {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
     .view-scroll {
       flex: 1;
       overflow-y: auto;
