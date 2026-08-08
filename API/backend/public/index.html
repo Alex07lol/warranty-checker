@@ -415,10 +415,10 @@
     .repair-card {
       position: relative;
       background: linear-gradient(160deg, #ffffff 0%, #fafbfc 100%);
-      border-radius: 18px; padding: 16px; margin-bottom: 12px;
+      border-radius: 18px; margin-bottom: 12px;
       border: 1px solid rgba(17,17,17,0.04);
       box-shadow: 0 1px 2px rgba(17,17,17,0.04), 0 6px 18px rgba(17,17,17,0.05);
-      display: flex; align-items: flex-start; gap: 14px;
+      overflow: hidden;
       transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, border-color 0.2s ease;
     }
     .repair-card:hover {
@@ -426,14 +426,17 @@
       box-shadow: 0 2px 6px rgba(17,17,17,0.05), 0 14px 30px rgba(17,17,17,0.09);
       border-color: rgba(57,73,171,0.16);
     }
-    .repair-card-thumb {
-      flex-shrink: 0; width: 68px; height: 68px; border-radius: 14px; overflow: hidden;
-      background: linear-gradient(150deg, #eef0f6 0%, #e4e8f2 100%);
-      box-shadow: inset 0 0 0 1px rgba(17,17,17,0.06);
+    /* Google Places cover photo on top of each repair card */
+    .repair-card-cover {
+      display: block; position: relative; height: 132px; overflow: hidden;
+      background: linear-gradient(150deg, #eef0f6 0%, #dfe4f0 100%);
     }
-    .repair-card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .repair-card-img.placeholder { display: flex; align-items: center; justify-content: center; font-size: 26px; }
-    .repair-card-body { flex: 1; min-width: 0; }
+    .repair-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .repair-card-cover-fallback {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; height: 100%; font-size: 42px;
+    }
+    .repair-card-body { padding: 14px 16px 16px; }
     .repair-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
     .repair-card-name { font-size: 15px; font-weight: 600; color: #111; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .repair-open-chip { font-size: 10px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
@@ -2508,7 +2511,12 @@ const FALLBACK_CENTRES = [
   { name: 'FixItNow Karol Bagh', city: 'New Delhi', address: 'Ajmal Khan Road, Karol Bagh, New Delhi 110005', phone: '+91 11 2345 6789', rating: 4.3, lat: 28.6519, lng: 77.1909 },
   { name: 'ElectroServ Saket', city: 'New Delhi', address: 'Select Citywalk, Saket, New Delhi 110017', phone: '+91 11 3456 7890', rating: 4.5, lat: 28.5284, lng: 77.2189 },
   { name: 'ProRepair Hauz Khas', city: 'New Delhi', address: 'Hauz Khas Village, New Delhi 110016', phone: '+91 11 4567 8902', rating: 4.7, lat: 28.5494, lng: 77.2001 },
-  { name: 'QuickFix Rohini', city: 'New Delhi', address: 'Sector 7, Rohini, New Delhi 110085', phone: '+91 11 5678 9012', rating: 4.1, lat: 28.7044, lng: 77.1025 }
+  { name: 'QuickFix Rohini', city: 'New Delhi', address: 'Sector 7, Rohini, New Delhi 110085', phone: '+91 11 5678 9012', rating: 4.1, lat: 28.7044, lng: 77.1025 },
+  { name: 'GadgetSavers Lajpat Nagar', city: 'New Delhi', address: 'Central Market, Lajpat Nagar II, New Delhi 110024', phone: '+91 11 6789 0123', rating: 4.2, lat: 28.5677, lng: 77.2437 },
+  { name: 'VoltFix Dwarka', city: 'New Delhi', address: 'Sector 12, Dwarka, New Delhi 110078', phone: '+91 11 7890 1234', rating: 4.4, lat: 28.5943, lng: 77.0308 },
+  { name: 'MegaRepair Vasant Kunj', city: 'New Delhi', address: 'Vasant Kunj, New Delhi 110070', phone: '+91 11 8901 2345', rating: 4.5, lat: 28.5245, lng: 77.153 },
+  { name: 'ChipWorks Janakpuri', city: 'New Delhi', address: 'C Block, Janakpuri, New Delhi 110058', phone: '+91 11 9012 3456', rating: 4.0, lat: 28.6219, lng: 77.0916 },
+  { name: 'ElectroCare Noida', city: 'Noida', address: 'Sector 18, Noida, Uttar Pradesh 201301', phone: '+91 120 456 7890', rating: 4.3, lat: 28.57, lng: 77.32 }
 ];
 
 // Fetch real repair/electronics shops from Google Places API.
@@ -2794,16 +2802,16 @@ function repairCentreCard(c) {
       '</a>'
     : '';
 
-  // Store photo thumbnail (Google Places photo via backend proxy) with a
-  // wrench placeholder behind it in case the image fails to load.
-  const thumbHtml = c.photoRef
-    ? '<span class="repair-card-thumb">' +
-        '<img class="repair-card-img" loading="lazy" alt="Photo of ' + escapeHtml(c.name) + '" ' +
-          'src="/api/v1/places/photo?reference=' + encodeURIComponent(c.photoRef) + '&amp;maxwidth=200" ' +
+  // Google Places cover photo (served through the backend proxy so the API key
+  // stays server-side), with a wrench placeholder behind it in case it fails.
+  const coverHtml = c.photoRef
+    ? '<span class="repair-card-cover">' +
+        '<img loading="lazy" alt="Photo of ' + escapeHtml(c.name) + '" ' +
+          'src="/api/v1/places/photo?reference=' + encodeURIComponent(c.photoRef) + '&amp;maxwidth=400" ' +
           'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';" />' +
-        '<span class="repair-card-img placeholder" style="display:none;">🔧</span>' +
+        '<span class="repair-card-cover-fallback" style="display:none;">🔧</span>' +
       '</span>'
-    : '<span class="repair-card-thumb"><span class="repair-card-img placeholder">🔧</span></span>';
+    : '<span class="repair-card-cover"><span class="repair-card-cover-fallback">🔧</span></span>';
 
   const openHtml = typeof c.openNow === 'boolean'
     ? '<span class="repair-open-chip ' + (c.openNow ? 'open' : 'closed') + '">' + (c.openNow ? 'Open now' : 'Closed') + '</span>'
@@ -2839,7 +2847,7 @@ function repairCentreCard(c) {
     : '';
 
   return '<div class="repair-card">' +
-    thumbHtml +
+    coverHtml +
     '<div class="repair-card-body">' +
       '<div class="repair-card-head">' +
         '<div class="repair-card-name">' + escapeHtml(c.name) + '</div>' +
@@ -3366,9 +3374,18 @@ document.addEventListener('DOMContentLoaded', init);
   function startAppParticles() {
     const canvas = $('app-particles-canvas');
     if (!canvas) return;
-    let gl = null, prog = null, uRes = null, uTime = null;
+    let gl = null, ptProg = null, lnProg = null;
+    let uPtRes = null, uPtTime = null, uLnRes = null, uLnColor = null, uLnAlpha = null;
 
-    const VS = `
+    // Tunable via CSS variables in :root (--particles-*).
+    const pSpeed = clampNum(cssVar('--particles-speed', '1'), 0.1, 5, 1);
+    const pA = vec3(cssVar('--particles-color-a', '#95a1f8'), [0.58, 0.65, 0.97]);
+    const pB = vec3(cssVar('--particles-color-b', '#d2d6fc'), [0.80, 0.83, 0.99]);
+    const pTwinkle = (1.8 * pSpeed).toFixed(4);
+    const lineRgb = hexToRgb(cssVar('--particles-color-a', '#95a1f8')) || [0.58, 0.65, 0.97];
+
+    // Soft glowing point sprites (bigger + brighter than before).
+    const VS_PT = `
       attribute vec2 a_pos;
       attribute vec3 a_vary;   // size, phase, tint
       uniform vec2 u_res;
@@ -3383,13 +3400,7 @@ document.addEventListener('DOMContentLoaded', init);
         v_tint = a_vary.z;
       }
     `;
-    // Tunable via CSS variables in :root (--particles-*).
-    const pSpeed = clampNum(cssVar('--particles-speed', '1'), 0.1, 5, 1);
-    const pA = vec3(cssVar('--particles-color-a', '#95a1f8'), [0.58, 0.65, 0.97]);
-    const pB = vec3(cssVar('--particles-color-b', '#d2d6fc'), [0.80, 0.83, 0.99]);
-    const pTwinkle = (1.8 * pSpeed).toFixed(4);
-
-    const FS = `
+    const FS_PT = `
       precision mediump float;
       uniform float u_time;
       varying float v_phase;
@@ -3398,36 +3409,60 @@ document.addEventListener('DOMContentLoaded', init);
         vec2 c = gl_PointCoord - 0.5;
         float d = length(c) * 2.0;
         float alpha = smoothstep(1.0, 0.0, d);
-        alpha *= 0.45 + 0.55 * (0.5 + 0.5 * sin(u_time * ${pTwinkle} + v_phase * 6.2831));
+        alpha *= 0.55 + 0.45 * (0.5 + 0.5 * sin(u_time * ${pTwinkle} + v_phase * 6.2831));
         vec3 indigo   = ${pA};
         vec3 lavender = ${pB};
         vec3 col = mix(indigo, lavender, v_tint);
-        gl_FragColor = vec4(col, alpha * 0.9);
+        gl_FragColor = vec4(col, alpha * 1.0);
       }
     `;
+    // Constellation links between nearby particles (and to the cursor).
+    const VS_LN = `
+      attribute vec2 a_pos;
+      uniform vec2 u_res;
+      void main(){
+        vec2 ndc = (a_pos / u_res) * 2.0 - 1.0;
+        ndc.y *= -1.0;
+        gl_Position = vec4(ndc, 0.0, 1.0);
+      }
+    `;
+    const FS_LN = `
+      precision mediump float;
+      uniform vec3 u_color;
+      uniform float u_alpha;
+      void main(){ gl_FragColor = vec4(u_color, u_alpha); }
+    `;
+
+    function compile(type, src) {
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { gl.deleteShader(sh); return null; }
+      return sh;
+    }
+    function linkProgram(vsSrc, fsSrc) {
+      const vs = compile(gl.VERTEX_SHADER, vsSrc);
+      const fs = compile(gl.FRAGMENT_SHADER, fsSrc);
+      if (!vs || !fs) return null;
+      const p = gl.createProgram();
+      gl.attachShader(p, vs); gl.attachShader(p, fs);
+      gl.linkProgram(p);
+      return gl.getProgramParameter(p, gl.LINK_STATUS) ? p : null;
+    }
 
     function setup() {
       try {
         gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: false, antialias: false });
       } catch (e) { gl = null; }
       if (!gl) return false;
-      const compile = (type, src) => {
-        const sh = gl.createShader(type);
-        gl.shaderSource(sh, src);
-        gl.compileShader(sh);
-        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { gl.deleteShader(sh); return null; }
-        return sh;
-      };
-      const vs = compile(gl.VERTEX_SHADER, VS);
-      const fs = compile(gl.FRAGMENT_SHADER, FS);
-      if (!vs || !fs) return false;
-      prog = gl.createProgram();
-      gl.attachShader(prog, vs); gl.attachShader(prog, fs);
-      gl.linkProgram(prog);
-      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return false;
-      uRes = gl.getUniformLocation(prog, 'u_res');
-      uTime = gl.getUniformLocation(prog, 'u_time');
-      gl.useProgram(prog);
+      ptProg = linkProgram(VS_PT, FS_PT);
+      lnProg = linkProgram(VS_LN, FS_LN);
+      if (!ptProg || !lnProg) return false;
+      uPtRes = gl.getUniformLocation(ptProg, 'u_res');
+      uPtTime = gl.getUniformLocation(ptProg, 'u_time');
+      uLnRes = gl.getUniformLocation(lnProg, 'u_res');
+      uLnColor = gl.getUniformLocation(lnProg, 'u_color');
+      uLnAlpha = gl.getUniformLocation(lnProg, 'u_alpha');
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE);   // additive glow
       return true;
@@ -3435,7 +3470,7 @@ document.addEventListener('DOMContentLoaded', init);
     if (!setup()) return;
 
     // ── Simulation state (positions live in CSS pixels) ──
-    const COUNT = 220;
+    const COUNT = 150;
     const posBuf = new Float32Array(COUNT * 2);
     const varyBuf = new Float32Array(COUNT * 3);
     const px = new Float32Array(COUNT);
@@ -3447,7 +3482,7 @@ document.addEventListener('DOMContentLoaded', init);
       py[i] = Math.random() * (window.innerHeight || 800);
       vx[i] = (Math.random() - 0.5) * 0.18;
       vy[i] = (Math.random() - 0.5) * 0.18;
-      varyBuf[i * 3 + 0] = 1.4 + Math.random() * 2.6;      // size
+      varyBuf[i * 3 + 0] = 2.2 + Math.random() * 3.4;      // bigger + brighter
       varyBuf[i * 3 + 1] = Math.random();                    // phase
       varyBuf[i * 3 + 2] = Math.random();                    // tint
     }
@@ -3472,13 +3507,20 @@ document.addEventListener('DOMContentLoaded', init);
       canvas.width = width;
       canvas.height = height;
       gl.viewport(0, 0, width, height);
-      gl.uniform2f(uRes, width, height);
+      gl.uniform2f(uPtRes, width, height);
+      gl.uniform2f(uLnRes, width, height);
     }
 
     const posVbo = gl.createBuffer();
     const varyVbo = gl.createBuffer();
-    const posLoc = gl.getAttribLocation(prog, 'a_pos');
-    const varyLoc = gl.getAttribLocation(prog, 'a_vary');
+    const lineVbo = gl.createBuffer();
+    const posLoc = gl.getAttribLocation(ptProg, 'a_pos');
+    const varyLoc = gl.getAttribLocation(ptProg, 'a_vary');
+    const lineLoc = gl.getAttribLocation(lnProg, 'a_pos');
+
+    const LINK = 92;             // particle↔particle link distance (px)
+    const MAX_SEGS = 420;        // hard cap so dense clusters can't blow up
+    const lineVerts = new Float32Array(MAX_SEGS * 4);
 
     function step(dt, t) {
       const mX = mouse.x / (window.innerWidth || 1) * width;
@@ -3511,12 +3553,53 @@ document.addEventListener('DOMContentLoaded', init);
       }
     }
 
+    // Build the constellation: a segment between the cursor and every nearby
+    // particle, plus segments joining particles within LINK px of each other.
+    function buildLines(mX, mY) {
+      let segs = 0;
+      const l2 = LINK * LINK;
+      const c2 = 130 * 130;
+      outer:
+      for (let i = 0; i < COUNT; i++) {
+        const cdx = px[i] - mX;
+        const cdy = py[i] - mY;
+        if (cdx * cdx + cdy * cdy < c2) {
+          if (segs >= MAX_SEGS) break;
+          lineVerts[segs * 4 + 0] = px[i];
+          lineVerts[segs * 4 + 1] = py[i];
+          lineVerts[segs * 4 + 2] = mX;
+          lineVerts[segs * 4 + 3] = mY;
+          segs++;
+        }
+        for (let j = i + 1; j < COUNT; j++) {
+          if (segs >= MAX_SEGS) break outer;
+          const dx = px[i] - px[j];
+          const dy = py[i] - py[j];
+          if (dx * dx + dy * dy < l2) {
+            lineVerts[segs * 4 + 0] = px[i];
+            lineVerts[segs * 4 + 1] = py[i];
+            lineVerts[segs * 4 + 2] = px[j];
+            lineVerts[segs * 4 + 3] = py[j];
+            segs++;
+          }
+        }
+      }
+      return segs;
+    }
+
     function paint(t) {
       step(1 / 60, t);
+      const mX = mouse.x / (window.innerWidth || 1) * width;
+      const mY = mouse.y / (window.innerHeight || 1) * height;
+
       for (let i = 0; i < COUNT; i++) {
         posBuf[i * 2 + 0] = px[i];
         posBuf[i * 2 + 1] = py[i];
       }
+      const segs = buildLines(mX, mY);
+
+      // Points
+      gl.useProgram(ptProg);
       gl.bindBuffer(gl.ARRAY_BUFFER, posVbo);
       gl.bufferData(gl.ARRAY_BUFFER, posBuf, gl.DYNAMIC_DRAW);
       gl.enableVertexAttribArray(posLoc);
@@ -3525,8 +3608,20 @@ document.addEventListener('DOMContentLoaded', init);
       gl.bufferData(gl.ARRAY_BUFFER, varyBuf, gl.STATIC_DRAW);
       gl.enableVertexAttribArray(varyLoc);
       gl.vertexAttribPointer(varyLoc, 3, gl.FLOAT, false, 0, 0);
-      gl.uniform1f(uTime, t);
+      gl.uniform1f(uPtTime, t);
       gl.drawArrays(gl.POINTS, 0, COUNT);
+
+      // Constellation links
+      if (segs > 0) {
+        gl.useProgram(lnProg);
+        gl.bindBuffer(gl.ARRAY_BUFFER, lineVbo);
+        gl.bufferData(gl.ARRAY_BUFFER, lineVerts.subarray(0, segs * 4), gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(lineLoc);
+        gl.vertexAttribPointer(lineLoc, 2, gl.FLOAT, false, 0, 0);
+        gl.uniform3f(uLnColor, lineRgb[0], lineRgb[1], lineRgb[2]);
+        gl.uniform1f(uLnAlpha, 0.34);
+        gl.drawArrays(gl.LINES, 0, segs * 2);
+      }
     }
 
     window.addEventListener('resize', () => ensureSize());
