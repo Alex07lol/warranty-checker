@@ -398,39 +398,74 @@
       padding: 6px 14px; border-radius: 20px; margin-bottom: 12px; border: 1px solid rgba(57,73,171,0.14);
       box-shadow: 0 2px 8px rgba(57,73,171,0.1);
     }
-    .repair-card { position: relative; background: linear-gradient(160deg, #ffffff 0%, #fafbfc 100%); border-radius: 16px; padding: 18px; margin-bottom: 12px; border: 1px solid rgba(17,17,17,0.04); box-shadow: 0 1px 2px rgba(17,17,17,0.04), 0 6px 18px rgba(17,17,17,0.05); transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease; }
-    .repair-card:hover { transform: translateY(-3px); box-shadow: 0 2px 6px rgba(17,17,17,0.05), 0 14px 30px rgba(17,17,17,0.09); }
-    .repair-card-name { font-size: 15px; font-weight: 600; color: #111; margin-bottom: 4px; }
-    .repair-card-city { font-size: 13px; font-weight: 600; color: #3949ab; margin-bottom: 4px; }
-    .repair-card-address { font-size: 13px; color: #666; margin-bottom: 8px; }
-    .repair-card-details { display: flex; justify-content: space-between; align-items: center; }
-    .repair-card-phone { font-size: 13px; color: #444; }
-    .repair-card-rating { font-size: 13px; font-weight: 600; color: #f9a825; }
+    .repair-card {
+      position: relative;
+      background: linear-gradient(160deg, #ffffff 0%, #fafbfc 100%);
+      border-radius: 18px; padding: 16px; margin-bottom: 12px;
+      border: 1px solid rgba(17,17,17,0.04);
+      box-shadow: 0 1px 2px rgba(17,17,17,0.04), 0 6px 18px rgba(17,17,17,0.05);
+      display: flex; align-items: flex-start; gap: 14px;
+      transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .repair-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 2px 6px rgba(17,17,17,0.05), 0 14px 30px rgba(17,17,17,0.09);
+      border-color: rgba(57,73,171,0.16);
+    }
+    .repair-card-thumb {
+      flex-shrink: 0; width: 68px; height: 68px; border-radius: 14px; overflow: hidden;
+      background: linear-gradient(150deg, #eef0f6 0%, #e4e8f2 100%);
+      box-shadow: inset 0 0 0 1px rgba(17,17,17,0.06);
+    }
+    .repair-card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .repair-card-img.placeholder { display: flex; align-items: center; justify-content: center; font-size: 26px; }
+    .repair-card-body { flex: 1; min-width: 0; }
+    .repair-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+    .repair-card-name { font-size: 15px; font-weight: 600; color: #111; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .repair-open-chip { font-size: 10px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
+    .repair-open-chip.open { background: #e8f5e9; color: #2e7d32; }
+    .repair-open-chip.closed { background: #f0f0f0; color: #8a8a8e; }
+    .repair-card-city { font-size: 12.5px; font-weight: 600; color: #3949ab; margin-bottom: 2px; }
+    .repair-card-address { font-size: 12.5px; color: #666; margin-bottom: 8px; }
+    .repair-card-details { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-right: 36px; }
+    .repair-card-phone { font-size: 12px; color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .repair-card-rating { font-size: 12px; font-weight: 600; color: #b76e00; background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 2px 7px; flex-shrink: 0; }
     .repair-card-locate {
       position: absolute; right: 14px; bottom: 14px;
-      width: 30px; height: 30px; border-radius: 50%;
+      width: 32px; height: 32px; border-radius: 50%;
       display: inline-flex; align-items: center; justify-content: center;
-      background: #fff; border: 1px solid #e0e0e0; color: #3949ab;
+      background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%); color: #fff;
       text-decoration: none; cursor: pointer; z-index: 1;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+      box-shadow: 0 2px 6px rgba(22,33,62,0.28);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
     .repair-card-locate:hover {
-      background: #eef0ff; border-color: #c5cae9;
-      box-shadow: 0 2px 8px rgba(57,73,171,0.25);
-      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(22,33,62,0.35);
+      transform: scale(1.12) translateY(-1px);
     }
     .repair-card-locate:active { transform: scale(0.95); }
-    .repair-card-locate svg { width: 16px; height: 16px; }
+    .repair-card-locate svg { width: 15px; height: 15px; }
 
     /* ---- REPAIR MAP + GEOLOCATION ---- */
     .repair-coords {
-      background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 12px;
-      padding: 10px 14px; font-size: 12px; font-weight: 600; color: #2e7d32;
+      display: flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, #e8f5e9 0%, #eef9ee 100%);
+      border: 1px solid #c8e6c9; border-radius: 14px;
+      padding: 12px 16px; font-size: 13px; font-weight: 600; color: #2e7d32;
       margin-bottom: 14px; overflow-wrap: break-word;
+      box-shadow: 0 1px 3px rgba(46,125,50,0.1);
     }
-    .repair-coords.error { background: #ffebee; border-color: #ffcdd2; color: #c62828; }
-    .repair-coords.pending { background: #fff8e1; border-color: #ffe082; color: #b45309; }
+    .repair-coords.error { background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); border-color: #ffcdd2; color: #c62828; }
+    .repair-coords.pending { background: linear-gradient(135deg, #fff8e1 0%, #fffdf2 100%); border-color: #ffe082; color: #b45309; }
+    .repair-coords.pending::before {
+      content: ''; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      background: #f9a825; box-shadow: 0 0 0 3px rgba(249,168,37,0.18);
+      animation: repairPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes repairPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.82); }
+    }
     .repair-map {
       position: relative; height: 240px; border-radius: 16px; margin-bottom: 16px;
       overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.06);
@@ -461,7 +496,7 @@
       max-width: 130px; overflow: hidden; text-overflow: ellipsis;
     }
     .repair-card-distance {
-      margin-top: 10px; margin-right: 36px; font-size: 12px; font-weight: 600; color: #2e7d32;
+      margin-top: 8px; margin-right: 36px; font-size: 12px; font-weight: 600; color: #2e7d32;
       display: inline-flex; align-items: center; gap: 5px;
     }
     .repair-card-distance.unknown { color: #9a9a9a; font-weight: 500; }
@@ -797,6 +832,7 @@
       .toast.show,
       .toast.show.success,
       .toast.show.error,
+      .repair-coords.pending::before,
       .login-card,
       .login-screen::before,
       .login-screen::after {
@@ -2458,11 +2494,20 @@ async function fetchNearbyRepairCentres(lat, lng, brand) {
     return data.results.slice(0, 10).map(place => ({
       name: place.name,
       city: place.vicinity || place.formatted_address || '',
-      address: place.formatted_address || 'Address not available',
+      address: place.formatted_address || place.vicinity || 'Address not available',
       phone: place.formatted_phone_number || '',
       rating: place.rating || (3.5 + 0).toFixed(1),  // Placeholder rating
       lat: place.geometry.location.lat,
       lng: place.geometry.location.lng,
+      // Used to open the actual store (not raw coordinates) in Google Maps
+      placeId: place.place_id || '',
+      // Store photo (served through the backend proxy so the API key stays server-side)
+      photoRef: (place.photos && place.photos[0] && place.photos[0].photo_reference) || '',
+      // "Open now" indicator — null when Google doesn't expose opening hours so
+      // the chip is only rendered when the status is actually known
+      openNow: place.opening_hours && typeof place.opening_hours.open_now === 'boolean'
+        ? place.opening_hours.open_now
+        : null,
       shopType: place.types && place.types[0] || 'electronics'
     }));
 
@@ -2470,6 +2515,29 @@ async function fetchNearbyRepairCentres(lat, lng, brand) {
     console.error('Google Places API error:', error);
     throw error;
   }
+}
+
+// Reverse-geocode a lat/lng pair into a human-readable place name/address so
+// the app can say "Near Connaught Place, New Delhi" instead of raw coordinates.
+// Returns null when the lookup fails so callers can fall back gracefully.
+async function reverseGeocode(lat, lng) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const response = await fetch('/api/v1/places/geocode?lat=' + lat + '&lng=' + lng, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    const data = await response.json();
+    if (data.status === 'OK' && data.results && data.results.length) {
+      return data.results[0].formatted_address;
+    }
+  } catch (err) {
+    console.warn('Reverse geocode failed:', err);
+  }
+  return null;
 }
 
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -2596,23 +2664,58 @@ function repairCentreCard(c) {
     ? '<div class="repair-card-distance">📍 ' + fmtKm(c.distKm) + ' km away</div>'
     : '<div class="repair-card-distance unknown">📍 Distance unavailable</div>';
   const hasCoords = c.lat != null && c.lng != null && Number.isFinite(c.lat) && Number.isFinite(c.lng);
-  const locateHtml = hasCoords
-    ? '<a class="repair-card-locate" target="_blank" rel="noopener" title="Open in Google Maps" ' +
-      'href="https://www.google.com/maps/search/?api=1&amp;query=' + c.lat + ',' + c.lng + '">' +
+
+  // Open the ACTUAL store in Google Maps (place_id opens the store listing
+  // directly). Fall back to a name+address search for demo/fallback centres.
+  let locateHref = '';
+  if (c.placeId) {
+    locateHref = 'https://www.google.com/maps/place/?q=place_id:' + encodeURIComponent(c.placeId);
+  } else if (hasCoords) {
+    const q = [c.name, c.city, c.address].filter(Boolean).join(', ');
+    locateHref = 'https://www.google.com/maps/search/?api=1&amp;query=' + encodeURIComponent(q);
+  }
+  const locateHtml = locateHref
+    ? '<a class="repair-card-locate" target="_blank" rel="noopener" title="Open ' + escapeHtml(c.name) + ' in Google Maps" ' +
+      'href="' + locateHref + '">' +
         '<svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">' +
           '<path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>' +
         '</svg>' +
       '</a>'
     : '';
+
+  // Store photo thumbnail (Google Places photo via backend proxy) with a
+  // wrench placeholder behind it in case the image fails to load.
+  const thumbHtml = c.photoRef
+    ? '<span class="repair-card-thumb">' +
+        '<img class="repair-card-img" loading="lazy" alt="Photo of ' + escapeHtml(c.name) + '" ' +
+          'src="/api/v1/places/photo?reference=' + encodeURIComponent(c.photoRef) + '&amp;maxwidth=200" ' +
+          'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';" />' +
+        '<span class="repair-card-img placeholder" style="display:none;">🔧</span>' +
+      '</span>'
+    : '<span class="repair-card-thumb"><span class="repair-card-img placeholder">🔧</span></span>';
+
+  const openHtml = typeof c.openNow === 'boolean'
+    ? '<span class="repair-open-chip ' + (c.openNow ? 'open' : 'closed') + '">' + (c.openNow ? 'Open now' : 'Closed') + '</span>'
+    : '';
+  const addressHtml = (c.address && c.address !== 'Address not available' && c.address !== c.city)
+    ? '<div class="repair-card-address">' + escapeHtml(c.address) + '</div>'
+    : '';
+
   return '<div class="repair-card">' +
-    '<div class="repair-card-name">' + escapeHtml(c.name) + '</div>' +
-    '<div class="repair-card-city">' + escapeHtml(c.city) + '</div>' +
-    '<div class="repair-card-address">' + escapeHtml(c.address) + '</div>' +
-    '<div class="repair-card-details">' +
-      '<span class="repair-card-phone">' + escapeHtml(c.phone) + '</span>' +
-      '<span class="repair-card-rating">★ ' + escapeHtml(String(c.rating)) + '</span>' +
+    thumbHtml +
+    '<div class="repair-card-body">' +
+      '<div class="repair-card-head">' +
+        '<div class="repair-card-name">' + escapeHtml(c.name) + '</div>' +
+        openHtml +
+      '</div>' +
+      '<div class="repair-card-city">' + escapeHtml(c.city) + '</div>' +
+      addressHtml +
+      '<div class="repair-card-details">' +
+        (c.phone ? '<span class="repair-card-phone">📞 ' + escapeHtml(c.phone) + '</span>' : '') +
+        '<span class="repair-card-rating">★ ' + escapeHtml(String(c.rating)) + '</span>' +
+      '</div>' +
+      distHtml +
     '</div>' +
-    distHtml +
     locateHtml +
   '</div>';
 }
@@ -2670,11 +2773,22 @@ async function openRepair() {
   list.appendChild(emptyState('📍', 'Fetching nearby repair centres…',
     'Requesting your location and searching for ' + (brand ? brand + ' repair shops.' : 'electronics repair shops.')));
 
+  // Guards the async reverse-geocode banner so a late resolution can never
+  // overwrite the error message shown by the catch block below.
+  let bannerFinal = false;
   try {
     const pos = await getPosition();
     const lat = pos.coords.latitude;
     const lng = pos.coords.longitude;
-    showRepairCoords('ok', '📍 Your location: ' + lat.toFixed(5) + ', ' + lng.toFixed(5));
+    // Show a real place name instead of raw coordinates (falls back to coords
+    // if the reverse-geocode lookup is unavailable).
+    showRepairCoords('pending', '📍 Finding your area…');
+    reverseGeocode(lat, lng).then(placeName => {
+      if (bannerFinal) return;
+      showRepairCoords('ok', placeName
+        ? '📍 Near ' + placeName
+        : '📍 Your location: ' + lat.toFixed(5) + ', ' + lng.toFixed(5));
+    });
 
     // Fetch real repair centres from Google Places (timeout + retry inside).
     list.innerHTML = '<div style="text-align:center;color:#888;padding:12px;">🔍 Searching for nearby ' +
@@ -2694,6 +2808,7 @@ async function openRepair() {
       renderRepairCentres(lat, lng, true, []);
     }
   } catch (err) {
+    bannerFinal = true;
     showRepairCoords('error', geoErrorMessage(err));
     // Still show fallback centres without distances
     renderRepairCentres(null, null, false);

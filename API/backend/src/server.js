@@ -27,7 +27,10 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"],
       scriptSrcAttr: ["'unsafe-inline'"],
       connectSrc: ["'self'"],
-      imgSrc: ["'self'", "data:"]
+      // maps.googleapis.com is needed for the store-photo proxy: the /places/photo
+      // route 302-redirects to a Google-hosted image, and CSP is enforced on
+      // redirect targets, so the final host must be allow-listed here.
+      imgSrc: ["'self'", "data:", "https://maps.googleapis.com"]
     }
   }
 }));
@@ -99,6 +102,51 @@ app.get("/api/v1/places/nearby", async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch from Google Places API", details: error.message });
   }
+});
+
+// Reverse-geocode a lat/lng into a human-readable place name/address so the
+// app can show "Near Connaught Place, New Delhi" instead of raw coordinates.
+app.get("/api/v1/places/geocode", async (req, res) => {
+  const { lat, lng } = req.query;
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+
+  if (!lat || !lng) {
+    return res.status(400).json({ error: "lat and lng are required" });
+  }
+
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${encodeURIComponent(lat)},${encodeURIComponent(lng)}&key=${apiKey}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { "Accept": "application/json" }
+    });
+
+    clearTimeout(timeoutId);
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to reverse geocode location", details: error.message });
+  }
+});
+
+// Serve Google Places store photos without exposing the API key to the
+// browser. Redirects to the signed photo URL so <img> tags can load it
+// cross-origin without any CORS concerns.
+app.get("/api/v1/places/photo", (req, res) => {
+  const { reference, maxwidth = 400 } = req.query;
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+
+  if (!reference) {
+    return res.status(400).json({ error: "reference is required" });
+  }
+
+  const width = Math.min(800, Math.max(100, Number(maxwidth) || 400));
+  const url = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${width}&photo_reference=${encodeURIComponent(reference)}&key=${apiKey}`;
+  res.redirect(url);
 });
 
 app.use(notFound);
