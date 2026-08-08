@@ -12,7 +12,8 @@ const ALLOWED_MIME_TYPES = new Set([
 const storage = new CloudinaryStorage({
   cloudinary,
   params: async (req) => ({
-    folder: `warrantyvault/${req.user.userId}/${req.params.productId}/${req.body.documentType || "other"}`,
+    // Standalone uploads (no productId param) land in an "unsorted" folder.
+    folder: `warrantyvault/${req.user.userId}/${req.params.productId || "unsorted"}/${req.body.documentType || "other"}`,
     resource_type: "auto"
   })
 });

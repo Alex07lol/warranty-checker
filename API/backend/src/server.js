@@ -54,6 +54,7 @@ app.get("/", (req, res) => {
         "/api/v1/products",
         "/api/v1/products/:productId/documents",
         "/api/v1/products/:productId/service-history",
+        "/api/v1/documents",
         "/api/v1/notifications",
         "/api/v1/dashboard"
       ]
@@ -72,6 +73,8 @@ app.get("/health", (req, res) => {
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/products", productRoutes);
 app.use("/api/v1/products/:productId/documents", documentRoutes);
+// Standalone documents: upload/list/delete without requiring a product.
+app.use("/api/v1/documents", documentRoutes);
 app.use("/api/v1/products/:productId/service-history", serviceHistoryRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);

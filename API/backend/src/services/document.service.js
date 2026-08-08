@@ -29,14 +29,18 @@ async function getDocumentsByProduct(productId, userId) {
 }
 
 async function uploadDocument(productId, userId, fileData, documentType, notes) {
-  await assertProductOwner(productId, userId);
+  // productId is optional: standalone uploads (via /api/v1/documents) have no
+  // product yet; only verify ownership when a product is actually linked.
+  if (productId) {
+    await assertProductOwner(productId, userId);
+  }
 
   if (!fileData) {
     throw new AppError("File is required", 400);
   }
 
   const document = await Document.create({
-    productId,
+    productId: productId || null,
     userId,
     documentType,
     fileName: fileData.original_filename || fileData.originalname || fileData.filename || "document",
@@ -50,7 +54,9 @@ async function uploadDocument(productId, userId, fileData, documentType, notes) 
     notes
   });
 
-  if (documentType === "product_photo") {
+  // A product_photo can only update a product's thumbnail when it is attached
+  // to one — standalone photo uploads are stored as documents only.
+  if (documentType === "product_photo" && productId) {
     await Product.findByIdAndUpdate(productId, {
       thumbnailUrl: document.fileUrl
     });
@@ -68,6 +74,10 @@ async function uploadDocument(productId, userId, fileData, documentType, notes) 
   }
 
   return document;
+}
+
+async function getAllDocuments(userId) {
+  return Document.find({ userId }).sort({ uploadedAt: -1 });
 }
 
 async function getDocumentById(documentId, userId) {
@@ -109,6 +119,7 @@ async function runDocumentOcr(documentId, userId) {
 
 module.exports = {
   getDocumentsByProduct,
+  getAllDocuments,
   uploadDocument,
   getDocumentById,
   deleteDocument,

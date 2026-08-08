@@ -2,9 +2,11 @@ const mongoose = require("mongoose");
 
 const documentSchema = new mongoose.Schema({
   productId: {
+    // Optional — documents can be uploaded standalone (no product yet) via
+    // /api/v1/documents, or linked to a product via
+    // /api/v1/products/:productId/documents.
     type: mongoose.Schema.Types.ObjectId,
     ref: "Product",
-    required: true,
     index: true
   },
   userId: {
