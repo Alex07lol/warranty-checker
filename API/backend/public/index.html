@@ -745,6 +745,14 @@
       z-index: 0;
       pointer-events: none;
     }
+    /* Interactive WebGL particles layered over the aurora (DOM order paints
+       them above #app-aurora-canvas, still below the .view content) */
+    #app-particles-canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
     .login-title {
       font-size: 27px; font-weight: 800; text-align: center; letter-spacing: -0.6px;
       background: linear-gradient(135deg, #111 20%, #3949ab 100%);
@@ -968,6 +976,7 @@
 
   <div class="screen">
     <canvas id="app-aurora-canvas" aria-hidden="true"></canvas>
+    <canvas id="app-particles-canvas" aria-hidden="true"></canvas>
 
     <!-- ======================== LOGIN VIEW ======================== -->
     <div class="view" id="view-login">
@@ -3298,6 +3307,194 @@ document.addEventListener('DOMContentLoaded', init);
     else { loopStarted = true; requestAnimationFrame(loop); }
   }
   startAppAurora();
+
+  /* ────────────────────────────────────────────────────────────────
+     1c. WebGL2 interactive particles — a field of soft glowing dots
+     floating over the aurora. Each particle drifts on its own sin
+     path, twinkles, and is gently pushed away from the cursor. Point
+     sprites (GL_POINTS) with additive blending; simulation runs on
+     the CPU for ~220 particles (trivial), rendering on the GPU.
+     Paints only while a main view is visible; reduced-motion users
+     get one static frame.                                       */
+  function startAppParticles() {
+    const canvas = $('app-particles-canvas');
+    if (!canvas) return;
+    let gl = null, prog = null, uRes = null, uTime = null;
+
+    const VS = `
+      attribute vec2 a_pos;
+      attribute vec3 a_vary;   // size, phase, tint
+      uniform vec2 u_res;
+      varying float v_phase;
+      varying float v_tint;
+      void main(){
+        vec2 ndc = (a_pos / u_res) * 2.0 - 1.0;
+        ndc.y *= -1.0;
+        gl_Position = vec4(ndc, 0.0, 1.0);
+        gl_PointSize = a_vary.x * (u_res.y / 720.0);
+        v_phase = a_vary.y;
+        v_tint = a_vary.z;
+      }
+    `;
+    const FS = `
+      precision mediump float;
+      uniform float u_time;
+      varying float v_phase;
+      varying float v_tint;
+      void main(){
+        vec2 c = gl_PointCoord - 0.5;
+        float d = length(c) * 2.0;
+        float alpha = smoothstep(1.0, 0.0, d);
+        alpha *= 0.45 + 0.55 * (0.5 + 0.5 * sin(u_time * 1.8 + v_phase * 6.2831));
+        vec3 indigo   = vec3(0.58, 0.65, 0.97);
+        vec3 lavender = vec3(0.80, 0.83, 0.99);
+        vec3 col = mix(indigo, lavender, v_tint);
+        gl_FragColor = vec4(col, alpha * 0.9);
+      }
+    `;
+
+    function setup() {
+      try {
+        gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: false, antialias: false });
+      } catch (e) { gl = null; }
+      if (!gl) return false;
+      const compile = (type, src) => {
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, src);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) { gl.deleteShader(sh); return null; }
+        return sh;
+      };
+      const vs = compile(gl.VERTEX_SHADER, VS);
+      const fs = compile(gl.FRAGMENT_SHADER, FS);
+      if (!vs || !fs) return false;
+      prog = gl.createProgram();
+      gl.attachShader(prog, vs); gl.attachShader(prog, fs);
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return false;
+      uRes = gl.getUniformLocation(prog, 'u_res');
+      uTime = gl.getUniformLocation(prog, 'u_time');
+      gl.useProgram(prog);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);   // additive glow
+      return true;
+    }
+    if (!setup()) return;
+
+    // ── Simulation state (positions live in CSS pixels) ──
+    const COUNT = 220;
+    const posBuf = new Float32Array(COUNT * 2);
+    const varyBuf = new Float32Array(COUNT * 3);
+    const px = new Float32Array(COUNT);
+    const py = new Float32Array(COUNT);
+    const vx = new Float32Array(COUNT);
+    const vy = new Float32Array(COUNT);
+    for (let i = 0; i < COUNT; i++) {
+      px[i] = Math.random() * (window.innerWidth || 400);
+      py[i] = Math.random() * (window.innerHeight || 800);
+      vx[i] = (Math.random() - 0.5) * 0.18;
+      vy[i] = (Math.random() - 0.5) * 0.18;
+      varyBuf[i * 3 + 0] = 1.4 + Math.random() * 2.6;      // size
+      varyBuf[i * 3 + 1] = Math.random();                    // phase
+      varyBuf[i * 3 + 2] = Math.random();                    // tint
+    }
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+    const mouse = { x: 0.5, y: 0.5 };
+    let lastW = 0, lastH = 0, loopStarted = false;
+
+    window.addEventListener('pointermove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    }, { passive: true });
+
+    let width = 0, height = 0;
+    function ensureSize() {
+      const w = canvas.clientWidth || 1;
+      const h = canvas.clientHeight || 1;
+      if (w === lastW && h === lastH) return;
+      lastW = w; lastH = h;
+      width = Math.max(1, Math.round((w * dpr) / 2));
+      height = Math.max(1, Math.round((h * dpr) / 2));
+      canvas.width = width;
+      canvas.height = height;
+      gl.viewport(0, 0, width, height);
+      gl.uniform2f(uRes, width, height);
+    }
+
+    const posVbo = gl.createBuffer();
+    const varyVbo = gl.createBuffer();
+    const posLoc = gl.getAttribLocation(prog, 'a_pos');
+    const varyLoc = gl.getAttribLocation(prog, 'a_vary');
+
+    function step(dt, t) {
+      const mX = mouse.x / (window.innerWidth || 1) * width;
+      const mY = mouse.y / (window.innerHeight || 1) * height;
+      const R = 130;
+      for (let i = 0; i < COUNT; i++) {
+        const ph = varyBuf[i * 3 + 1];
+        // gentle flow
+        vx[i] += Math.sin(t * 0.5 + ph * 12.0) * 0.0016;
+        vy[i] += Math.cos(t * 0.42 + ph * 9.0) * 0.0014;
+        // cursor repulsion
+        const dx = px[i] - mX;
+        const dy = py[i] - mY;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < R * R && d2 > 0.0001) {
+          const d = Math.sqrt(d2);
+          const f = (1 - d / R) * 0.42;
+          vx[i] += (dx / d) * f;
+          vy[i] += (dy / d) * f;
+        }
+        // integrate + damping
+        vx[i] *= 0.995; vy[i] *= 0.995;
+        px[i] += vx[i] * dt * 60;
+        py[i] += vy[i] * dt * 60;
+        // wrap around edges with a soft margin
+        if (px[i] < -12) px[i] = width + 12;
+        else if (px[i] > width + 12) px[i] = -12;
+        if (py[i] < -12) py[i] = height + 12;
+        else if (py[i] > height + 12) py[i] = -12;
+      }
+    }
+
+    function paint(t) {
+      step(1 / 60, t);
+      for (let i = 0; i < COUNT; i++) {
+        posBuf[i * 2 + 0] = px[i];
+        posBuf[i * 2 + 1] = py[i];
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, posVbo);
+      gl.bufferData(gl.ARRAY_BUFFER, posBuf, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(posLoc);
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, varyVbo);
+      gl.bufferData(gl.ARRAY_BUFFER, varyBuf, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(varyLoc);
+      gl.vertexAttribPointer(varyLoc, 3, gl.FLOAT, false, 0, 0);
+      gl.uniform1f(uTime, t);
+      gl.drawArrays(gl.POINTS, 0, COUNT);
+    }
+
+    window.addEventListener('resize', () => ensureSize());
+    canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
+    canvas.addEventListener('webglcontextrestored', () => { setup(); ensureSize(); }, false);
+
+    const mainVisible = () => {
+      const login = $('view-login');
+      const loginOn = !!login && login.classList.contains('active');
+      return !loginOn && document.visibilityState === 'visible';
+    };
+    function loop() {
+      if (mainVisible()) { ensureSize(); paint(performance.now() / 1000); }
+      requestAnimationFrame(loop);
+    }
+
+    ensureSize();
+    if (reduceMotion) { paint(0); }
+    else { loopStarted = true; requestAnimationFrame(loop); }
+  }
+  startAppParticles();
 
   /* Install the openLogin wrapper immediately — the aurora hook is already
      queued, so even an instant "Sign In" click runs it. The intro/springs
