@@ -236,8 +236,12 @@ function parseModel(text) {
     .map((l) => l.trim())
     .filter(Boolean);
 
+  // sku / p?n / type get \b boundaries ("Typewriter" must not match type);
+  // the model/item/product/part/article alternatives keep their original
+  // shapes (a trailing \b would break "Item No." — the dot kills the
+  // boundary).
   const MODEL_LABEL =
-    /(?:\bmodel(?:\s*(?:no\.?|number|#))?\b|\bitem\s*(?:no\.?|#)\b|\bproduct\s*(?:no\.?|#)\b|\bpart\s*(?:no\.?|#)\b|\barticle\s*(?:no\.?|#)\b|\bsku\b|\bp\/?n\b|\btype\s*(?:no\.?|#)?\b)\s*[:#-]?\s*([A-Za-z0-9][A-Za-z0-9 .\-/]{1,30})/i;
+    /(?:model(?:\s*(?:no\.?|number|#))?|item\s*(?:no\.?|#)|product\s*(?:no\.?|#)|part\s*(?:no\.?|#)|article\s*(?:no\.?|#)|\bsku\b|\bp\/?n\b|\btype\s*(?:no\.?|#)?\b)\s*[:#-]?\s*([A-Za-z0-9][A-Za-z0-9 .\-/]{1,30})/i;
   const SERIAL_LABEL = /\b(s\/?n|serial|mfr|mfg|exp|expiry|warranty|valid)\b/i;
 
   // (1) Explicit labels.

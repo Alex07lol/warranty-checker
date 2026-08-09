@@ -55,7 +55,15 @@ const documentSchema = new mongoose.Schema({
   parsedData: {
     warrantyExpiryDate: Date,
     purchasePrice: Number,
-    serialNumber: String
+    serialNumber: String,
+    purchaseStore: String,
+    purchaseDate: Date,
+    // Best-effort product name (brand/model split out), brand and model
+    // suggested from the OCR text — pre-fill the review-and-confirm form for
+    // standalone scans.
+    productName: String,
+    brand: String,
+    model: String
   },
   ocrError: String
 });

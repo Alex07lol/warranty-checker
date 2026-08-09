@@ -1,5 +1,8 @@
 // Mock Cloudinary and the multer upload middleware so tests never hit the network.
+const mockFetchStoredAsset = jest.fn();
 jest.mock("../src/config/cloudinary", () => ({
+  isConfigured: jest.fn(() => true),
+  fetchStoredAsset: mockFetchStoredAsset,
   uploader: {
     destroy: jest.fn().mockResolvedValue({ result: "ok" })
   }
@@ -36,8 +39,10 @@ jest.mock("tesseract.js", () => ({
   }))
 }));
 
+const mongoose = require("mongoose");
 const originalFetch = global.fetch;
 const cloudinary = require("../src/config/cloudinary");
+const Product = require("../src/models/Product");
 
 const { app, request, startDb, stopDb, registerUser } = require("./helpers/setup");
 
@@ -171,5 +176,220 @@ describe("Document API", () => {
       .get("/api/v1/documents")
       .set("Authorization", `Bearer ${token}`);
     expect(after.body.data.documents).toHaveLength(0);
+  });
+});
+
+describe("Document view proxy", () => {
+  let token;
+  let documentId;
+
+  beforeAll(async () => {
+    await startDb();
+    const user = await registerUser("View User", `view_${Date.now()}@example.com`);
+    token = user.token;
+    const upload = await request(app)
+      .post("/api/v1/documents")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ documentType: "manual", notes: "For view proxy test" });
+    documentId = upload.body.data._id;
+  });
+
+  afterAll(async () => {
+    await stopDb();
+  });
+
+  // Background OCR from earlier receipt uploads also calls fetchStoredAsset;
+  // clear call history between tests so assertions stay scoped.
+  beforeEach(() => mockFetchStoredAsset.mockClear());
+
+  test("requires authentication", async () => {
+    const response = await request(app).get(`/api/v1/documents/${documentId}/view`);
+    expect(response.statusCode).toBe(401);
+  });
+
+  test("streams the original file bytes with a viewable content-type", async () => {
+    const pdfBytes = Buffer.from("%PDF-1.4 fake warranty pdf bytes");
+    mockFetchStoredAsset.mockResolvedValue(
+      new Response(pdfBytes, {
+        status: 200,
+        headers: { "content-type": "application/pdf" }
+      })
+    );
+
+    const response = await request(app)
+      .get(`/api/v1/documents/${documentId}/view`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("application/pdf");
+    expect(response.headers["content-disposition"]).toContain("inline");
+    // supertest buffers binary responses into res.body.
+    expect(Buffer.isBuffer(response.body)).toBe(true);
+    expect(response.body.toString("utf8")).toContain("%PDF-1.4");
+    // The proxy must fetch through the Admin API (not the delivery URL).
+    expect(mockFetchStoredAsset).toHaveBeenCalledWith("test/receipt123");
+  });
+
+  test("rejects viewing another user's document", async () => {
+    const other = await registerUser("Other View User", `view_other_${Date.now()}@example.com`);
+    const response = await request(app)
+      .get(`/api/v1/documents/${documentId}/view`)
+      .set("Authorization", `Bearer ${other.token}`);
+    expect(response.statusCode).toBe(403);
+    expect(mockFetchStoredAsset).not.toHaveBeenCalled();
+  });
+
+  test("returns 404 for a missing document", async () => {
+    const response = await request(app)
+      .get(`/api/v1/documents/${new mongoose.Types.ObjectId()}/view`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(404);
+  });
+
+  test("surfaces a Cloudinary download failure as a 502", async () => {
+    mockFetchStoredAsset.mockResolvedValue(new Response("denied", { status: 401 }));
+    const response = await request(app)
+      .get(`/api/v1/documents/${documentId}/view`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(502);
+  });
+});
+
+// Poll the standalone document until its background OCR finishes (confirm
+// requires ocrStatus "done" — the review step only exists after OCR).
+async function waitForOcrDone(docId, token, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const { body } = await request(app)
+      .get(`/api/v1/documents/${docId}`)
+      .set("Authorization", `Bearer ${token}`);
+    if (body.data.ocrStatus === "done" || body.data.ocrStatus === "failed") return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Document ${docId} OCR did not finish within ${timeoutMs}ms`);
+}
+
+describe("Document confirm-product endpoint", () => {
+  let token;
+  let otherToken;
+  let documentId;
+
+  beforeAll(async () => {
+    // Confirm requires the background OCR to finish "done", so stub fetch
+    // (used by fetchStoredFileBytes) — otherwise the OCR download fails and
+    // the doc lands on "failed".
+    global.fetch = jest.fn(async () => ({ arrayBuffer: async () => new ArrayBuffer(8) }));
+    await startDb();
+    const user = await registerUser("Confirm User", `confirm_${Date.now()}@example.com`);
+    token = user.token;
+    const other = await registerUser("Confirm Other", `confirm_other_${Date.now()}@example.com`);
+    otherToken = other.token;
+    const upload = await request(app)
+      .post("/api/v1/documents")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ documentType: "receipt" });
+    documentId = upload.body.data._id;
+    await waitForOcrDone(documentId, token);
+  });
+
+  afterAll(async () => {
+    global.fetch = originalFetch;
+    await stopDb();
+  });
+
+  test("requires authentication", async () => {
+    const response = await request(app).post(
+      `/api/v1/documents/${documentId}/confirm-product`
+    );
+    expect(response.statusCode).toBe(401);
+  });
+
+  test("validates the payload (product name required)", async () => {
+    const response = await request(app)
+      .post(`/api/v1/documents/${documentId}/confirm-product`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ productName: "   " });
+    expect(response.statusCode).toBe(422);
+  });
+
+  test("creates a product from the reviewed data and links the document", async () => {
+    const response = await request(app)
+      .post(`/api/v1/documents/${documentId}/confirm-product`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        productName: "Fridge from scan",
+        serialNumber: "SN999",
+        purchasePrice: 899.99,
+        purchaseStore: "ACME STORE"
+      });
+    expect(response.statusCode).toBe(201);
+    const { product, document } = response.body.data;
+    expect(product.productName).toBe("Fridge from scan");
+    expect(product.purchasePrice).toBe(899.99);
+    expect(product.serialNumber).toBe("SN999");
+    expect(product.purchaseStore).toBe("ACME STORE");
+    expect(document.productId).toBe(product._id);
+  });
+
+  test("rejects confirming an already-linked document", async () => {
+    const response = await request(app)
+      .post(`/api/v1/documents/${documentId}/confirm-product`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ productName: "Again" });
+    expect(response.statusCode).toBe(409);
+  });
+
+  test("rejects confirming before OCR has finished", async () => {
+    // manual-type documents are never OCR'd (skipped) — confirm must refuse.
+    const upload = await request(app)
+      .post("/api/v1/documents")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ documentType: "manual" });
+    const response = await request(app)
+      .post(`/api/v1/documents/${upload.body.data._id}/confirm-product`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ productName: "Manual" });
+    expect(response.statusCode).toBe(422);
+  });
+
+  test("rejects confirming another user's document", async () => {
+    const upload = await request(app)
+      .post("/api/v1/documents")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ documentType: "receipt" });
+    const otherDocId = upload.body.data._id;
+    await waitForOcrDone(otherDocId, token);
+
+    const response = await request(app)
+      .post(`/api/v1/documents/${otherDocId}/confirm-product`)
+      .set("Authorization", `Bearer ${otherToken}`)
+      .send({ productName: "Stolen" });
+    expect(response.statusCode).toBe(403);
+  });
+
+  test("rejects an expiry date on or before the purchase date", async () => {
+    const upload = await request(app)
+      .post("/api/v1/documents")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ documentType: "receipt" });
+    const docId = upload.body.data._id;
+    await waitForOcrDone(docId, token);
+
+    const response = await request(app)
+      .post(`/api/v1/documents/${docId}/confirm-product`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        productName: "Fridge",
+        purchaseDate: "2027-01-01",
+        warrantyExpiryDate: "2026-01-01"
+      });
+    expect(response.statusCode).toBe(422);
+  });
+
+  test("returns 404 for a missing document", async () => {
+    const response = await request(app)
+      .post(`/api/v1/documents/${new mongoose.Types.ObjectId()}/confirm-product`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ productName: "Ghost" });
+    expect(response.statusCode).toBe(404);
   });
 });
