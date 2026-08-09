@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const compression = require("compression");
 const { PORT, NODE_ENV, CLIENT_URL } = require("./config/env");
 const connectDatabase = require("./config/database");
 const notFound = require("./middleware/notFound");
@@ -39,7 +40,18 @@ app.use(cors({
   credentials: true
 }));
 app.use(morgan("combined"));
+// gzip all text/json responses (HTML shell, API payloads, vendored JS).
+// 182 KB index.html ~> ~30 KB over the wire; skip tiny bodies where the
+// gzip overhead isn't worth it.
+app.use(compression({ threshold: 1024 }));
 app.use(express.json({ limit: "1mb" }));
+// Vendored, versioned-because-vendored assets never change at runtime — let
+// the browser cache them forever. index.html and /api stay uncached (ETag
+// revalidation) so updates always reach users.
+app.use("/vendor", (req, res, next) => {
+  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  next();
+});
 app.use(express.static("public"));
 
 app.get("/", (req, res) => {
@@ -79,6 +91,20 @@ app.use("/api/v1/products/:productId/service-history", serviceHistoryRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 
+async function fetchJsonWithTimeout(url, headers = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { "Accept": "application/json", ...headers }
+    });
+    return await response.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 // Google Places API proxy to avoid CORS issues
 app.get("/api/v1/places/nearby", async (req, res) => {
   const { lat, lng, radius = 10000, type = "electronics_store", keyword = "repair" } = req.query;
@@ -90,17 +116,7 @@ app.get("/api/v1/places/nearby", async (req, res) => {
 
   try {
     const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&key=${apiKey}&type=${type}&keyword=${encodeURIComponent(keyword)}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: { "Accept": "application/json" }
-    });
-
-    clearTimeout(timeoutId);
-
-    const data = await response.json();
+    const data = await fetchJsonWithTimeout(url);
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch from Google Places API", details: error.message });
@@ -124,19 +140,13 @@ app.get("/api/v1/places/geocode", async (req, res) => {
     let googleData = null;
     try {
       const googleUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${encodeURIComponent(lat)},${encodeURIComponent(lng)}&key=${apiKey}`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const response = await fetch(googleUrl, {
-        signal: controller.signal,
-        headers: { "Accept": "application/json" }
-      });
-      clearTimeout(timeoutId);
-      googleData = await response.json();
+      googleData = await fetchJsonWithTimeout(googleUrl);
     } catch (err) {
+      console.warn("Google Geocoding failed:", err.message);
       googleData = null;
     }
 
-    if (googleData && googleData.status === "OK" && googleData.results && googleData.results.length) {
+    if (googleData?.status === "OK" && googleData?.results?.length) {
       return res.json(googleData);
     }
 
@@ -144,22 +154,15 @@ app.get("/api/v1/places/geocode", async (req, res) => {
     // repair-tab open, but keep it a fallback only (Google is the primary).
     try {
       const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=jsonv2&accept-language=en`;
-      const nomController = new AbortController();
-      const nomTimeout = setTimeout(() => nomController.abort(), 10000);
-      const nomResponse = await fetch(nominatimUrl, {
-        signal: nomController.signal,
-        headers: {
-          "Accept": "application/json",
-          "User-Agent": "WarrantyVault/1.0 (warranty-tracker demo)"
-        }
+      const nomData = await fetchJsonWithTimeout(nominatimUrl, {
+        "User-Agent": "WarrantyVault/1.0 (warranty-tracker demo)"
       });
-      clearTimeout(nomTimeout);
-      const nomData = await nomResponse.json();
-      if (nomData && nomData.display_name) {
+      if (nomData?.display_name) {
         return res.json({ status: "OK", results: [{ formatted_address: nomData.display_name }] });
       }
     } catch (err) {
       // Nominatim unavailable too — fall through to Google's original answer.
+      console.warn("Nominatim Geocoding failed:", err.message);
     }
 
     res.json(googleData || { status: "ERROR", results: [], error_message: "No reverse geocoding result" });
@@ -181,17 +184,7 @@ app.get("/api/v1/places/details", async (req, res) => {
   try {
     const fields = "formatted_phone_number,international_phone_number,website,opening_hours,user_ratings_total,rating";
     const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=${encodeURIComponent(fields)}&key=${apiKey}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: { "Accept": "application/json" }
-    });
-
-    clearTimeout(timeoutId);
-
-    const data = await response.json();
+    const data = await fetchJsonWithTimeout(url);
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch place details", details: error.message });
