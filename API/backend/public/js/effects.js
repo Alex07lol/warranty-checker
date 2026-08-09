@@ -345,162 +345,82 @@
   startAppAurora();
 
   /* ────────────────────────────────────────────────────────────────
-     1c. WebGL2 interactive particles — a field of soft glowing dots
-     floating over the aurora. Each particle drifts on its own sin
-     path, twinkles, and is gently pushed away from the cursor. Point
-     sprites (GL_POINTS) with additive blending; simulation runs on
-     the CPU for ~150 particles (trivial), rendering on the GPU.
-     A factory: one instance for the app views (paints while a main
-     view is visible) and one for the login screen (paints behind
-     its aurora while the login view is open). Reduced-motion users
-     get one static frame.                                       */
+     1c. Interactive constellation particles — a field of soft glowing
+     dots drifting over the app. Pure Canvas-2D (no WebGL2 required),
+     so it renders identically in every browser and device. Each
+     particle drifts on its own sin path, twinkles, and is gently
+     pushed away from the cursor; nearby particles and the cursor are
+     joined by constellation lines. A factory: one instance for the
+     app views (paints while a main view is visible) and one for the
+     login screen (paints behind its aurora while the login view is
+     open). Reduced-motion users get one static frame.            */
   function createParticles(canvasId, visible) {
     const canvas = $(canvasId);
     if (!canvas) return null;
-    let gl = null, ptProg = null, lnProg = null;
-    let uPtRes = null, uPtTime = null, uLnRes = null, uLnColor = null, uLnAlpha = null;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
 
     // Tunable via CSS variables in :root (--particles-*).
     const pSpeed = clampNum(cssVar('--particles-speed', '1'), 0.1, 5, 1);
-    const pA = vec3(cssVar('--particles-color-a', '#95a1f8'), [0.58, 0.65, 0.97]);
-    const pB = vec3(cssVar('--particles-color-b', '#d2d6fc'), [0.80, 0.83, 0.99]);
-    const pTwinkle = (1.8 * pSpeed).toFixed(4);
-    const lineRgb = hexToRgb(cssVar('--particles-color-a', '#95a1f8')) || [0.58, 0.65, 0.97];
+    const colA = hexToRgb(cssVar('--particles-color-a', '#7c88ea')) || [0.49, 0.53, 0.92];
+    const colB = hexToRgb(cssVar('--particles-color-b', '#b9bff5')) || [0.73, 0.75, 0.96];
+    const lineRgb = colA;
 
-    // Soft glowing point sprites (bigger + brighter than before).
-    const VS_PT = `
-      attribute vec2 a_pos;
-      attribute vec3 a_vary;   // size, phase, tint
-      uniform vec2 u_res;
-      varying float v_phase;
-      varying float v_tint;
-      void main(){
-        vec2 ndc = (a_pos / u_res) * 2.0 - 1.0;
-        ndc.y *= -1.0;
-        gl_Position = vec4(ndc, 0.0, 1.0);
-        gl_PointSize = a_vary.x * (u_res.y / 720.0);
-        v_phase = a_vary.y;
-        v_tint = a_vary.z;
-      }
-    `;
-    const FS_PT = `
-      precision mediump float;
-      uniform float u_time;
-      varying float v_phase;
-      varying float v_tint;
-      void main(){
-        vec2 c = gl_PointCoord - 0.5;
-        float d = length(c) * 2.0;
-        float alpha = smoothstep(1.0, 0.0, d);
-        alpha *= 0.55 + 0.45 * (0.5 + 0.5 * sin(u_time * ${pTwinkle} + v_phase * 6.2831));
-        vec3 indigo   = ${pA};
-        vec3 lavender = ${pB};
-        vec3 col = mix(indigo, lavender, v_tint);
-        gl_FragColor = vec4(col, alpha * 1.0);
-      }
-    `;
-    // Constellation links between nearby particles (and to the cursor).
-    const VS_LN = `
-      attribute vec2 a_pos;
-      uniform vec2 u_res;
-      void main(){
-        vec2 ndc = (a_pos / u_res) * 2.0 - 1.0;
-        ndc.y *= -1.0;
-        gl_Position = vec4(ndc, 0.0, 1.0);
-      }
-    `;
-    const FS_LN = `
-      precision mediump float;
-      uniform vec3 u_color;
-      uniform float u_alpha;
-      void main(){ gl_FragColor = vec4(u_color, u_alpha); }
-    `;
-
-    function setup() {
-      try {
-        gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: false, antialias: false });
-      } catch (e) {
-        console.warn("WebGL2 context creation failed for particles:", e);
-        gl = null;
-      }
-      if (!gl) return false;
-      ptProg = linkProgram(gl, VS_PT, FS_PT);
-      lnProg = linkProgram(gl, VS_LN, FS_LN);
-      if (!ptProg || !lnProg) return false;
-      uPtRes = gl.getUniformLocation(ptProg, 'u_res');
-      uPtTime = gl.getUniformLocation(ptProg, 'u_time');
-      uLnRes = gl.getUniformLocation(lnProg, 'u_res');
-      uLnColor = gl.getUniformLocation(lnProg, 'u_color');
-      uLnAlpha = gl.getUniformLocation(lnProg, 'u_alpha');
-      gl.enable(gl.BLEND);
-      // Normal alpha blending (NOT additive): the app background is light
-      // (#f5f5f7), so additive glow washes the particles out to invisible.
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-      return true;
-    }
-    if (!setup()) return;
-
-    // ── Simulation state (positions live in CSS pixels) ──
-    const COUNT = 150;
-    const posBuf = new Float32Array(COUNT * 2);
-    const varyBuf = new Float32Array(COUNT * 3);
+    // ── Simulation state (positions live in CSS px) ──
+    const COUNT = 160;
     const px = new Float32Array(COUNT);
     const py = new Float32Array(COUNT);
     const vx = new Float32Array(COUNT);
     const vy = new Float32Array(COUNT);
+    const phase = new Float32Array(COUNT);   // twinkle / drift phase
+    const tint = new Float32Array(COUNT);    // color mix 0..1
+    const size = new Float32Array(COUNT);    // core radius (CSS px)
     for (let i = 0; i < COUNT; i++) {
       px[i] = cryptoRand() * (window.innerWidth || 400);
       py[i] = cryptoRand() * (window.innerHeight || 800);
       vx[i] = (cryptoRand() - 0.5) * 0.18;
       vy[i] = (cryptoRand() - 0.5) * 0.18;
-      varyBuf[i * 3 + 0] = 3.4 + cryptoRand() * 4.2;      // clearly visible on light bg
-      varyBuf[i * 3 + 1] = cryptoRand();                    // phase
-      varyBuf[i * 3 + 2] = cryptoRand();                    // tint
+      phase[i] = cryptoRand() * 6.2831;
+      tint[i] = cryptoRand();
+      size[i] = 1.3 + cryptoRand() * 1.9;
     }
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const mouse = { x: 0.5, y: 0.5 };
-    const sizeState = { lastW: 0, lastH: 0 };
+    let width = 0, height = 0;   // device px
+    let cssW = 0, cssH = 0;      // css px
+
+    function handleResize() {
+      const w = canvas.clientWidth || 1;
+      const h = canvas.clientHeight || 1;
+      if (w === cssW && h === cssH) return;
+      cssW = w; cssH = h;
+      width = Math.max(1, Math.round(w * dpr));
+      height = Math.max(1, Math.round(h * dpr));
+      canvas.width = width;
+      canvas.height = height;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);   // draw in CSS px
+    }
 
     window.addEventListener('pointermove', (e) => {
       mouse.x = e.clientX;
       mouse.y = e.clientY;
     }, { passive: true });
 
-    let width = 0, height = 0;
-    function handleResize() {
-      const size = ensureGlSize(canvas, gl, dpr, null, sizeState);
-      if (size) {
-        width = size.width;
-        height = size.height;
-        gl.uniform2f(uPtRes, width, height);
-        gl.uniform2f(uLnRes, width, height);
-      }
-    }
-
-    const posVbo = gl.createBuffer();
-    const varyVbo = gl.createBuffer();
-    const lineVbo = gl.createBuffer();
-    const posLoc = gl.getAttribLocation(ptProg, 'a_pos');
-    const varyLoc = gl.getAttribLocation(ptProg, 'a_vary');
-    const lineLoc = gl.getAttribLocation(lnProg, 'a_pos');
-
-    const LINK = 92;             // particle↔particle link distance (px)
-    const MAX_SEGS = 420;        // hard cap so dense clusters can't blow up
-    const lineVerts = new Float32Array(MAX_SEGS * 4);
+    const R = 130;              // cursor repulsion radius (px)
+    const LINK = 92;            // particle↔particle link distance (px)
+    const MAX_SEGS = 420;       // hard cap so dense clusters can't blow up
+    const segsArr = new Float32Array(MAX_SEGS * 4);
 
     function step(dt, t) {
-      const mX = mouse.x / (window.innerWidth || 1) * width;
-      const mY = mouse.y / (window.innerHeight || 1) * height;
-      const R = 130;
       for (let i = 0; i < COUNT; i++) {
-        const ph = varyBuf[i * 3 + 1];
+        const ph = phase[i];
         // gentle flow (scaled by --particles-speed)
-        vx[i] += Math.sin(t * 0.5 * pSpeed + ph * 12.0) * 0.0016;
-        vy[i] += Math.cos(t * 0.42 * pSpeed + ph * 9.0) * 0.0014;
+        vx[i] += Math.sin(t * 0.5 * pSpeed + ph * 2.0) * 0.0016;
+        vy[i] += Math.cos(t * 0.42 * pSpeed + ph * 1.5) * 0.0014;
         // cursor repulsion
-        const dx = px[i] - mX;
-        const dy = py[i] - mY;
+        const dx = px[i] - mouse.x;
+        const dy = py[i] - mouse.y;
         const d2 = dx * dx + dy * dy;
         if (d2 < R * R && d2 > 0.0001) {
           const d = Math.sqrt(d2);
@@ -513,29 +433,29 @@
         px[i] += vx[i] * dt * 60;
         py[i] += vy[i] * dt * 60;
         // wrap around edges with a soft margin
-        if (px[i] < -12) px[i] = width + 12;
-        else if (px[i] > width + 12) px[i] = -12;
-        if (py[i] < -12) py[i] = height + 12;
-        else if (py[i] > height + 12) py[i] = -12;
+        if (px[i] < -12) px[i] = cssW + 12;
+        else if (px[i] > cssW + 12) px[i] = -12;
+        if (py[i] < -12) py[i] = cssH + 12;
+        else if (py[i] > cssH + 12) py[i] = -12;
       }
     }
 
     // Build the constellation: a segment between the cursor and every nearby
     // particle, plus segments joining particles within LINK px of each other.
-    function buildLines(mX, mY) {
+    function buildLines() {
       let segs = 0;
       const l2 = LINK * LINK;
-      const c2 = 130 * 130;
+      const c2 = R * R;
       outer:
       for (let i = 0; i < COUNT; i++) {
-        const cdx = px[i] - mX;
-        const cdy = py[i] - mY;
+        const cdx = px[i] - mouse.x;
+        const cdy = py[i] - mouse.y;
         if (cdx * cdx + cdy * cdy < c2) {
           if (segs >= MAX_SEGS) break;
-          lineVerts[segs * 4 + 0] = px[i];
-          lineVerts[segs * 4 + 1] = py[i];
-          lineVerts[segs * 4 + 2] = mX;
-          lineVerts[segs * 4 + 3] = mY;
+          segsArr[segs * 4 + 0] = px[i];
+          segsArr[segs * 4 + 1] = py[i];
+          segsArr[segs * 4 + 2] = mouse.x;
+          segsArr[segs * 4 + 3] = mouse.y;
           segs++;
         }
         for (let j = i + 1; j < COUNT; j++) {
@@ -543,10 +463,10 @@
           const dx = px[i] - px[j];
           const dy = py[i] - py[j];
           if (dx * dx + dy * dy < l2) {
-            lineVerts[segs * 4 + 0] = px[i];
-            lineVerts[segs * 4 + 1] = py[i];
-            lineVerts[segs * 4 + 2] = px[j];
-            lineVerts[segs * 4 + 3] = py[j];
+            segsArr[segs * 4 + 0] = px[i];
+            segsArr[segs * 4 + 1] = py[i];
+            segsArr[segs * 4 + 2] = px[j];
+            segsArr[segs * 4 + 3] = py[j];
             segs++;
           }
         }
@@ -556,44 +476,51 @@
 
     function paint(t) {
       step(1 / 60, t);
-      const mX = mouse.x / (window.innerWidth || 1) * width;
-      const mY = mouse.y / (window.innerHeight || 1) * height;
+      const segs = buildLines();
 
-      for (let i = 0; i < COUNT; i++) {
-        posBuf[i * 2 + 0] = px[i];
-        posBuf[i * 2 + 1] = py[i];
-      }
-      const segs = buildLines(mX, mY);
-
-      // Points
-      gl.useProgram(ptProg);
-      gl.bindBuffer(gl.ARRAY_BUFFER, posVbo);
-      gl.bufferData(gl.ARRAY_BUFFER, posBuf, gl.DYNAMIC_DRAW);
-      gl.enableVertexAttribArray(posLoc);
-      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-      gl.bindBuffer(gl.ARRAY_BUFFER, varyVbo);
-      gl.bufferData(gl.ARRAY_BUFFER, varyBuf, gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(varyLoc);
-      gl.vertexAttribPointer(varyLoc, 3, gl.FLOAT, false, 0, 0);
-      gl.uniform1f(uPtTime, t);
-      gl.drawArrays(gl.POINTS, 0, COUNT);
+      ctx.clearRect(0, 0, cssW, cssH);
 
       // Constellation links
       if (segs > 0) {
-        gl.useProgram(lnProg);
-        gl.bindBuffer(gl.ARRAY_BUFFER, lineVbo);
-        gl.bufferData(gl.ARRAY_BUFFER, lineVerts.subarray(0, segs * 4), gl.DYNAMIC_DRAW);
-        gl.enableVertexAttribArray(lineLoc);
-        gl.vertexAttribPointer(lineLoc, 2, gl.FLOAT, false, 0, 0);
-        gl.uniform3f(uLnColor, lineRgb[0], lineRgb[1], lineRgb[2]);
-        gl.uniform1f(uLnAlpha, 0.5);
-        gl.drawArrays(gl.LINES, 0, segs * 2);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle =
+          'rgba(' + (lineRgb[0] * 255 | 0) + ',' + (lineRgb[1] * 255 | 0) + ',' +
+          (lineRgb[2] * 255 | 0) + ',0.5)';
+        ctx.beginPath();
+        for (let s = 0; s < segs; s++) {
+          ctx.moveTo(segsArr[s * 4 + 0], segsArr[s * 4 + 1]);
+          ctx.lineTo(segsArr[s * 4 + 2], segsArr[s * 4 + 3]);
+        }
+        ctx.stroke();
+      }
+
+      // Glowing dots (soft halo + bright core), twinkling over time.
+      for (let i = 0; i < COUNT; i++) {
+        const tw = 0.6 + 0.4 * Math.sin(t * 1.8 * pSpeed + phase[i]);
+        const a = 0.35 + 0.65 * tw;                    // alpha 0.35..1
+        const r = size[i];
+        const rr = colA[0] + (colB[0] - colA[0]) * tint[i];
+        const gg = colA[1] + (colB[1] - colA[1]) * tint[i];
+        const bb = colA[2] + (colB[2] - colA[2]) * tint[i];
+        const rgb =
+          'rgba(' + (rr * 255 | 0) + ',' + (gg * 255 | 0) + ',' + (bb * 255 | 0) + ',';
+        // soft halo
+        const halo = ctx.createRadialGradient(px[i], py[i], 0, px[i], py[i], r * 3.2);
+        halo.addColorStop(0, rgb + (a * 0.4).toFixed(3) + ')');
+        halo.addColorStop(1, rgb + '0)');
+        ctx.fillStyle = halo;
+        ctx.beginPath();
+        ctx.arc(px[i], py[i], r * 3.2, 0, 6.2832);
+        ctx.fill();
+        // bright core
+        ctx.fillStyle = rgb + a.toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.arc(px[i], py[i], r, 0, 6.2832);
+        ctx.fill();
       }
     }
 
-    window.addEventListener('resize', () => handleResize());
-    canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
-    canvas.addEventListener('webglcontextrestored', () => { setup(); handleResize(); }, false);
+    window.addEventListener('resize', handleResize);
 
     let rafId = null;
     function loop() {
