@@ -53,6 +53,9 @@ const productSchema = new mongoose.Schema(
 productSchema.index({ userId: 1 });
 productSchema.index({ warrantyExpiryDate: 1 });
 productSchema.index({ userId: 1, isDeleted: 1 });
+// Compound index serving dashboard/expiry-range queries that filter on
+// { userId, isDeleted, warrantyExpiryDate } and sort by expiry date.
+productSchema.index({ userId: 1, isDeleted: 1, warrantyExpiryDate: 1 });
 productSchema.index({ productName: "text", brand: "text", model: "text" });
 
 module.exports = mongoose.model("Product", productSchema);
