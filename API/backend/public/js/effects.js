@@ -79,6 +79,12 @@
     return !loginOn && document.visibilityState === 'visible';
   };
 
+  // Shared helper to check if the login view is visible.
+  const loginVisible = () => {
+    const v = $('view-login');
+    return !!v && v.classList.contains('active') && document.visibilityState === 'visible';
+  };
+
   // Shared helper to handle canvas resizing.
   const ensureGlSize = (canvas, gl, dpr, uRes, state) => {
     const w = canvas.clientWidth || 1;
@@ -190,10 +196,6 @@
     canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
     canvas.addEventListener('webglcontextrestored', () => { setup(); ensureGlSize(canvas, gl, dpr, uRes, sizeState); }, false);
 
-    const loginVisible = () => {
-      const v = $('view-login');
-      return !!v && v.classList.contains('active') && document.visibilityState === 'visible';
-    };
     let rafId = null;
     function loop() {
       if (loginVisible()) {
@@ -347,12 +349,14 @@
      floating over the aurora. Each particle drifts on its own sin
      path, twinkles, and is gently pushed away from the cursor. Point
      sprites (GL_POINTS) with additive blending; simulation runs on
-     the CPU for ~220 particles (trivial), rendering on the GPU.
-     Paints only while a main view is visible; reduced-motion users
+     the CPU for ~150 particles (trivial), rendering on the GPU.
+     A factory: one instance for the app views (paints while a main
+     view is visible) and one for the login screen (paints behind
+     its aurora while the login view is open). Reduced-motion users
      get one static frame.                                       */
-  function startAppParticles() {
-    const canvas = $('app-particles-canvas');
-    if (!canvas) return;
+  function createParticles(canvasId, visible) {
+    const canvas = $(canvasId);
+    if (!canvas) return null;
     let gl = null, ptProg = null, lnProg = null;
     let uPtRes = null, uPtTime = null, uLnRes = null, uLnColor = null, uLnAlpha = null;
 
@@ -429,7 +433,9 @@
       uLnColor = gl.getUniformLocation(lnProg, 'u_color');
       uLnAlpha = gl.getUniformLocation(lnProg, 'u_alpha');
       gl.enable(gl.BLEND);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);   // additive glow
+      // Normal alpha blending (NOT additive): the app background is light
+      // (#f5f5f7), so additive glow washes the particles out to invisible.
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       return true;
     }
     if (!setup()) return;
@@ -447,7 +453,7 @@
       py[i] = cryptoRand() * (window.innerHeight || 800);
       vx[i] = (cryptoRand() - 0.5) * 0.18;
       vy[i] = (cryptoRand() - 0.5) * 0.18;
-      varyBuf[i * 3 + 0] = 2.2 + cryptoRand() * 3.4;      // bigger + brighter
+      varyBuf[i * 3 + 0] = 3.4 + cryptoRand() * 4.2;      // clearly visible on light bg
       varyBuf[i * 3 + 1] = cryptoRand();                    // phase
       varyBuf[i * 3 + 2] = cryptoRand();                    // tint
     }
@@ -580,7 +586,7 @@
         gl.enableVertexAttribArray(lineLoc);
         gl.vertexAttribPointer(lineLoc, 2, gl.FLOAT, false, 0, 0);
         gl.uniform3f(uLnColor, lineRgb[0], lineRgb[1], lineRgb[2]);
-        gl.uniform1f(uLnAlpha, 0.34);
+        gl.uniform1f(uLnAlpha, 0.5);
         gl.drawArrays(gl.LINES, 0, segs * 2);
       }
     }
@@ -591,15 +597,26 @@
 
     let rafId = null;
     function loop() {
-      if (mainVisible()) { handleResize(); paint(performance.now() / 1000); }
+      if (visible()) { handleResize(); paint(performance.now() / 1000); }
       rafId = requestAnimationFrame(loop);
     }
 
-    handleResize();
-    if (reduceMotion) { paint(0); }
-    else { rafId = requestAnimationFrame(loop); }
+    // Lazy loop: the caller decides when to start. The app instance boots
+    // immediately; the login instance only starts once the login view opens,
+    // so a user who never visits it pays zero idle RAF cost.
+    return function start() {
+      handleResize();
+      if (reduceMotion) { paint(0); return; }   // one calm static frame
+      if (!rafId) { rafId = requestAnimationFrame(loop); }
+    };
   }
-  startAppParticles();
+  // App views: boot onto the dashboard, so start immediately.
+  const startAppParticles = createParticles('app-particles-canvas', mainVisible);
+  if (startAppParticles) startAppParticles();
+
+  // Login screen: constellation behind the aurora, started on demand.
+  const startLoginParticles = createParticles('login-particles-canvas', loginVisible);
+  if (startLoginParticles) loginHooks.push(startLoginParticles);
 
   /* Install the openLogin wrapper immediately — the aurora hook is already
      queued, so even an instant "Sign In" click runs it. The intro/springs
