@@ -27,10 +27,15 @@ afterEach(() => {
 });
 
 describe("Places API", () => {
-  test("nearby requires lat and lng", async () => {
-    const response = await request(app).get("/api/v1/places/nearby");
+  test.each([
+    ["/api/v1/places/nearby", "lat and lng are required"],
+    ["/api/v1/places/geocode", "lat and lng are required"],
+    ["/api/v1/places/photo", "reference is required"],
+    ["/api/v1/places/details", "place_id is required"]
+  ])("%s validation error responses", async (path, errorMsg) => {
+    const response = await request(app).get(path);
     expect(response.statusCode).toBe(400);
-    expect(response.body.error).toBe("lat and lng are required");
+    expect(response.body.error).toBe(errorMsg);
   });
 
   test("nearby proxies Google Places results", async () => {
@@ -54,11 +59,7 @@ describe("Places API", () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
-  test("geocode requires lat and lng", async () => {
-    const response = await request(app).get("/api/v1/places/geocode");
-    expect(response.statusCode).toBe(400);
-    expect(response.body.error).toBe("lat and lng are required");
-  });
+
 
   test("geocode returns a human-readable address", async () => {
     mockFetch({
@@ -80,11 +81,7 @@ describe("Places API", () => {
     );
   });
 
-  test("photo requires a photo reference", async () => {
-    const response = await request(app).get("/api/v1/places/photo");
-    expect(response.statusCode).toBe(400);
-    expect(response.body.error).toBe("reference is required");
-  });
+
 
   test("photo redirects to the Google Places photo URL with the server key", async () => {
     const response = await request(app)
@@ -128,11 +125,7 @@ describe("Places API", () => {
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
-  test("details requires place_id", async () => {
-    const response = await request(app).get("/api/v1/places/details");
-    expect(response.statusCode).toBe(400);
-    expect(response.body.error).toBe("place_id is required");
-  });
+
 
   test("details proxies Google Place Details (phone + hours)", async () => {
     mockFetch({
