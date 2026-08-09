@@ -112,6 +112,51 @@ async function getExpiringProducts(userId) {
   }).sort({ warrantyExpiryDate: 1 });
 }
 
+// Create a product pre-filled from standalone OCR results, or reuse an
+// existing product carrying the same serial number (avoids duplicate products
+// when multiple scans of the same item are uploaded). Returns the product.
+// The serial-dedupe check is best-effort: under a rare concurrent double-scan
+// the check-then-create can race, so a duplicate-key error (E11000) is
+// caught and resolved by re-querying instead of crashing.
+async function createProductFromOcr(userId, data) {
+  if (data.serialNumber) {
+    const existing = await Product.findOne({
+      userId,
+      isDeleted: false,
+      serialNumber: data.serialNumber
+    });
+    if (existing) return existing;
+  }
+
+  // OCR noise can put the purchase date after the expiry — drop the purchase
+  // date then, since the app's validation requires expiry > purchase.
+  if (
+    data.purchaseDate &&
+    data.warrantyExpiryDate &&
+    new Date(data.purchaseDate) >= new Date(data.warrantyExpiryDate)
+  ) {
+    data = { ...data, purchaseDate: undefined };
+  }
+
+  try {
+    return await Product.create({
+      ...data,
+      userId
+    });
+  } catch (error) {
+    // E11000 duplicate key (e.g. a concurrent scan created it first).
+    if (error.code === 11000 && data.serialNumber) {
+      const winner = await Product.findOne({
+        userId,
+        isDeleted: false,
+        serialNumber: data.serialNumber
+      });
+      if (winner) return winner;
+    }
+    throw error;
+  }
+}
+
 async function applyOcrToProduct(productId, parsedData) {
   if (!parsedData) return {};
 
@@ -135,6 +180,27 @@ async function applyOcrToProduct(productId, parsedData) {
   if (!product.serialNumber && parsedData.serialNumber) {
     updates.serialNumber = parsedData.serialNumber;
   }
+  if (!product.purchaseStore && parsedData.purchaseStore) {
+    updates.purchaseStore = parsedData.purchaseStore;
+  }
+  if (!product.brand && parsedData.brand) {
+    updates.brand = parsedData.brand;
+  }
+  if (!product.model && parsedData.model) {
+    updates.model = parsedData.model;
+  }
+  if (
+    !product.purchaseDate &&
+    parsedData.purchaseDate &&
+    // A purchase date must not land after the (known or incoming) expiry.
+    !(
+      (product.warrantyExpiryDate || updates.warrantyExpiryDate) &&
+      new Date(parsedData.purchaseDate) >
+        new Date(product.warrantyExpiryDate || updates.warrantyExpiryDate)
+    )
+  ) {
+    updates.purchaseDate = parsedData.purchaseDate;
+  }
 
   if (Object.keys(updates).length > 0) {
     Object.assign(product, updates);
@@ -151,5 +217,6 @@ module.exports = {
   softDeleteProduct,
   searchProducts,
   getExpiringProducts,
+  createProductFromOcr,
   applyOcrToProduct
 };

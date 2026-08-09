@@ -28,7 +28,7 @@ jest.mock("../src/middleware/upload", () => ({
 const mongoose = require("mongoose");
 const Document = require("../src/models/Document");
 const Product = require("../src/models/Product");
-const { parseDocumentText, isOcrEligible, processDocument } = require("../src/services/ocr.service");
+const { parseDocumentText, parseProductName, parseStore, parsePurchaseDate, parseBrand, parseModel, splitProductParts, isOcrEligible, processDocument } = require("../src/services/ocr.service");
 const { app, request, startDb, stopDb, registerUser } = require("./helpers/setup");
 
 describe("Document OCR fields", () => {
@@ -84,6 +84,29 @@ describe("parseDocumentText", () => {
     expect(parsed.purchasePrice).toBeNull();
     expect(parsed.serialNumber).toBeNull();
     expect(parsed.warrantyExpiryDate).toBeNull();
+    expect(parsed.purchaseStore).toBeNull();
+    expect(parsed.purchaseDate).toBeNull();
+  });
+
+  test("extracts the store and purchase date", () => {
+    const parsed = parseDocumentText(mockReceiptText);
+    expect(parsed.purchaseStore).toBe("ACME STORE");
+    expect(parsed.purchaseDate.getFullYear()).toBe(2025);
+    expect(parsed.purchaseDate.getMonth()).toBe(5); // June (MFR DATE)
+  });
+
+  test("extracts brand and model", () => {
+    const parsed = parseDocumentText(
+      "SAMSUNG\nModel No: RF28T5\nRefrigerator   $499.99\nTotal $499.99"
+    );
+    expect(parsed.brand).toBe("Samsung");
+    expect(parsed.model).toBe("RF28T5");
+  });
+
+  test("does not mistake the expiry date for the purchase date", () => {
+    const parsed = parseDocumentText(mockReceiptText);
+    expect(parsed.warrantyExpiryDate.getFullYear()).toBe(2027);
+    expect(parsed.purchaseDate.getFullYear()).toBe(2025);
   });
 
   test("keeps cents on comma-thousands", () => {
@@ -101,12 +124,178 @@ describe("parseDocumentText", () => {
   });
 });
 
+describe("parseProductName", () => {
+  test("extracts an item name from a receipt line", () => {
+    expect(parseProductName("ACME STORE\nRefrigerator   $899.99\nTotal $899.99", "receipt.jpg", "receipt"))
+      .toBe("Refrigerator");
+  });
+
+  test("prefers a model-like line mixing letters and digits", () => {
+    expect(parseProductName("SONY\nWH-1000XM5\nNoise cancelling", "scan.jpg", "warranty_card"))
+      .toBe("WH-1000XM5");
+  });
+
+  test("falls back to the first plausible non-noise line", () => {
+    expect(parseProductName("Thank you for shopping\nSamsung Fridge\nSerial: SN1", "scan.jpg", "receipt"))
+      .toBe("Samsung Fridge");
+  });
+
+  test("falls back to the file name when OCR text is empty", () => {
+    expect(parseProductName("", "sony-wh1000xm5.pdf", "receipt")).toBe("sony wh1000xm5");
+  });
+
+  test("returns a generic name as last resort", () => {
+    expect(parseProductName("", "receipt.jpg", "receipt")).toBe("Receipt product");
+    expect(parseProductName("", "warranty.jpg", "warranty_card")).toBe("Warranty card product");
+  });
+});
+
+describe("parseBrand", () => {
+  test("reads a labeled brand", () => {
+    expect(parseBrand("Brand: Samsung\nTotal $5.00")).toBe("Samsung");
+    expect(parseBrand("Manufacturer: Whirlpool\nModel: XYZ\nTotal $5.00")).toBe("Whirlpool");
+  });
+
+  test("finds a known brand on an item line", () => {
+    expect(parseBrand("Samsung Fridge   $499.99\nTotal $499.99")).toBe("Samsung");
+  });
+
+  test("skips store-like lines", () => {
+    expect(parseBrand("SAMSUNG STORE\nItem\nTotal $5.00")).toBeNull();
+    expect(parseBrand("ACME STORE\nTotal $5.00")).toBeNull();
+  });
+
+  test("matches whole words only", () => {
+    expect(parseBrand("Orange Electronics\nTotal $5.00")).toBeNull();
+    expect(parseBrand("Apple Watch   $399.00\nTotal $399.00")).toBe("Apple");
+  });
+
+  test("returns null when no brand exists", () => {
+    expect(parseBrand("no structured data here")).toBeNull();
+  });
+
+  test("ignores footer text that merely mentions brand words", () => {
+    // No ":" separator — these must not be read as brand labels.
+    expect(parseBrand("Please make sure to keep your receipt\nTotal $5.00")).toBeNull();
+    expect(parseBrand("MANUFACTURER WARRANTY: 2 years\nTotal $5.00")).toBeNull();
+  });
+});
+
+describe("parseModel", () => {
+  test("reads a labeled model", () => {
+    expect(parseModel("Model No: WH-1000XM5\nTotal $5.00")).toBe("WH-1000XM5");
+    expect(parseModel("MODEL NUMBER: XRT-4080\nTotal $5.00")).toBe("XRT-4080");
+    expect(parseModel("Item No. 12345B\nTotal $5.00")).toBe("12345B");
+  });
+
+  test("finds an unlabeled model-like token", () => {
+    expect(parseModel("SONY\nWH-1000XM5\nNoise cancelling")).toBe("WH-1000XM5");
+  });
+
+  test("skips serial numbers", () => {
+    expect(parseModel("S/N: SN1234567890\nTotal $5.00")).toBeNull();
+  });
+
+  test("does not match the word 'type' inside other words", () => {
+    expect(parseModel("Typewriter\nTotal $5.00")).toBeNull();
+  });
+
+  test("returns null when no model exists", () => {
+    expect(parseModel("no structured data here")).toBeNull();
+  });
+});
+
+describe("splitProductParts", () => {
+  test("strips a brand prefix from the name", () => {
+    expect(splitProductParts("Samsung Fridge", "Samsung", null)).toEqual({
+      productName: "Fridge",
+      brand: "Samsung",
+      model: null
+    });
+  });
+
+  test("keeps the name when it is only the model", () => {
+    expect(splitProductParts("WH-1000XM5", "Sony", "WH-1000XM5")).toEqual({
+      productName: "WH-1000XM5",
+      brand: "Sony",
+      model: "WH-1000XM5"
+    });
+  });
+
+  test("keeps a too-short remainder as the name", () => {
+    expect(splitProductParts("Samsung", "Samsung", null)).toEqual({
+      productName: "Samsung",
+      brand: "Samsung",
+      model: null
+    });
+  });
+
+  test("passes through when no brand or model is found", () => {
+    expect(splitProductParts("Refrigerator", null, null)).toEqual({
+      productName: "Refrigerator",
+      brand: null,
+      model: null
+    });
+  });
+});
+
+describe("parseStore", () => {
+  test("picks the store keyword line", () => {
+    expect(parseStore(mockReceiptText)).toBe("ACME STORE");
+  });
+
+  test("reads the thank-you footer when present", () => {
+    const text = "Item   $10.00\nTotal  $10.00\nThank you for shopping at Best Buy";
+    expect(parseStore(text)).toBe("Best Buy");
+  });
+
+  test("falls back to the first plausible header line", () => {
+    expect(parseStore("WALMART\nItem\nTotal $5.00")).toBe("WALMART");
+  });
+
+  test("returns null when no store-like line exists", () => {
+    expect(parseStore("Total $5.00\nS/N: ABC123")).toBeNull();
+  });
+});
+
+describe("parsePurchaseDate", () => {
+  test("reads a labeled date (MFR/DATE/PURCHASE)", () => {
+    const date = parsePurchaseDate("PURCHASE DATE: 03/15/2026\nEXP: 06/15/2028");
+    expect(date.getFullYear()).toBe(2026);
+    expect(date.getMonth()).toBe(2); // March
+  });
+
+  test("skips expiry lines", () => {
+    const date = parsePurchaseDate("WARRANTY EXPIRES 06/15/2028\nSOLD ON 04/01/2026");
+    expect(date.getFullYear()).toBe(2026);
+  });
+
+  test("prefers an explicit purchase label over an earlier manufacture date", () => {
+    const date = parsePurchaseDate(
+      "MFR DATE: 06/15/2025\nPURCHASE DATE: 03/15/2026\nEXP: 06/15/2028"
+    );
+    expect(date.getFullYear()).toBe(2026);
+    expect(date.getMonth()).toBe(2); // March
+  });
+
+  test("falls back to the first non-expiry date", () => {
+    const date = parsePurchaseDate("06/10/2025\nEXP: 06/15/2028");
+    expect(date.getFullYear()).toBe(2025);
+  });
+
+  test("returns null when no date exists", () => {
+    expect(parsePurchaseDate("no dates here")).toBeNull();
+  });
+});
+
 describe("isOcrEligible", () => {
-  test("only image receipts and warranty cards are eligible", () => {
+  test("image and PDF receipts and warranty cards are eligible", () => {
     expect(isOcrEligible({ documentType: "receipt", mimeType: "image/jpeg" })).toBe(true);
     expect(isOcrEligible({ documentType: "warranty_card", mimeType: "image/png" })).toBe(true);
-    expect(isOcrEligible({ documentType: "receipt", mimeType: "application/pdf" })).toBe(false);
+    expect(isOcrEligible({ documentType: "receipt", mimeType: "application/pdf" })).toBe(true);
+    expect(isOcrEligible({ documentType: "warranty_card", mimeType: "application/pdf" })).toBe(true);
     expect(isOcrEligible({ documentType: "product_photo", mimeType: "image/jpeg" })).toBe(false);
+    expect(isOcrEligible({ documentType: "manual", mimeType: "application/pdf" })).toBe(false);
   });
 });
 
@@ -166,6 +355,33 @@ describe("processDocument", () => {
     const updatedProduct = await Product.findById(productId);
     expect(updatedProduct.purchasePrice).toBe(899.99);
     expect(updatedProduct.serialNumber).toBe("SN1234567890");
+    expect(updatedProduct.purchaseStore).toBe("ACME STORE");
+    expect(updatedProduct.purchaseDate.getFullYear()).toBe(2025);
+  });
+
+  test("processes a PDF through the injected PDF-OCR path", async () => {
+    // mupdf (the production PDF engine) is ESM-only and jest's CJS runtime
+    // cannot load it, so the PDF step is injected here. The real engine is
+    // exercised end to end by the live-API PDF smoke check.
+    const pdfOcrFn = jest.fn(async () => mockReceiptText);
+    const doc = await Document.create({
+      productId,
+      userId,
+      documentType: "receipt",
+      fileName: "receipt.pdf",
+      fileUrl: "https://example.com/receipt.pdf",
+      publicId: "test/receipt-pdf",
+      fileSize: 10,
+      mimeType: "application/pdf"
+    });
+
+    await processDocument(doc, { pdfOcrFn });
+
+    expect(pdfOcrFn).toHaveBeenCalledTimes(1);
+    expect(doc.ocrStatus).toBe("done");
+    expect(doc.ocrText).toContain("ACME STORE");
+    expect(doc.parsedData.purchasePrice).toBe(899.99);
+    expect(doc.parsedData.serialNumber).toBe("SN1234567890");
   });
 
   test("does not overwrite existing product fields", async () => {
@@ -185,6 +401,33 @@ describe("processDocument", () => {
     const updatedProduct = await Product.findById(pid);
     expect(updatedProduct.purchasePrice).toBe(500);
     expect(updatedProduct.serialNumber).toBe("EXISTING");
+  });
+
+  test("fills brand and model on a linked product", async () => {
+    const product = await request(app)
+      .post("/api/v1/products")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ productName: "TV" });
+    const pid = product.body.data._id;
+
+    const doc = await Document.create({
+      productId: pid,
+      userId,
+      documentType: "receipt",
+      fileName: "tv-receipt.jpg",
+      fileUrl: "https://example.com/tv-receipt.jpg",
+      publicId: "test/tv-ocr",
+      fileSize: 10,
+      mimeType: "image/jpeg"
+    });
+
+    await processDocument(doc, {
+      ocrFn: async () => "SONY\nModel No: XR-65A90\nS/N: TVTEST-1\nTV   $899.99\nTotal $899.99"
+    });
+
+    const updated = await Product.findById(pid);
+    expect(updated.brand).toBe("Sony");
+    expect(updated.model).toBe("XR-65A90");
   });
 
   test("does not fill an expiry date that is not after the product purchase date", async () => {
@@ -219,6 +462,159 @@ describe("processDocument", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ documentType: "product_photo" });
     expect(upload.body.data.ocrStatus).toBe("skipped");
+  });
+});
+
+describe("standalone OCR stages product data for confirmation", () => {
+  let token;
+  let userId;
+
+  beforeAll(async () => {
+    await startDb();
+    global.fetch = jest.fn(async () => ({ arrayBuffer: async () => new ArrayBuffer(8) }));
+    const user = await registerUser("Standalone User", `standalone_${Date.now()}@example.com`);
+    token = user.token;
+    userId = user.userId;
+  });
+
+  afterAll(async () => {
+    global.fetch = originalFetch;
+    await stopDb();
+  });
+
+  test("completes OCR with parsed data but does not create a product yet", async () => {
+    const upload = await request(app)
+      .post("/api/v1/documents")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ documentType: "receipt" });
+    expect(upload.statusCode).toBe(201);
+    expect(upload.body.data.productId).toBeNull();
+
+    const doc = await waitForDocument(upload.body.data._id);
+    expect(doc.ocrStatus).toBe("done");
+    // The extracted data and a suggested name are staged on the document, but
+    // no product exists until the user reviews and confirms the values.
+    expect(doc.productId).toBeNull();
+    expect(doc.parsedData.purchasePrice).toBe(899.99);
+    expect(doc.parsedData.serialNumber).toBe("SN1234567890");
+    expect(doc.parsedData.productName).toBe("Refrigerator");
+    expect(doc.parsedData.purchaseStore).toBe("ACME STORE");
+    expect(await Product.countDocuments({ userId })).toBe(0);
+  });
+
+  test("confirm endpoint creates the product with corrected data and links the document", async () => {
+    const upload = await request(app)
+      .post("/api/v1/documents")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ documentType: "receipt" });
+    const docId = upload.body.data._id;
+    await waitForDocument(docId);
+
+    const confirm = await request(app)
+      .post(`/api/v1/documents/${docId}/confirm-product`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        // The user corrected the OCR-suggested name.
+        productName: "Samsung Fridge",
+        brand: "Samsung",
+        model: "RF28T5",
+        serialNumber: "SN1234567890",
+        purchasePrice: 899.99,
+        purchaseStore: "ACME STORE",
+        purchaseDate: "2025-06-15",
+        warrantyExpiryDate: "2027-06-15"
+      });
+    expect(confirm.statusCode).toBe(201);
+    const { product, document } = confirm.body.data;
+    expect(product.productName).toBe("Samsung Fridge");
+    expect(product.brand).toBe("Samsung");
+    expect(product.model).toBe("RF28T5");
+    expect(product.purchasePrice).toBe(899.99);
+    expect(product.serialNumber).toBe("SN1234567890");
+    expect(product.purchaseStore).toBe("ACME STORE");
+    expect(product.userId.toString()).toBe(userId.toString());
+    expect(document.productId.toString()).toBe(product._id.toString());
+
+    const linked = await Document.findById(docId);
+    expect(linked.productId.toString()).toBe(product._id.toString());
+  });
+
+  test("confirm reuses an existing product with the same serial instead of duplicating", async () => {
+    // A product already exists with this serial (e.g. manually entered); the
+    // confirmed scan must attach to it rather than create a duplicate.
+    const existing = await Product.create({
+      userId,
+      productName: "Manual Fridge",
+      serialNumber: "DEDUPE-12345",
+      purchasePrice: 120
+    });
+
+    const first = await Document.create({
+      userId,
+      documentType: "receipt",
+      fileName: "first.jpg",
+      fileUrl: "https://example.com/first.jpg",
+      publicId: "test/dedupe-1",
+      fileSize: 10,
+      mimeType: "image/jpeg"
+    });
+    await processDocument(first, { ocrFn: async () => "ACME STORE\nS/N: DEDUPE-12345\nTotal $120.00" });
+    expect(first.productId).toBeUndefined(); // staged, not linked
+
+    const confirm = await request(app)
+      .post(`/api/v1/documents/${first._id}/confirm-product`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ productName: "From Scan", serialNumber: "DEDUPE-12345" });
+    expect(confirm.statusCode).toBe(201);
+    expect(confirm.body.data.product._id.toString()).toBe(existing._id.toString());
+
+    const linked = await Document.findById(first._id);
+    expect(linked.productId.toString()).toBe(existing._id.toString());
+    const count = await Product.countDocuments({ userId, serialNumber: "DEDUPE-12345" });
+    expect(count).toBe(1);
+  });
+
+  test("does not create a product when OCR extracts no usable data", async () => {
+    const doc = await Document.create({
+      userId,
+      documentType: "receipt",
+      fileName: "receipt.jpg",
+      fileUrl: "https://example.com/receipt.jpg",
+      publicId: "test/no-data",
+      fileSize: 10,
+      mimeType: "image/jpeg"
+    });
+    await processDocument(doc, { ocrFn: async () => "no structured data here" });
+    expect(doc.ocrStatus).toBe("done");
+    // In-memory doc: the unset path stays undefined (a DB fetch would return
+    // null) — either way no product is linked.
+    expect(doc.productId).toBeUndefined();
+    // A suggestion is staged, but with no strong fields (price/serial/expiry)
+    // the confirm step is never offered — nothing is created.
+    expect(doc.parsedData.productName).toBeTruthy();
+  });
+
+  test("stages brand and model split from the suggested name", async () => {
+    const doc = await Document.create({
+      userId,
+      documentType: "warranty_card",
+      fileName: "fridge-card.jpg",
+      fileUrl: "https://example.com/fridge-card.jpg",
+      publicId: "test/brand-model",
+      fileSize: 10,
+      mimeType: "image/jpeg"
+    });
+    await processDocument(doc, {
+      ocrFn: async () =>
+        "SAMSUNG\nModel No: RF28T5\nS/N: BRANDTEST-1\nRefrigerator   $499.99\nTotal $499.99"
+    });
+    expect(doc.ocrStatus).toBe("done");
+    expect(doc.productId).toBeUndefined();
+    expect(doc.parsedData.brand).toBe("Samsung");
+    expect(doc.parsedData.model).toBe("RF28T5");
+    // The brand was split out of the suggested name.
+    expect(doc.parsedData.productName).toBe("Refrigerator");
+    expect(doc.parsedData.serialNumber).toBe("BRANDTEST-1");
   });
 });
 

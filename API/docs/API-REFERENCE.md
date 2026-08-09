@@ -87,6 +87,7 @@ curl http://localhost:5000/api/v1/dashboard -H "Authorization: Bearer $TOKEN"
 | Documents | `GET /products/:productId/documents` | `documents` |
 | Documents | `POST /products/:productId/documents` (multipart) | `documents` |
 | Documents | `GET /products/:productId/documents/:documentId` | `documents` |
+| Documents | `GET /documents/:documentId/view` (streams bytes) | `documents` + id |
 | Documents | `DELETE /products/:productId/documents/:documentId` | `documents` |
 | Service history | `GET /products/:productId/service-history` | `serviceHistory` |
 | Service history | `POST /products/:productId/service-history` | `serviceHistory` |
@@ -191,12 +192,58 @@ Files are uploaded to **Cloudinary** (`multer-storage-cloudinary`) under
 sets the product's `thumbnailUrl`. Returns `201` with the Document document
 (`fileUrl`, `publicId`, `fileSize`, `mimeType`, …).
 
+> **Edit-and-confirm on standalone scans:** when a `receipt` or `warranty_card`
+> is uploaded through `/documents` (no product attached), OCR **stages** the
+> extracted data on the document (`parsedData`, including a best-effort
+> `productName` suggestion plus `brand` and `model`) but does **not** create a
+> product. The brand and model are split out of the suggested name — e.g.
+> "Samsung Fridge" becomes name "Fridge", brand "Samsung" (a known-brand
+> list + `Brand:`/`Model No:` labels drive the extraction). The client shows a
+> review form pre-filled with the extracted values; the user corrects any OCR
+> mistakes and confirms via
+> `POST /documents/:documentId/confirm-product` (below), which creates the
+> product with the user-confirmed values and links the document to it
+> (reusing an existing product with the same serial number instead of
+> duplicating). The document's `productId` stays `null` until the user
+> confirms — nothing is saved without their review.
+
 **GET `/products/:productId/documents`** — returns
 `data: { documents: [...] }` sorted by upload time descending.
 
 **GET `/products/:productId/documents/:documentId`** and
 **DELETE `/products/:productId/documents/:documentId`** — fetch/delete a single
 document. Delete also removes the file from Cloudinary.
+
+**GET `/documents/:documentId/view`** (also available as
+`GET /products/:productId/documents/:documentId/view`) — **streams the
+original file bytes** (not JSON). The server fetches the file from Cloudinary's
+Admin API with API-key auth, so viewing works even when the account's media
+-delivery ACL blocks direct `fileUrl` access (e.g. PDFs). Returns the file with
+`Content-Type` matching the stored mime type, an `inline` `Content-Disposition`
+and `Cache-Control: private, no-store`. Auth required; another user's document
+→ `403`, missing → `404`, Cloudinary download failure → `502`.
+
+**POST `/documents/:documentId/confirm-product`** — end of the edit-and-confirm
+flow for standalone scans. Creates a product from the user-reviewed OCR data
+and links the document to it. Body (all optional except `productName`):
+
+```json
+{ "productName": "QLED TV", "brand": "Samsung", "model": "QN65S90",
+  "serialNumber": "CONFIME2E-5566", "purchasePrice": 749.99,
+  "purchaseStore": "ACME STORE", "purchaseDate": "2026-04-10",
+  "warrantyExpiryDate": "2028-12-31" }
+```
+
+- If another product already carries the same `serialNumber`, the document is
+  linked to that existing product instead of creating a duplicate.
+- Requires the document's background OCR to have finished (`ocrStatus: "done"`)
+  — this is the review step of a completed scan.
+- Returns `201` with `data: { product, document }`. An empty form field simply
+  leaves the field unset on the product.
+- `409` if the document is already linked to a product; `422` on validation
+  errors (missing name, non-numeric price, OCR not finished, expiry on/before
+  the purchase date); `403` for another user's document; `404` if it doesn't
+  exist.
 
 ### 4.4 Service history
 

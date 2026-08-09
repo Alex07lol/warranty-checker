@@ -1,6 +1,4 @@
 const multer = require("multer");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("../config/cloudinary");
 
 const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
@@ -9,17 +7,12 @@ const ALLOWED_MIME_TYPES = new Set([
   "application/pdf"
 ]);
 
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: async (req) => ({
-    // Standalone uploads (no productId param) land in an "unsorted" folder.
-    folder: `warrantyvault/${req.user.userId}/${req.params.productId || "unsorted"}/${req.body.documentType || "other"}`,
-    resource_type: "auto"
-  })
-});
-
+// Keep the uploaded bytes in memory (instead of streaming straight to
+// Cloudinary) so OCR can read the original file — this works even when the
+// Cloudinary account's media-delivery ACL blocks fetching the stored URL
+// back. The document service uploads the buffer to Cloudinary itself.
 const uploadSingle = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {

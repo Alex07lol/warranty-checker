@@ -1,3 +1,5 @@
+const { Readable } = require("node:stream");
+const AppError = require("../utils/AppError");
 const documentService = require("../services/document.service");
 const { sendSuccess } = require("../utils/response");
 
@@ -58,6 +60,47 @@ async function deleteDocument(req, res, next) {
   }
 }
 
+// Stream the document's original file bytes to the client. The bytes are
+// fetched server-side through Cloudinary's Admin API (bypassing the account's
+// media delivery ACL), so the PDF "View" button works even though direct
+// fileUrl access is restricted.
+async function viewDocument(req, res, next) {
+  try {
+    const { document, response } = await documentService.getDocumentStream(
+      req.params.documentId,
+      req.user.userId
+    );
+    // Same conditional product-scope check as getDocumentById.
+    if (req.params.productId && (!document.productId || document.productId.toString() !== req.params.productId)) {
+      return next(new AppError("Forbidden", 403));
+    }
+
+    if (!response.body) {
+      return next(new AppError("Stored file has no content", 502));
+    }
+
+    const contentType =
+      response.headers.get("content-type") || document.mimeType || "application/octet-stream";
+    const fileName = document.fileName || "document";
+    const safeName = fileName.replace(/"/g, "").replace(/[\r\n]/g, "");
+    res.setHeader("Content-Type", contentType);
+    res.setHeader(
+      "Content-Disposition",
+      // RFC 5987 filename* for non-ASCII names, plus a plain fallback.
+      `inline; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`
+    );
+    // Personal documents must not be cached by shared caches/proxies.
+    res.setHeader("Cache-Control", "private, no-store");
+    const contentLength = response.headers.get("content-length");
+    if (contentLength) res.setHeader("Content-Length", contentLength);
+    const stream = Readable.fromWeb(response.body);
+    stream.on("error", () => res.destroy());
+    stream.pipe(res);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function runDocumentOcr(req, res, next) {
   try {
     const data = await documentService.runDocumentOcr(req.params.documentId, req.user.userId);
@@ -67,10 +110,28 @@ async function runDocumentOcr(req, res, next) {
   }
 }
 
+// End of the edit-and-confirm flow: create the product for a standalone
+// document from the user-reviewed (and corrected) OCR data.
+async function confirmDocumentProduct(req, res, next) {
+  try {
+    const data = await documentService.confirmProductFromDocument(
+      req.params.documentId,
+      req.user.userId,
+      req.body,
+      req.params.productId
+    );
+    return sendSuccess(res, data, "Product created from document", 201);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getDocuments,
   uploadDocument,
   getDocumentById,
+  viewDocument,
   deleteDocument,
-  runDocumentOcr
+  runDocumentOcr,
+  confirmDocumentProduct
 };

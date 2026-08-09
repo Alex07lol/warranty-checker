@@ -4,6 +4,7 @@ const Product = require("../models/Product");
 const AppError = require("../utils/AppError");
 const cloudinary = require("../config/cloudinary");
 const { isOcrEligible, processDocument } = require("./ocr.service");
+const { createProductFromOcr } = require("./product.service");
 
 async function assertProductOwner(productId, userId) {
   if (!mongoose.isValidObjectId(productId)) {
@@ -28,6 +29,23 @@ async function getDocumentsByProduct(productId, userId) {
   return Document.find({ productId, userId }).sort({ uploadedAt: -1 });
 }
 
+// Upload raw bytes to Cloudinary (resource_type auto: images stay images,
+// PDFs are stored as image resources). Returns the asset fields the document
+// record needs. Throws on failure.
+async function uploadToCloudinary(buffer, userId, productId, documentType) {
+  const folder = `warrantyvault/${userId}/${productId || "unsorted"}/${documentType || "other"}`;
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder, resource_type: "auto" },
+      (error, result) => {
+        if (error) return reject(error);
+        return resolve(result);
+      }
+    );
+    stream.end(buffer);
+  });
+}
+
 async function uploadDocument(productId, userId, fileData, documentType, notes) {
   // productId is optional: standalone uploads (via /api/v1/documents) have no
   // product yet; only verify ownership when a product is actually linked.
@@ -37,6 +55,26 @@ async function uploadDocument(productId, userId, fileData, documentType, notes) 
 
   if (!fileData) {
     throw new AppError("File is required", 400);
+  }
+
+  // Memory-storage uploads carry the original bytes; push them to Cloudinary
+  // here and keep the buffer for OCR. (When the upload middleware is mocked in
+  // tests, fileData already carries path/public_id and no buffer — the legacy
+  // shape is used as-is.)
+  let fileBuffer = fileData.buffer;
+  if (fileBuffer) {
+    const asset = await uploadToCloudinary(fileBuffer, userId, productId, documentType);
+    fileData = {
+      ...fileData,
+      // Match both the v3 (public_id/secure_url/bytes) and v4 (path/filename/
+      // size) shapes so downstream code stays shape-agnostic.
+      public_id: asset.public_id,
+      secure_url: asset.secure_url,
+      path: asset.secure_url,
+      filename: asset.public_id,
+      bytes: asset.bytes,
+      size: asset.bytes
+    };
   }
 
   const document = await Document.create({
@@ -63,11 +101,13 @@ async function uploadDocument(productId, userId, fileData, documentType, notes) 
   }
 
   // Fire OCR asynchronously for eligible uploads (receipts and warranty
-  // cards). Ineligible documents are marked skipped synchronously so the
-  // upload response reflects the final status. processDocument never throws;
-  // on failure it sets ocrStatus="failed" + ocrError.
+  // cards). Pass the original upload buffer so OCR never depends on the
+  // Cloudinary delivery ACL. Ineligible documents are marked skipped
+  // synchronously so the upload response reflects the final status.
+  // processDocument never throws; on failure it sets ocrStatus="failed" +
+  // ocrError.
   if (isOcrEligible(document)) {
-    processDocument(document).catch(() => {});
+    processDocument(document, fileBuffer ? { fileBuffer } : {}).catch(() => {});
   } else {
     document.ocrStatus = "skipped";
     await document.save();
@@ -98,12 +138,34 @@ async function getDocumentById(documentId, userId) {
   return document;
 }
 
+// Stream the original file bytes for a document. Ownership is verified first;
+// the bytes are pulled through Cloudinary's Admin API download endpoint
+// (API-key authenticated) rather than the CDN delivery URL, because this
+// account's media delivery ACL blocks direct fileUrl access for PDFs.
+async function getDocumentStream(documentId, userId) {
+  const document = await getDocumentById(documentId, userId);
+  if (!cloudinary.isConfigured()) {
+    throw new AppError("File storage is not configured", 503);
+  }
+  const response = await cloudinary.fetchStoredAsset(document.publicId);
+  if (response.ok === false) {
+    throw new AppError(
+      "Could not download the stored file from Cloudinary",
+      response.status === 404 ? 404 : 502
+    );
+  }
+  return { document, response };
+}
+
 async function deleteDocument(documentId, userId) {
   const document = await getDocumentById(documentId, userId);
-  const resourceType = document.mimeType === "application/pdf" ? "raw" : "image";
 
+  // Uploads use resource_type "auto", which stores both images AND PDFs as
+  // image resources (confirmed empirically: PDF fileUrls are /image/upload/…).
+  // Destroying a PDF with resource_type "raw" silently returns "not found"
+  // and orphans the file, so always use "image".
   await cloudinary.uploader.destroy(document.publicId, {
-    resource_type: resourceType
+    resource_type: "image"
   });
 
   await document.deleteOne();
@@ -117,11 +179,73 @@ async function runDocumentOcr(documentId, userId) {
   return processDocument(document);
 }
 
+// Create the product for a standalone OCR'd document after the user has
+// reviewed and corrected the extracted fields (edit-and-confirm flow). The
+// document must not already be linked to a product; the product is created
+// (or reused when it carries the same serial number) with the user-confirmed
+// values, then the document is linked to it atomically.
+async function confirmProductFromDocument(documentId, userId, data, scopeProductId) {
+  const document = await getDocumentById(documentId, userId);
+
+  // On the product-scoped mount, the document must belong to that product
+  // (standalone docs only make sense on the /documents route).
+  if (scopeProductId && (!document.productId || document.productId.toString() !== scopeProductId)) {
+    throw new AppError("Forbidden", 403);
+  }
+
+  if (document.productId) {
+    throw new AppError("This document is already linked to a product", 409);
+  }
+
+  // The confirm step is the review of a finished OCR run. Requiring "done"
+  // also closes a race: background OCR's final save must not be able to land
+  // after the link and write its stale snapshot (productId null) back over it.
+  if (document.ocrStatus !== "done") {
+    throw new AppError("OCR must finish before the product can be created", 422);
+  }
+
+  const productName = String(data.productName || "").trim();
+  if (!productName) {
+    throw new AppError("Product name is required", 422);
+  }
+
+  const price =
+    data.purchasePrice != null && Number.isFinite(Number(data.purchasePrice))
+      ? Number(data.purchasePrice)
+      : undefined;
+
+  // The user explicitly confirmed these values, so an expiry on/before the
+  // purchase date is a real mistake — surface it instead of silently
+  // dropping the purchase date (createProductFromOcr's safety net).
+  if (data.purchaseDate && data.warrantyExpiryDate) {
+    if (new Date(data.warrantyExpiryDate) <= new Date(data.purchaseDate)) {
+      throw new AppError("Warranty expiry date must be after purchase date", 422);
+    }
+  }
+
+  const product = await createProductFromOcr(userId, {
+    productName,
+    brand: String(data.brand || "").trim() || undefined,
+    model: String(data.model || "").trim() || undefined,
+    serialNumber: String(data.serialNumber || "").trim() || undefined,
+    purchasePrice: price,
+    purchaseStore: String(data.purchaseStore || "").trim() || undefined,
+    purchaseDate: data.purchaseDate || undefined,
+    warrantyExpiryDate: data.warrantyExpiryDate || undefined
+  });
+
+  document.productId = product._id;
+  await document.save();
+  return { product, document };
+}
+
 module.exports = {
   getDocumentsByProduct,
   getAllDocuments,
   uploadDocument,
   getDocumentById,
+  getDocumentStream,
   deleteDocument,
-  runDocumentOcr
+  runDocumentOcr,
+  confirmProductFromDocument
 };
