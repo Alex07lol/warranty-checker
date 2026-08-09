@@ -1,0 +1,41 @@
+# Render Blueprint — WarrantyVault (free tier)
+#
+# Deploys the Express backend AND the static frontend (served from public/)
+# as one web service. Create it from the Render dashboard:
+#   Dashboard -> New -> Blueprint -> pick this repo -> Apply
+# Then fill in the secret env vars (marked sync: false) from the Render
+# dashboard -> Environment tab, using values from API/backend/.env.
+#
+# Free-tier notes:
+#   - 512 MB RAM / 0.1 vCPU, free forever, no credit card required.
+#   - Instances sleep after ~15 min of inactivity (cold start ~1 min).
+#   - Render injects PORT automatically — do not set it here.
+services:
+  - type: web
+    name: warrantyvault
+    runtime: node
+    rootDir: API/backend
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/server.js
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      # ── Secrets: leave sync: false so they stay out of git; set them in the
+      #    Render dashboard after the first deploy ──
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLIENT_URL
+        sync: false
