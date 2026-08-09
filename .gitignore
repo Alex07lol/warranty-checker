@@ -118,3 +118,6 @@ temp/
 *.bak
 *.orig
 *.rej
+
+# Agent tooling (SonarQube rules etc.)
+/.agents/
