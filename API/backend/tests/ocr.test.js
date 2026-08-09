@@ -28,7 +28,7 @@ jest.mock("../src/middleware/upload", () => ({
 const mongoose = require("mongoose");
 const Document = require("../src/models/Document");
 const Product = require("../src/models/Product");
-const { parseDocumentText, parseProductName, parseStore, parsePurchaseDate, parseBrand, parseModel, splitProductParts, isOcrEligible, processDocument } = require("../src/services/ocr.service");
+const { parseDocumentText, parseProductName, parseDate, parsePrice, parseSerial, parseStore, parsePurchaseDate, parseBrand, parseModel, splitProductParts, isOcrEligible, processDocument } = require("../src/services/ocr.service");
 const { app, request, startDb, stopDb, registerUser } = require("./helpers/setup");
 
 describe("Document OCR fields", () => {
@@ -255,6 +255,85 @@ describe("parseStore", () => {
 
   test("returns null when no store-like line exists", () => {
     expect(parseStore("Total $5.00\nS/N: ABC123")).toBeNull();
+  });
+});
+
+describe("warranty certificate formats (label on one line, value on the next)", () => {
+  const certText = `Product Name
+ApexBook Pro 14
+Brand
+NexaTech
+Model Number
+NBP-1402
+Serial Number
+NTX-84K2-19P7
+Purchase Date
+15 March 2026
+Purchase Price
+I74,999.00
+Seller
+TechPoint Electronics
+Warranty Start
+15 March 2026
+Warranty End
+14 March 2028`;
+
+  test("extracts every field from a certificate with values on their own lines", () => {
+    const parsed = parseDocumentText(certText);
+    expect(parsed.brand).toBe("NexaTech");
+    expect(parsed.model).toBe("NBP-1402");
+    expect(parsed.serialNumber).toBe("NTX-84K2-19P7");
+    expect(parsed.purchasePrice).toBe(74999);
+    expect(parsed.purchaseStore).toBe("TechPoint Electronics");
+    expect(parsed.purchaseDate.getFullYear()).toBe(2026);
+    expect(parsed.purchaseDate.getMonth()).toBe(2); // March
+    expect(parsed.warrantyExpiryDate.getFullYear()).toBe(2028);
+    expect(parsed.warrantyExpiryDate.getMonth()).toBe(2); // March
+    expect(parsed.warrantyExpiryDate.getDate()).toBe(14);
+  });
+
+  test("parseDate reads word-month dates and prefers the warranty END over START", () => {
+    const d = parseDate("Warranty Start\n15 March 2026\nWarranty End\n14 March 2028");
+    expect(d.getFullYear()).toBe(2028);
+    expect(d.getMonth()).toBe(2); // March
+    expect(d.getDate()).toBe(14);
+    const mdy = parseDate("Valid Through March 15, 2028");
+    expect(mdy.getFullYear()).toBe(2028);
+    expect(mdy.getDate()).toBe(15);
+  });
+
+  test("parsePurchaseDate reads a label with the date on the next line", () => {
+    const d = parsePurchaseDate("Purchase Date\n15 March 2026");
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth()).toBe(2); // March
+  });
+
+  test("parsePrice reads ₹/bare prices and ignores invoice numbers", () => {
+    expect(parsePrice("Purchase Price\nI74,999.00")).toBe(74999);
+    expect(parsePrice("TOTAL: ₹4,999.00")).toBe(4999);
+    // An invoice number must not become a price.
+    expect(parsePrice("Invoice Number\nTP-2026-0315-4821")).toBeNull();
+  });
+
+  test("parseSerial reads the value on the next line, not the word Number", () => {
+    expect(parseSerial("Serial Number\nNTX-84K2-19P7")).toBe("NTX-84K2-19P7");
+  });
+
+  test("parseBrand reads a bare Brand label with the value on the next line", () => {
+    expect(parseBrand("Brand\nNexaTech\nTotal $5.00")).toBe("NexaTech");
+  });
+
+  test("parseModel reads a bare Model Number label with the value on the next line", () => {
+    expect(parseModel("Model Number\nNBP-1402\nTotal $5.00")).toBe("NBP-1402");
+  });
+
+  test("parseStore reads a Seller label with the value on the next line", () => {
+    expect(parseStore("Seller\nTechPoint Electronics")).toBe("TechPoint Electronics");
+  });
+
+  test("parseProductName prefers a labeled Product Name", () => {
+    expect(parseProductName("Product Name\nApexBook Pro 14", "cert.pdf", "warranty_card"))
+      .toBe("ApexBook Pro 14");
   });
 });
 

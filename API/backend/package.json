@@ -9,6 +9,7 @@
     "demo": "node scripts/run-demo-server.js",
     "test": "jest --runInBand",
     "smoke": "node scripts/api-smoke.js",
+    "ocr:sim": "node scripts/ocr-simulate.cjs",
     "check:cloudinary": "node scripts/check-cloudinary.js"
   },
   "engines": {
