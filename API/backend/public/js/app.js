@@ -331,8 +331,8 @@ const DEMO_PRODUCTS = [
 ];
 
 const DEMO_NOTIFICATIONS = [
-  { _id: 'demo-n1', title: 'Warranty expiring soon', message: 'Samsung Galaxy S23 warranty expires in 4 days.', isRead: false, createdAt: daysFromNow(0) },
-  { _id: 'demo-n2', title: 'Warranty expired', message: 'The warranty on your Dell XPS 15 Laptop has expired.', isRead: false, createdAt: daysFromNow(-2) },
+  { _id: 'demo-n1', title: 'Warranty expiring soon', message: 'Samsung Galaxy S23 warranty expires in 4 days.', isRead: false, createdAt: daysFromNow(0), productId: 'demo-2' },
+  { _id: 'demo-n2', title: 'Warranty expired', message: 'The warranty on your Dell XPS 15 Laptop has expired.', isRead: false, createdAt: daysFromNow(-2), productId: 'demo-1' },
   { _id: 'demo-n3', title: 'Welcome to WarrantyVault', message: 'This is guest mode — sign in to save products, receipts and service records.', isRead: true, createdAt: daysFromNow(-7) }
 ];
 
@@ -1530,22 +1530,21 @@ function renderNotifications(notifs) {
   notifs.forEach(n => {
     const el = document.createElement('div');
     el.className = 'notification-item' + (n.isRead ? '' : ' unread');
-    let actions = '';
-    if (!isGuest()) {
-      actions = '<div class="doc-actions">' +
-        (n.productId ? '<button class="btn btn-primary btn-small" onclick="openDetail(\'' + n.productId + '\')">View Warranty</button>' : '') +
-        (n.isRead ? '' : '<button class="btn btn-ghost btn-small" onclick="markNotifRead(\'' + n._id + '\')">Mark read</button>') +
-        '<button class="btn btn-danger btn-small" onclick="deleteNotif(\'' + n._id + '\')">Delete</button>' +
-      '</div>';
-    }
+    
+    const pIdStr = (n.productId && typeof n.productId === 'object') ? n.productId._id : (n.productId || '');
+    
+    let actions = '<div class="notification-actions" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">' +
+      (pIdStr ? '<button class="btn btn-primary btn-small" onclick="openDetail(\'' + pIdStr + '\')">View Warranty</button>' : '') +
+      (n.isRead ? '' : '<button class="btn btn-ghost btn-small" onclick="markNotifRead(\'' + n._id + '\')">Mark read</button>') +
+      '<button class="btn btn-danger btn-small" onclick="deleteNotif(\'' + n._id + '\')">Delete</button>' +
+    '</div>';
     
     let message = n.message;
-    if (n.notificationType === 'warranty_expiry' || (n.title && n.title.toLowerCase().includes('expir'))) {
+    if (n.notificationType === 'warranty_expiry' || (n.title && n.title.toLowerCase().includes('expir')) || (message && message.toLowerCase().includes('expires in'))) {
       const daysMatch = message && message.match(/(\d+)\s+days/i);
       if (daysMatch) {
-        // e.g. Samsung Refrigerator warranty expires in 14 days.
-        const prodName = (currentProduct && currentProduct._id === n.productId) ? currentProduct.productName : 
-                         (productsCache.find(p => p._id === n.productId)?.productName || 'Your product');
+        const prodName = (n.productId && typeof n.productId === 'object') ? n.productId.productName : 
+                         (productsCache.find(p => p._id === pIdStr)?.productName || 'Your product');
         message = prodName + ' warranty expires in ' + daysMatch[1] + ' days.';
       }
     }
@@ -1557,13 +1556,22 @@ function renderNotifications(notifs) {
       actions;
     el.onclick = (ev) => {
       if (ev.target.tagName === 'BUTTON') return;
-      if (!n.isRead && !isGuest()) markNotifRead(n._id);
+      if (!n.isRead) markNotifRead(n._id);
     };
     list.appendChild(el);
   });
 }
 
 async function markNotifRead(id) {
+  if (isGuest()) {
+    const n = DEMO_NOTIFICATIONS.find(x => x._id === id);
+    if (n) {
+      n.isRead = true;
+      loadNotifications();
+      renderGuestDashboard();
+    }
+    return;
+  }
   if (!requireAuth('mark notifications as read')) return;
   try {
     await api('/notifications/' + id + '/read', { method: 'PUT' });
@@ -1573,6 +1581,15 @@ async function markNotifRead(id) {
 }
 
 async function deleteNotif(id) {
+  if (isGuest()) {
+    const idx = DEMO_NOTIFICATIONS.findIndex(x => x._id === id);
+    if (idx !== -1) {
+      DEMO_NOTIFICATIONS.splice(idx, 1);
+      loadNotifications();
+      renderGuestDashboard();
+    }
+    return;
+  }
   if (!requireAuth('delete a notification')) return;
   try {
     await api('/notifications/' + id, { method: 'DELETE' });
@@ -1582,6 +1599,13 @@ async function deleteNotif(id) {
 }
 
 async function markAllNotifsRead() {
+  if (isGuest()) {
+    DEMO_NOTIFICATIONS.forEach(n => n.isRead = true);
+    toast('All notifications marked as read', 'success');
+    loadNotifications();
+    renderGuestDashboard();
+    return;
+  }
   if (!requireAuth('mark all notifications as read')) return;
   try {
     await api('/notifications/read-all', { method: 'PUT' });
