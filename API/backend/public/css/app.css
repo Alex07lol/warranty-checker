@@ -1056,15 +1056,20 @@
       color: #a1a1aa;
     }
     body.dark-mode .stat-card.accent {
-      background: linear-gradient(150deg, #2c0c0c 0%, #1c0606 60%, #3a1212 100%);
-      border-color: rgba(239, 83, 80, 0.15);
-      box-shadow: 0 4px 20px rgba(239, 83, 80, 0.2);
+      background: linear-gradient(150deg, rgba(62, 12, 12, 0.45) 0%, rgba(22, 4, 4, 0.55) 100%);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-color: rgba(239, 83, 80, 0.28);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 16px rgba(239, 83, 80, 0.08);
+    }
+    body.dark-mode .stat-card.accent::before {
+      background: radial-gradient(120% 120% at 100% 0%, rgba(239, 83, 80, 0.45) 0%, transparent 55%);
     }
     body.dark-mode .stat-card.accent .stat-value {
       color: #ffffff;
     }
     body.dark-mode .stat-card.accent .stat-label {
-      color: rgba(255, 255, 255, 0.7);
+      color: rgba(255, 255, 255, 0.75);
     }
 
     body.dark-mode .product-card {

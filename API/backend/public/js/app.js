@@ -143,7 +143,7 @@ function makeProductCard(p, index) {
   card.innerHTML =
     '<img class="product-img" src="' + escapeHtml(productImage(p)) + '" alt="" ' +
     'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" />' +
-    '<div class="product-img-placeholder" style="display:none;">📦</div>' +
+    '<div class="product-img-placeholder" style="display:none;"></div>' +
     '<div class="product-info">' +
       '<div class="product-info-name">' + escapeHtml(p.productName) + '</div>' +
       '<div class="product-info-brand">' + escapeHtml([p.brand, p.category].filter(Boolean).join(' · ') || '—') + '</div>' +
@@ -155,7 +155,7 @@ function makeProductCard(p, index) {
 function emptyState(icon, title, sub) {
   const el = document.createElement('div');
   el.className = 'empty-state';
-  el.innerHTML = '<div class="empty-icon">' + icon + '</div>' +
+  el.innerHTML = (icon ? '<div class="empty-icon">' + icon + '</div>' : '') +
     '<div class="empty-title">' + escapeHtml(title) + '</div>' +
     (sub ? '<div class="empty-sub">' + escapeHtml(sub) + '</div>' : '');
   return el;
@@ -416,7 +416,7 @@ function renderExpiringProducts(products, listEl) {
   if (expiring.length) {
     expiring.forEach((p, i) => listEl.appendChild(makeProductCard(p, i)));
   } else {
-    listEl.appendChild(emptyState('✅', 'All warranties in good standing', 'Nothing expiring in the next 30 days.'));
+    listEl.appendChild(emptyState('', 'All warranties in good standing', 'Nothing expiring in the next 30 days.'));
   }
 }
 
@@ -424,7 +424,7 @@ function renderRecentProducts(products, listEl) {
   if (products.length) {
     products.slice().reverse().forEach((p, i) => listEl.appendChild(makeProductCard(p, i)));
   } else {
-    listEl.appendChild(emptyState('📦', 'No products yet', 'Sign in to add your first product.'));
+    listEl.appendChild(emptyState('', 'No products yet', 'Sign in to add your first product.'));
   }
 }
 
@@ -535,7 +535,7 @@ function renderProducts(items) {
   const list = document.getElementById('products-list');
   list.innerHTML = '';
   if (!items.length) {
-    list.appendChild(emptyState('📦', 'No products yet', 'Tap “+ Add” to register your first product.'));
+    list.appendChild(emptyState('', 'No products yet', 'Tap “+ Add” to register your first product.'));
     return;
   }
   items.forEach((p, i) => list.appendChild(makeProductCard(p, i)));
@@ -1394,7 +1394,7 @@ function renderNotifications(notifs) {
   const list = document.getElementById('notification-list');
   list.innerHTML = '';
   if (!notifs.length) {
-    list.appendChild(emptyState('🔔', 'No notifications', 'You are all caught up.'));
+    list.appendChild(emptyState('', 'No notifications', 'You are all caught up.'));
     return;
   }
   notifs.forEach(n => {
