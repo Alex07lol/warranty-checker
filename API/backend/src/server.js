@@ -213,6 +213,12 @@ app.use(errorHandler);
 if (NODE_ENV !== "test") {
   connectDatabase()
     .then(() => {
+      process.stdout.write("MongoDB connected successfully.\n");
+    })
+    .catch((error) => {
+      process.stderr.write(`MongoDB connection failed: ${error.message}\nContinuing server startup (API calls requiring database will fail, but static frontend is available).\n`);
+    })
+    .finally(() => {
       app.listen(PORT, () => {
         process.stdout.write(`WarrantyVault API listening on port ${PORT}\n`);
       });
@@ -227,10 +233,6 @@ if (NODE_ENV !== "test") {
           process.stderr.write(`Notification cron error: ${err.message}\n`);
         }
       });
-    })
-    .catch((error) => {
-      process.stderr.write(`${error.stack || error.message}\n`);
-      process.exit(1);
     });
 }
 

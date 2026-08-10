@@ -1891,6 +1891,15 @@ function wireEvents() {
     });
   });
 
+  const themeToggle = document.getElementById('theme-toggle-btn');
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      const isDark = document.body.classList.toggle('dark-mode');
+      localStorage.setItem('wv_theme', isDark ? 'dark' : 'light');
+      themeToggle.textContent = isDark ? '☀️' : '🌙';
+    });
+  }
+
   document.getElementById('logout-btn').addEventListener('click', () => {
     if (isGuest()) { openLogin(''); }
     else logout();
@@ -1961,6 +1970,12 @@ async function enterApp() {
 
 function init() {
   wireEvents();
+  const savedTheme = localStorage.getItem('wv_theme');
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-mode');
+    const themeToggle = document.getElementById('theme-toggle-btn');
+    if (themeToggle) themeToggle.textContent = '☀️';
+  }
   applyGuestMode();
   enterApp();
 }

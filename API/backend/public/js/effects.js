@@ -362,9 +362,12 @@
 
     // Tunable via CSS variables in :root (--particles-*).
     const pSpeed = clampNum(cssVar('--particles-speed', '1'), 0.1, 5, 1);
-    const colA = hexToRgb(cssVar('--particles-color-a', '#7c88ea')) || [0.49, 0.53, 0.92];
-    const colB = hexToRgb(cssVar('--particles-color-b', '#b9bff5')) || [0.73, 0.75, 0.96];
-    const lineRgb = colA;
+    const lightColA = hexToRgb(cssVar('--particles-color-a', '#7c88ea')) || [0.49, 0.53, 0.92];
+    const lightColB = hexToRgb(cssVar('--particles-color-b', '#b9bff5')) || [0.73, 0.75, 0.96];
+
+    let colA = [...lightColA];
+    let colB = [...lightColB];
+    let lineRgb = colA;
 
     // ── Simulation state (positions live in CSS px) ──
     const COUNT = 160;
@@ -475,6 +478,16 @@
     }
 
     function paint(t) {
+      if (document.body.classList.contains('dark-mode')) {
+        colA = [1.0, 0.20, 0.20]; // Red
+        colB = [1.0, 0.60, 0.60]; // Light Red
+        lineRgb = colA;
+      } else {
+        colA = lightColA;
+        colB = lightColB;
+        lineRgb = colA;
+      }
+
       step(1 / 60, t);
       const segs = buildLines();
 
