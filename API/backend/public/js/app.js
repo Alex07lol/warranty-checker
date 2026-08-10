@@ -31,7 +31,7 @@ async function api(path, opts = {}) {
   try {
     res = await fetch(API + path, { ...opts, headers });
   } catch (e) {
-    throw new Error('Network error — is the server running?');
+    throw new Error('Unable to connect to WarrantyVault. Check your connection and try again.');
   }
 
   let json = {};
@@ -42,7 +42,7 @@ async function api(path, opts = {}) {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     if (hadToken) {
-      openLogin('Session expired — please sign in again.');
+      openLogin('Your session has expired. Please sign in again.');
       throw new Error(json.message || 'Session expired — please log in again');
     }
     // No token (guest): caller should fall back to demo/local data.
@@ -123,9 +123,9 @@ function warrantyInfo(p) {
   today.setHours(0, 0, 0, 0);
   const days = Math.ceil((expiry - today) / 86400000);
   if (days <= 0) return { status: 'expired', label: 'Expired', badgeClass: 'badge-expired', blockClass: 'expired', valueClass: 'expired', days };
-  if (days <= 7) return { status: 'critical', label: days + 'd left', badgeClass: 'badge-critical', blockClass: 'critical', valueClass: 'critical', days };
-  if (days <= 30) return { status: 'soon', label: days + ' days left', badgeClass: 'badge-soon', blockClass: 'critical', valueClass: 'critical', days };
-  return { status: 'safe', label: days + ' days left', badgeClass: 'badge-safe', blockClass: 'safe', valueClass: 'safe', days };
+  if (days <= 7) return { status: 'critical', label: days + ' days remaining', badgeClass: 'badge-critical', blockClass: 'critical', valueClass: 'critical', days };
+  if (days <= 30) return { status: 'soon', label: days + ' days remaining', badgeClass: 'badge-soon', blockClass: 'critical', valueClass: 'critical', days };
+  return { status: 'safe', label: days + ' days remaining', badgeClass: 'badge-safe', blockClass: 'safe', valueClass: 'safe', days };
 }
 
 function productImage(p) {
@@ -140,15 +140,25 @@ function makeProductCard(p, index) {
   card.className = 'product-card animate-in';
   card.style.animationDelay = (Math.min(index || 0, 8) * 0.05) + 's';
   card.onclick = () => openDetail(p._id);
+  card.setAttribute('role', 'button');
+  card.setAttribute('tabindex', '0');
+  card.addEventListener('keydown', e => { if(e.key === 'Enter') openDetail(p._id); });
+  
+  const expiryStr = p.warrantyExpiryDate ? fmtDate(p.warrantyExpiryDate) : 'No expiry set';
+  
   card.innerHTML =
     '<img class="product-img" src="' + escapeHtml(productImage(p)) + '" alt="" ' +
     'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" />' +
     '<div class="product-img-placeholder" style="display:none;"></div>' +
-    '<div class="product-info">' +
+    '<div class="product-info" style="flex:1;">' +
       '<div class="product-info-name">' + escapeHtml(p.productName) + '</div>' +
-      '<div class="product-info-brand">' + escapeHtml([p.brand, p.category].filter(Boolean).join(' · ') || '—') + '</div>' +
+      '<div class="product-info-brand">' + escapeHtml([p.brand, p.model].filter(Boolean).join(' · ') || '—') + '</div>' +
+      '<div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Expires: ' + escapeHtml(expiryStr) + '</div>' +
     '</div>' +
-    '<span class="product-warranty-badge ' + info.badgeClass + '">' + info.label + '</span>';
+    '<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">' +
+      '<span class="product-warranty-badge ' + info.badgeClass + '">' + info.label + '</span>' +
+      '<span style="font-size: 20px; color: var(--text-muted);">›</span>' +
+    '</div>';
   return card;
 }
 
@@ -437,8 +447,12 @@ function renderGuestDashboard() {
     .sort((a, b) => a.info.days - b.info.days)
     .map(x => x.p);
 
-  animateCountUp(document.getElementById('stat-products'), products.length);
+  const activeWarranties = products.filter(p => warrantyInfo(p).status !== 'expired');
+  const expiredWarranties = products.filter(p => warrantyInfo(p).status === 'expired');
+
+  animateCountUp(document.getElementById('stat-active'), activeWarranties.length);
   animateCountUp(document.getElementById('stat-expiring'), expiringSoon.length);
+  animateCountUp(document.getElementById('stat-expired'), expiredWarranties.length);
   animateCountUp(document.getElementById('stat-documents'), 0);
   animateCountUp(document.getElementById('stat-unread'), demoUnreadCount());
   updateNavBadge(demoUnreadCount());
@@ -482,11 +496,15 @@ async function loadDashboard() {
     setStatsSkeleton(false);
     list.innerHTML = '';
     recent.innerHTML = '';
-    animateCountUp(document.getElementById('stat-products'), d.totalProducts);
-    animateCountUp(document.getElementById('stat-expiring'), d.expiringSoonCount);
-    animateCountUp(document.getElementById('stat-documents'), d.totalDocuments);
-    animateCountUp(document.getElementById('stat-unread'), d.unreadNotificationsCount);
-    updateNavBadge(d.unreadNotificationsCount);
+    const activeCount = d.activeWarrantiesCount !== undefined ? d.activeWarrantiesCount : (d.totalProducts || 0);
+    const expiredCount = d.expiredWarrantiesCount !== undefined ? d.expiredWarrantiesCount : 0;
+    
+    animateCountUp(document.getElementById('stat-active'), activeCount);
+    animateCountUp(document.getElementById('stat-expiring'), d.expiringSoonCount || 0);
+    animateCountUp(document.getElementById('stat-expired'), expiredCount);
+    animateCountUp(document.getElementById('stat-documents'), d.totalDocuments || 0);
+    animateCountUp(document.getElementById('stat-unread'), d.unreadNotificationsCount || 0);
+    updateNavBadge(d.unreadNotificationsCount || 0);
 
     renderExpiringProducts(d.expiringSoon || [], list);
     renderRecentProducts(d.recentProducts || [], recent);
@@ -702,7 +720,41 @@ function renderDetailHeader(p) {
   block.className = 'detail-warranty-block ' + info.blockClass;
   const val = document.getElementById('detail-warranty-value');
   val.className = 'detail-warranty-value ' + info.valueClass;
-  val.textContent = info.label + (p.warrantyExpiryDate ? ' · ' + fmtDate(p.warrantyExpiryDate) : '');
+  
+  let iconSvg = '';
+  if (info.status === 'safe') {
+    iconSvg = '<svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/></svg>';
+  } else if (info.status === 'expired') {
+    iconSvg = '<svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/></svg>';
+  } else {
+    iconSvg = '<svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>';
+  }
+  
+  val.innerHTML = '<span style="display:flex;align-items:center;gap:6px;">' + iconSvg + ' <span>' + info.label + (p.warrantyExpiryDate ? ' · ' + fmtDate(p.warrantyExpiryDate) : '') + '</span></span>';
+
+  // Warranty progress bar container
+  const progCont = document.getElementById('detail-warranty-progress-container');
+  if (progCont) {
+    if (p.purchaseDate && p.warrantyExpiryDate) {
+      const pD = new Date(p.purchaseDate).getTime();
+      const eD = new Date(p.warrantyExpiryDate).getTime();
+      const nD = new Date().getTime();
+      if (!Number.isNaN(pD) && !Number.isNaN(eD) && eD > pD) {
+        progCont.style.display = '';
+        const total = eD - pD;
+        const elapsed = Math.max(0, nD - pD);
+        const percent = Math.min(100, (elapsed / total) * 100);
+        document.getElementById('progress-bar-fill').style.width = percent + '%';
+        document.getElementById('progress-percent-label').textContent = Math.round(percent) + '%';
+        document.getElementById('progress-remaining-days').textContent = info.days > 0 ? info.days + ' days remaining' : 'Expired';
+        document.getElementById('progress-expiry-date').textContent = fmtDate(p.warrantyExpiryDate);
+      } else {
+        progCont.style.display = 'none';
+      }
+    } else {
+      progCont.style.display = 'none';
+    }
+  }
 }
 
 function detailRow(label, value) {
@@ -1020,17 +1072,49 @@ async function loadServiceHistory() {
       box.appendChild(emptyState('🛠️', 'No service records', 'Add the first repair or maintenance record.'));
       return;
     }
+    records.sort((a, b) => new Date(b.serviceDate) - new Date(a.serviceDate));
+    
+    const groups = {};
     records.forEach(r => {
-      const el = document.createElement('div');
-      el.className = 'service-item';
-      const meta = [r.provider, r.cost != null ? '$' + Number(r.cost).toLocaleString('en-US') : '',
-        r.nextServiceDate ? 'Next: ' + fmtDate(r.nextServiceDate) : ''].filter(Boolean).join(' · ');
-      el.innerHTML =
-        '<div class="service-item-head"><span class="service-type-chip">' + escapeHtml(r.serviceType || 'other') + '</span>' +
-        '<span class="service-date">' + fmtDate(r.serviceDate) + '</span></div>' +
-        (r.description ? '<div class="service-desc">' + escapeHtml(r.description) + '</div>' : '') +
-        (meta ? '<div class="service-meta">' + escapeHtml(meta) + '</div>' : '');
-      box.appendChild(el);
+      const year = r.serviceDate ? new Date(r.serviceDate).getFullYear() : 'Unknown';
+      if (!groups[year]) groups[year] = [];
+      groups[year].push(r);
+    });
+
+    Object.keys(groups).sort((a, b) => b - a).forEach(year => {
+      const yearEl = document.createElement('div');
+      yearEl.className = 'service-year-group';
+      yearEl.innerHTML = '<div class="service-year-header">' + escapeHtml(year) + '</div>';
+      
+      groups[year].forEach(r => {
+        const el = document.createElement('div');
+        el.className = 'service-item timeline-item';
+        
+        let costStr = '';
+        if (r.cost != null) {
+          const c = currentProduct && currentProduct.currency ? currentProduct.currency : 'USD';
+          try { costStr = Number(r.cost).toLocaleString('en-US', { style: 'currency', currency: c }); }
+          catch { costStr = '$' + Number(r.cost).toLocaleString('en-US'); }
+        }
+        
+        const meta = [r.provider, costStr, r.nextServiceDate ? 'Next: ' + fmtDate(r.nextServiceDate) : ''].filter(Boolean).join(' · ');
+        
+        el.innerHTML =
+          '<div class="timeline-dot"></div>' +
+          '<div class="timeline-content">' +
+            '<div class="service-item-head"><span class="service-type-chip">' + escapeHtml(r.serviceType || 'other') + '</span>' +
+            '<span class="service-date">' + fmtDate(r.serviceDate) + '</span></div>' +
+            (r.description ? '<div class="service-desc">' + escapeHtml(r.description) + '</div>' : '') +
+            (meta ? '<div class="service-meta">' + escapeHtml(meta) + '</div>' : '') +
+            (r.notes ? '<div class="service-notes">' + escapeHtml(r.notes) + '</div>' : '') +
+            '<div class="service-actions" style="margin-top: 8px; display: flex; gap: 8px;">' +
+              '<button class="btn btn-ghost btn-small" onclick="editServiceRecord(\'' + r._id + '\')">Edit</button>' +
+              '<button class="btn btn-ghost btn-small" style="color:var(--danger)" onclick="deleteServiceRecord(\'' + r._id + '\')">Delete</button>' +
+            '</div>' +
+          '</div>';
+        yearEl.appendChild(el);
+      });
+      box.appendChild(yearEl);
     });
   } catch (e) {
     box.innerHTML = '';
@@ -1038,10 +1122,13 @@ async function loadServiceHistory() {
   }
 }
 
+let editingServiceId = null;
+
 function toggleServiceForm(show) {
   document.getElementById('service-form').style.display = show ? '' : 'none';
   document.getElementById('add-service-btn').style.display = show ? 'none' : '';
-  if (show) {
+  if (!show) editingServiceId = null;
+  if (show && !editingServiceId) {
     document.getElementById('svc-date').value = new Date().toISOString().slice(0, 10);
     document.getElementById('svc-provider').value = '';
     document.getElementById('svc-desc').value = '';
@@ -1050,8 +1137,39 @@ function toggleServiceForm(show) {
   }
 }
 
+async function editServiceRecord(id) {
+  if (!requireAuth('edit a service record')) return;
+  try {
+    const records = await api('/products/' + currentProductId + '/service-history');
+    const r = records.find(x => x._id === id);
+    if (!r) return;
+    editingServiceId = id;
+    toggleServiceForm(true);
+    document.getElementById('svc-date').value = r.serviceDate ? new Date(r.serviceDate).toISOString().slice(0, 10) : '';
+    document.getElementById('svc-type').value = r.serviceType || 'repair';
+    document.getElementById('svc-provider').value = r.provider || '';
+    document.getElementById('svc-desc').value = r.description || '';
+    document.getElementById('svc-cost').value = r.cost != null ? r.cost : '';
+    document.getElementById('svc-next').value = r.nextServiceDate ? new Date(r.nextServiceDate).toISOString().slice(0, 10) : '';
+  } catch (e) {
+    toast('Could not load record', 'error');
+  }
+}
+
+async function deleteServiceRecord(id) {
+  if (!requireAuth('delete a service record')) return;
+  if (!window.confirm('Delete this service record?')) return;
+  try {
+    await api('/products/' + currentProductId + '/service-history/' + id, { method: 'DELETE' });
+    toast('Service record deleted', 'success');
+    await loadServiceHistory();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
 async function saveServiceRecord() {
-  if (!requireAuth('add a service record')) return;
+  if (!requireAuth('add or edit a service record')) return;
   const payload = {
     serviceDate: document.getElementById('svc-date').value || undefined,
     serviceType: document.getElementById('svc-type').value,
@@ -1062,8 +1180,14 @@ async function saveServiceRecord() {
   };
   Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
   try {
-    await api('/products/' + currentProductId + '/service-history', { method: 'POST', body: JSON.stringify(payload) });
-    toast('Service record added', 'success');
+    if (editingServiceId) {
+      await api('/products/' + currentProductId + '/service-history/' + editingServiceId, { method: 'PUT', body: JSON.stringify(payload) });
+      toast('Service record updated', 'success');
+    } else {
+      await api('/products/' + currentProductId + '/service-history', { method: 'POST', body: JSON.stringify(payload) });
+      toast('Service record added', 'success');
+    }
+    editingServiceId = null;
     toggleServiceForm(false);
     await loadServiceHistory();
   } catch (e) {
@@ -1137,6 +1261,12 @@ async function handleCameraFile(file) {
   if (!validateCameraFile(file)) return;
 
   resetCamera();
+  
+  const progressFilename = document.getElementById('ocr-progress-filename');
+  const progressFilesize = document.getElementById('ocr-progress-filesize');
+  if (progressFilename) progressFilename.textContent = file.name || 'document';
+  if (progressFilesize) progressFilesize.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+
   showCameraProgress('Uploading…', '18');
 
   const pid = document.getElementById('camera-product-select').value;
@@ -1173,7 +1303,7 @@ async function pollCameraOcr(pid, doc, statusEl, fillEl) {
       return;
     }
     if (current.ocrStatus === 'failed') {
-      showCameraError('OCR could not read this document. Try a clearer photo or PDF, or retry from the product page.');
+      showCameraError("We couldn't extract enough information from this document.");
       loadScanDocs().catch(() => {});
       return;
     }
@@ -1394,7 +1524,7 @@ function renderNotifications(notifs) {
   const list = document.getElementById('notification-list');
   list.innerHTML = '';
   if (!notifs.length) {
-    list.appendChild(emptyState('', 'No notifications', 'You are all caught up.'));
+    list.appendChild(emptyState('', 'You\'re all caught up.', ''));
     return;
   }
   notifs.forEach(n => {
@@ -1403,13 +1533,26 @@ function renderNotifications(notifs) {
     let actions = '';
     if (!isGuest()) {
       actions = '<div class="doc-actions">' +
+        (n.productId ? '<button class="btn btn-primary btn-small" onclick="openDetail(\'' + n.productId + '\')">View Warranty</button>' : '') +
         (n.isRead ? '' : '<button class="btn btn-ghost btn-small" onclick="markNotifRead(\'' + n._id + '\')">Mark read</button>') +
         '<button class="btn btn-danger btn-small" onclick="deleteNotif(\'' + n._id + '\')">Delete</button>' +
       '</div>';
     }
+    
+    let message = n.message;
+    if (n.notificationType === 'warranty_expiry' || (n.title && n.title.toLowerCase().includes('expir'))) {
+      const daysMatch = message && message.match(/(\d+)\s+days/i);
+      if (daysMatch) {
+        // e.g. Samsung Refrigerator warranty expires in 14 days.
+        const prodName = (currentProduct && currentProduct._id === n.productId) ? currentProduct.productName : 
+                         (productsCache.find(p => p._id === n.productId)?.productName || 'Your product');
+        message = prodName + ' warranty expires in ' + daysMatch[1] + ' days.';
+      }
+    }
+    
     el.innerHTML =
       '<div class="notification-title">' + escapeHtml(n.title || n.notificationType || 'Alert') + '</div>' +
-      (n.message ? '<div class="notification-message">' + escapeHtml(n.message) + '</div>' : '') +
+      (message ? '<div class="notification-message">' + escapeHtml(message) + '</div>' : '') +
       '<div class="notification-meta">' + fmtDate(n.createdAt) + '</div>' +
       actions;
     el.onclick = (ev) => {
@@ -1707,26 +1850,8 @@ function getHoursHtml(c) {
 }
 
 function getContactHtml(c) {
-  const waDigits = String(c.internationalPhone || c.phone || '').replace(/\D/g, '');
-  const waHtml = waDigits
-    ? '<a class="repair-contact-wa" target="_blank" rel="noopener" title="Chat with ' + escapeHtml(c.name) + ' on WhatsApp" ' +
-        'href="https://wa.me/' + waDigits + '?text=' +
-          encodeURIComponent('Hi ' + c.name + '! I found you on WarrantyVault and I\u2019d like to enquire about a repair.') + '">' +
-        '<svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>' +
-        'WhatsApp' +
-      '</a>'
-    : '';
-  const siteHtml = c.website
-    ? '<a class="repair-contact-site" target="_blank" rel="noopener" title="Visit ' + escapeHtml(c.name) + ' website" ' +
-        'href="' + escapeHtml(c.website) + '">' +
-        '<svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">' +
-          '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>' +
-        '</svg>' +
-        'Website' +
-      '</a>'
-    : '';
-  if (!waHtml && !siteHtml) return '';
-  return '<div class="repair-card-contact">' + waHtml + siteHtml + '</div>';
+  // we will replace this entirely with the new buttons below
+  return '';
 }
 
 function repairCentreCard(c) {
@@ -1758,7 +1883,11 @@ function repairCentreCard(c) {
     ? '<span class="repair-card-phone">📞 <a href="tel:' + encodeURIComponent(c.phone) + '">' + escapeHtml(c.phone) + '</a></span>'
     : '';
 
-  const contactHtml = getContactHtml(c);
+  const callBtn = c.phone ? '<a href="tel:' + encodeURIComponent(c.phone) + '" class="btn btn-ghost btn-small">📞 Call</a>' : '';
+  const dirBtn = getLocateHref(c) ? '<a href="' + getLocateHref(c) + '" target="_blank" class="btn btn-ghost btn-small">🗺️ Directions</a>' : '';
+  const webBtn = c.website ? '<a href="' + escapeHtml(c.website) + '" target="_blank" class="btn btn-ghost btn-small">🌐 Website</a>' : '';
+  
+  const actionRow = '<div class="repair-card-actions" style="display:flex;gap:8px;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">' + callBtn + dirBtn + webBtn + '</div>';
 
   return '<div class="repair-card">' +
     coverHtml +
@@ -1776,10 +1905,9 @@ function repairCentreCard(c) {
         '</span>' +
       '</div>' +
       hoursHtml +
-      contactHtml +
+      actionRow +
       distHtml +
     '</div>' +
-    locateHtml +
   '</div>';
 }
 
@@ -1813,8 +1941,67 @@ function renderRepairCentres(lat, lng, withLocation, centres = null) {
   centresList.forEach(c => list.insertAdjacentHTML('beforeend', repairCentreCard(c)));
 }
 
+function showRepairManualSearch() {
+  const container = document.getElementById('repair-manual-search');
+  if (container) container.style.display = 'flex';
+  const input = document.getElementById('repair-search-input');
+  if (input) input.focus();
+}
+
+function showRepairErrorState() {
+  const list = document.getElementById('repair-list');
+  list.innerHTML = 
+    '<div class="empty-state">' +
+      '<div class="empty-title">Repair centres couldn\'t be loaded right now.</div>' +
+      '<div style="margin-top: 12px; display: flex; gap: 8px; justify-content: center;">' +
+        '<button class="btn btn-primary" onclick="openRepair()">Try Again</button>' +
+        '<button class="btn btn-ghost" onclick="showRepairManualSearch()">Use Manual Search</button>' +
+      '</div>' +
+    '</div>';
+}
+
+async function searchRepairManual() {
+  const q = document.getElementById('repair-search-input').value.trim();
+  if (!q) return;
+  const list = document.getElementById('repair-list');
+  list.innerHTML = '<div style="text-align:center;color:#888;padding:12px;">🔍 Searching for location...</div>';
+  try {
+    const res = await fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) + '&format=json&limit=1');
+    const data = await res.json();
+    if (!data || !data.length) {
+      list.innerHTML = '<div style="text-align:center;color:#888;padding:12px;">Location not found. Try a different query.</div>';
+      return;
+    }
+    const lat = parseFloat(data[0].lat);
+    const lng = parseFloat(data[0].lon);
+    showRepairCoords('ok', '📍 ' + data[0].display_name);
+    
+    list.innerHTML = '<div style="text-align:center;color:#888;padding:12px;">🔍 Searching for repair shops...</div>';
+    const brand = (currentProduct && currentProduct.brand) ? String(currentProduct.brand).trim() : '';
+    
+    let realCentres = null;
+    try {
+      realCentres = await fetchNearbyRepairCentres(lat, lng, brand);
+    } catch (err) {
+      showRepairErrorState();
+      return;
+    }
+    
+    if (realCentres && realCentres.length > 0) {
+      const enriched = await enrichCentres(realCentres);
+      renderRepairCentres(lat, lng, true, enriched && enriched.length ? enriched : realCentres);
+    } else {
+      renderRepairCentres(lat, lng, true, []);
+    }
+  } catch (err) {
+    list.innerHTML = '<div style="text-align:center;color:red;padding:12px;">Error searching location.</div>';
+  }
+}
+
 async function openRepair() {
   showView('repair');
+  const container = document.getElementById('repair-manual-search');
+  if (container) container.style.display = 'none';
   const p = currentProduct;
   // Brand used to filter repair centres. Falls back to all centres when the
   // Repair tab is opened directly or the product has no brand.
@@ -1856,7 +2043,8 @@ async function openRepair() {
       realCentres = await fetchNearbyRepairCentres(lat, lng, brand);
     } catch (err) {
       console.error('Google Places API error:', err);
-      toast('Live repair directory is unavailable right now.', 'error');
+      showRepairErrorState();
+      return;
     }
 
     if (realCentres && realCentres.length > 0) {
@@ -1870,6 +2058,7 @@ async function openRepair() {
   } catch (err) {
     bannerFinal = true;
     showRepairCoords('error', geoErrorMessage(err));
+    showRepairManualSearch();
     // Still show fallback centres without distances
     renderRepairCentres(null, null, false);
   }
@@ -1908,6 +2097,23 @@ function wireEvents() {
   document.getElementById('add-product-btn').addEventListener('click', () => {
     if (!requireAuth('add a product')) return;
     openProductForm(null);
+  });
+  const dashAddBtn = document.getElementById('dash-add-btn');
+  if (dashAddBtn) dashAddBtn.addEventListener('click', () => {
+    if (!requireAuth('add a product')) return;
+    openProductForm(null);
+  });
+  const dashScanBtn = document.getElementById('dash-scan-btn');
+  if (dashScanBtn) dashScanBtn.addEventListener('click', () => {
+    showView('camera');
+    populateCameraProducts();
+    resetCamera();
+  });
+  const repairSearchBtn = document.getElementById('repair-search-btn');
+  if (repairSearchBtn) repairSearchBtn.addEventListener('click', searchRepairManual);
+  const repairSearchInput = document.getElementById('repair-search-input');
+  if (repairSearchInput) repairSearchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') searchRepairManual();
   });
 
   document.getElementById('product-form-close').addEventListener('click', closeProductForm);
