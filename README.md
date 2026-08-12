@@ -247,7 +247,8 @@ There is also a machine-readable **OpenAPI 3.0.3** document at [`API/backend/doc
 - Warranty intelligence (tranche 3, spec §19): deterministic, no-AI Warranty Health panel — conflict detection (reversed dates), missing-info nudges, duplicate suggestions (serial or brand+model+store within ~90 days) via `GET /api/v1/products/:id/intelligence`
 - Custom reminder schedules + maintenance reminders (tranche 4, spec §6/§7): per-user expiry/maintenance toggles and reminder-day chips (`PUT /api/v1/auth/preferences`), nightly cron now also creates `service_reminder` notifications from `nextServiceDate`
 - Advanced filtering + user-scoped tags (tranche 5, spec §9–§12): server-side filters on `GET /api/v1/products` (category, brand, lifecycle, warranty status, tags, store, price/date ranges), #tag chips, extended search over serial/store/provider
-- Remaining: document verification, claim prep + export, secure sharing
+- Warranty claim prep + export (tranche 6, spec §15/§16): `GET /products/:id/claim` structured claim summary (copy/download), `GET /export/products?format=json|csv` RFC-4180 CSV + JSON downloads — both ownership-scoped
+- Remaining: document verification, secure sharing
 
 See [docs/PRODUCTION.md](docs/PRODUCTION.md) for operations, [docs/PHASE3-BASELINE.md](docs/PHASE3-BASELINE.md) for the gap checklist.
 

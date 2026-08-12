@@ -419,6 +419,50 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/products/{id}/claim:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, description: Mongo ObjectId } }
+    get:
+      tags: [Products]
+      summary: Prepare a warranty claim summary (owner only)
+      description: |
+        Phase 4 §15 — a read-only, structured snapshot of one product for
+        filing a warranty claim: product identity, purchase info, warranty
+        provider + status, additional coverage periods, service history and
+        document metadata. Never includes file bytes or internal fields.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/ClaimSummary" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/export/products:
+    get:
+      tags: [Products]
+      summary: Export all owned products (JSON or CSV)
+      description: |
+        Phase 4 §16 — downloads every live product with its warranties, service
+        history and document *metadata* (never file contents). Ownership is
+        scoped to the authenticated user. CSV follows RFC 4180 (quoting/
+        escaping). Delivered as an attachment.
+      parameters:
+        - { name: format, in: query, schema: { type: string, enum: [json, csv], default: json } }
+      responses:
+        "200":
+          description: File attachment (application/json or text/csv)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/products/{productId}/documents:
     parameters:
       - { name: productId, in: path, required: true, schema: { type: string, description: Mongo ObjectId } }
@@ -1181,6 +1225,65 @@ components:
           type: string
           nullable: true
           description: The other product's id when type is duplicate
+
+    ClaimSummary:
+      type: object
+      description: Phase 4 §15 claim snapshot (read-only, ownership-scoped).
+      properties:
+        productId: { type: string }
+        productName: { type: string }
+        brand: { type: string, nullable: true }
+        model: { type: string, nullable: true }
+        serialNumber: { type: string, nullable: true }
+        category: { type: string, nullable: true }
+        purchaseDate: { type: string, format: date, nullable: true }
+        purchasePrice: { type: number, nullable: true }
+        currency: { type: string, nullable: true }
+        purchaseStore: { type: string, nullable: true }
+        warrantyProvider: { type: string, nullable: true }
+        warrantyProviderType: { type: string, nullable: true }
+        warrantyContact: { type: string, nullable: true }
+        warrantyExpiryDate: { type: string, format: date, nullable: true }
+        warrantyStatus: { type: string, enum: [not_started, active, expiring_soon, expired, unknown] }
+        warrantyStatusLabel: { type: string }
+        lifecycleStatus: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        notes: { type: string, nullable: true }
+        warranties:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string }
+              provider: { type: string }
+              coverage: { type: string }
+              startDate: { type: string, format: date }
+              expiryDate: { type: string, format: date }
+              status: { type: string }
+        serviceHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              serviceDate: { type: string, format: date }
+              serviceType: { type: string }
+              serviceProvider: { type: string }
+              cost: { type: number }
+              currency: { type: string }
+              description: { type: string }
+              nextServiceDate: { type: string, format: date }
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              fileName: { type: string }
+              documentType: { type: string }
+              fileSize: { type: integer }
+              uploadedAt: { type: string, format: date-time }
+              ocrStatus: { type: string }
 
     WarrantyPeriod:
       type: object

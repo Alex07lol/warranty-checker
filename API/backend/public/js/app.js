@@ -753,6 +753,152 @@ function renderDetailCoverage(p) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Warranty claim prep (Phase 4 §15): a structured summary of everything a
+// user needs to open a claim, with copy/download actions. Read-only.
+// ─────────────────────────────────────────────────────────────────────────────
+let currentClaim = null;
+
+async function openClaimSummary() {
+  if (!requireAuth('prepare a warranty claim')) return;
+  if (!currentProductId) return;
+  const body = document.getElementById('claim-body');
+  body.innerHTML = '';
+  body.appendChild(skeletonLineCards(4));
+  openDialog(document.getElementById('claim-overlay'), { initialFocus: '#claim-copy-btn', onClose: () => closeDialog(document.getElementById('claim-overlay')) });
+  try {
+    const claim = await api('/products/' + currentProductId + '/claim');
+    currentClaim = claim;
+    renderClaimSummary(claim);
+  } catch (e) {
+    body.innerHTML = '';
+    body.appendChild(emptyState('⚠️', 'Could not prepare claim', e.message));
+  }
+}
+
+function renderClaimSummary(c) {
+  const body = document.getElementById('claim-body');
+  const rows = [
+    ['Product', c.productName],
+    ['Brand · Model', [c.brand, c.model].filter(Boolean).join(' · ')],
+    ['Serial number', c.serialNumber],
+    ['Category', c.category],
+    ['Purchased', fmtDate(c.purchaseDate)],
+    ['Price', fmtMoney(c)],
+    ['Store', c.purchaseStore],
+    ['Warranty provider', c.warrantyProvider],
+    ['Provider contact', c.warrantyContact],
+    ['Warranty expires', fmtDate(c.warrantyExpiryDate)],
+    ['Warranty status', c.warrantyStatusLabel]
+  ];
+  let html = rows.map(r => detailRow(r[0], r[1])).join('');
+  if (c.serviceHistory && c.serviceHistory.length) {
+    html += '<div class="claim-subhead">Service history</div>';
+    html += c.serviceHistory.map(s =>
+      '<div class="claim-line">' + escapeHtml(fmtDate(s.serviceDate) + (s.serviceType ? ' · ' + s.serviceType : '') + (s.serviceProvider ? ' · ' + s.serviceProvider : '') + (s.cost != null ? ' · ' + s.cost : '') + (s.nextServiceDate ? ' · next ' + fmtDate(s.nextServiceDate) : '')) + '</div>'
+    ).join('');
+  }
+  if (c.documents && c.documents.length) {
+    html += '<div class="claim-subhead">Documents</div>';
+    html += c.documents.map(d =>
+      '<div class="claim-line">' + escapeHtml(d.fileName + ' (' + d.documentType + ')') + '</div>'
+    ).join('');
+  }
+  body.innerHTML = html;
+}
+
+function claimToText(c) {
+  const lines = [
+    'WARRANTY CLAIM SUMMARY',
+    'Product: ' + c.productName,
+    'Brand/Model: ' + [c.brand, c.model].filter(Boolean).join(' / '),
+    'Serial number: ' + (c.serialNumber || '—'),
+    'Category: ' + (c.category || '—'),
+    'Purchased: ' + (c.purchaseDate ? fmtDate(c.purchaseDate) : '—'),
+    'Purchase price: ' + fmtMoney(c),
+    'Store: ' + (c.purchaseStore || '—'),
+    'Warranty provider: ' + (c.warrantyProvider || '—'),
+    'Provider contact: ' + (c.warrantyContact || '—'),
+    'Warranty expires: ' + (c.warrantyExpiryDate ? fmtDate(c.warrantyExpiryDate) : '—'),
+    'Warranty status: ' + (c.warrantyStatusLabel || '—'),
+    ''
+  ];
+  if (c.serviceHistory && c.serviceHistory.length) {
+    lines.push('Service history:');
+    c.serviceHistory.forEach(s => lines.push('  - ' + fmtDate(s.serviceDate) + (s.serviceType ? ' ' + s.serviceType : '') + (s.serviceProvider ? ' (' + s.serviceProvider + ')' : '') + (s.nextServiceDate ? ' next ' + fmtDate(s.nextServiceDate) : '')));
+    lines.push('');
+  }
+  if (c.documents && c.documents.length) {
+    lines.push('Documents:');
+    c.documents.forEach(d => lines.push('  - ' + d.fileName + ' (' + d.documentType + ')'));
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+async function copyClaimSummary() {
+  if (!currentClaim) return;
+  try {
+    await copyToClipboard(claimToText(currentClaim));
+    toast('Claim summary copied', 'success');
+  } catch {
+    toast('Could not copy — copy it manually', 'error');
+  }
+}
+
+function downloadClaimSummary() {
+  if (!currentClaim) return;
+  const blob = new Blob([claimToText(currentClaim)], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'warranty-claim-' + (currentClaim.productName || 'product').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.txt';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Export (Phase 4 §16): download all products as JSON or CSV via the
+// authenticated download endpoint.
+// ─────────────────────────────────────────────────────────────────────────────
+async function exportProductsFile(format) {
+  if (!requireAuth('export your products')) return;
+  const btn = document.getElementById(format === 'csv' ? 'export-csv-btn' : 'export-json-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(API + '/export/products?format=' + format, {
+      headers: { Authorization: 'Bearer ' + getToken() }
+    });
+    if (res.status === 401) {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      openLogin('Session expired — please sign in again.');
+      return;
+    }
+    if (!res.ok) {
+      let msg = 'Export failed';
+      try { msg = (await res.json()).message || msg; } catch { /* keep default */ }
+      throw new Error(msg);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'warrantyvault-products-' + new Date().toISOString().slice(0, 10) + '.' + format;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Products exported as ' + format.toUpperCase(), 'success');
+  } catch (e) {
+    toast(e.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Warranty health (Phase 4 §19): deterministic findings from the backend —
 // conflicts, missing info, duplicate suggestions. Purely advisory; the panel
 // hides itself when there's nothing to say.
@@ -2197,6 +2343,18 @@ function wireEvents() {
   document.getElementById('detail-edit-btn').addEventListener('click', () => openProductForm(currentProduct));
   document.getElementById('detail-delete-btn').addEventListener('click', deleteCurrentProduct);
   document.getElementById('detail-repair-btn').addEventListener('click', openRepair);
+  const claimBtn = document.getElementById('detail-claim-btn');
+  if (claimBtn) claimBtn.addEventListener('click', openClaimSummary);
+  const claimClose = document.getElementById('claim-close');
+  if (claimClose) claimClose.addEventListener('click', () => closeDialog(document.getElementById('claim-overlay')));
+  const claimCopy = document.getElementById('claim-copy-btn');
+  if (claimCopy) claimCopy.addEventListener('click', copyClaimSummary);
+  const claimDownload = document.getElementById('claim-download-btn');
+  if (claimDownload) claimDownload.addEventListener('click', downloadClaimSummary);
+  const exportJson = document.getElementById('export-json-btn');
+  if (exportJson) exportJson.addEventListener('click', () => exportProductsFile('json'));
+  const exportCsv = document.getElementById('export-csv-btn');
+  if (exportCsv) exportCsv.addEventListener('click', () => exportProductsFile('csv'));
   document.getElementById('detail-scan-btn').addEventListener('click', () => {
     const pid = currentProductId;
     closeDetail();

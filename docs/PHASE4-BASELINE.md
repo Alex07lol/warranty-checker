@@ -1,6 +1,6 @@
 # Phase 4 — Advanced Product Features: Baseline
 
-Status: **IN PROGRESS** — Tranches 1–5 shipped (data model, status engine, warranty intelligence, reminders & maintenance, filters & tags).
+Status: **IN PROGRESS** — Tranches 1–6 shipped (data model, status engine, warranty intelligence, reminders & maintenance, filters & tags, claim prep & export).
 
 ## Tranche 1 — Data model foundation (shipped)
 
@@ -124,15 +124,35 @@ Spec §9/§10/§11/§12:
   assertions (lifecycle+category, warrantyStatus, price range, date range,
   brand), combined filters, cross-user isolation, serial/tag search.
 
+## Tranche 6 — Warranty claim preparation + export (shipped)
+
+Spec §15/§16:
+
+- **`GET /api/v1/products/:id/claim`** — read-only claim snapshot for one
+  product: identity, purchase info, provider + contact, primary status
+  (engine-derived), additional coverage periods, service history and document
+  metadata. Never includes file bytes or internal fields. Ownership-checked
+  (403 cross-user).
+- **`GET /api/v1/export/products?format=json|csv`** — downloads every live
+  product with its warranties, service history and document *metadata* as an
+  attachment. CSV follows RFC 4180 (quoting, doubled quotes, header row).
+  Strictly scoped to the authenticated user.
+- **`src/services/export.service.js`** — pure helpers (`toCsv`, `csvEscape`)
+  unit-testable; `getClaimSummary` / `exportProducts` do the DB work.
+- **UI** — product detail gains a **Prepare Claim** action opening a summary
+  sheet with **Copy summary** (plain text) and **Download** (.txt); the
+  Products view gains **⬇ JSON / ⬇ CSV** export buttons.
+- **Tests** — claim fields + no internal leakage + 401/403; JSON/CSV export
+  shape, RFC-4180 escaping (comma + embedded quotes), unknown-format
+  fallback to JSON, cross-user emptiness, CSV helper units.
+
 ## Open tranches (mapped to the spec)
 
 6. **Document organization + verification** (§13, §14) — document states,
    tags/notes, user-verified flag.
-7. **Warranty claim preparation + export** (§15, §16) — structured claim
-   summary; CSV/JSON export.
-8. **Secure sharing / family ownership** (§17, §18) — only if the architecture
+7. **Secure sharing / family ownership** (§17, §18) — only if the architecture
    supports it cleanly (shared ownership requires an auth-model review first).
-9. **Notification center + preferences** (§22, §23) — type-specific rendering,
+8. **Notification center + preferences** (§22, §23) — type-specific rendering,
    in-app preference toggles (email only if a provider is configured).
 
 ## Constraints carried forward
