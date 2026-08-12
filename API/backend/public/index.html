@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/app.css?v=8" />
+  <link rel="stylesheet" href="/css/app.css?v=9" />
 </head>
 <body>
 
@@ -181,7 +181,40 @@
       <div class="view-scroll">
         <div class="toolbar">
           <label for="products-search" class="sr-only">Search products</label>
-          <input type="search" class="search-input" id="products-search" placeholder="Search by name, brand, or model…" />
+          <input type="search" class="search-input" id="products-search" placeholder="Search by name, brand, serial, or tag…" />
+          <button class="btn btn-ghost btn-small" id="filter-toggle-btn" aria-expanded="false" aria-controls="filter-panel">⚙️ Filters</button>
+        </div>
+        <div class="filter-panel" id="filter-panel" hidden>
+          <div class="filter-grid">
+            <div class="form-field"><label for="flt-category">Category</label><input type="text" id="flt-category" list="category-list" placeholder="All categories" /></div>
+            <div class="form-field"><label for="flt-brand">Brand</label><input type="text" id="flt-brand" placeholder="All brands" /></div>
+            <div class="form-field">
+              <label for="flt-lifecycle">Lifecycle</label>
+              <select id="flt-lifecycle"><option value="">Any</option></select>
+            </div>
+            <div class="form-field">
+              <label for="flt-status">Warranty status</label>
+              <select id="flt-status">
+                <option value="">Any</option>
+                <option value="active">Active</option>
+                <option value="expiring_soon">Expiring soon</option>
+                <option value="expired">Expired</option>
+                <option value="not_started">Not started</option>
+                <option value="unknown">No expiry</option>
+              </select>
+            </div>
+            <div class="form-field"><label for="flt-tags">Tags (comma-separated)</label><input type="text" id="flt-tags" placeholder="home, kitchen" /></div>
+            <div class="form-field"><label for="flt-store">Store</label><input type="text" id="flt-store" placeholder="All stores" /></div>
+            <div class="form-field"><label for="flt-price-min">Min price</label><input type="number" id="flt-price-min" min="0" placeholder="0" /></div>
+            <div class="form-field"><label for="flt-price-max">Max price</label><input type="number" id="flt-price-max" min="0" placeholder="Any" /></div>
+            <div class="form-field"><label for="flt-purchase-from">Purchased after</label><input type="date" id="flt-purchase-from" /></div>
+            <div class="form-field"><label for="flt-purchase-to">Purchased before</label><input type="date" id="flt-purchase-to" /></div>
+          </div>
+          <div class="filter-actions">
+            <button class="btn btn-primary btn-small" id="filter-apply-btn">Apply filters</button>
+            <button class="btn btn-ghost btn-small" id="filter-clear-btn">Clear</button>
+            <datalist id="category-list"></datalist>
+          </div>
         </div>
         <div id="products-list">
           <div class="skeleton-card product"><div class="skeleton skeleton-img"></div><div class="skeleton-lines"><div class="skeleton skeleton-line name"></div><div class="skeleton skeleton-line meta"></div></div><div class="skeleton skeleton-badge"></div></div>
@@ -565,6 +598,7 @@
           </div>
           <div id="pf-warranties-list"></div>
         </div>
+        <div class="form-field"><label for="pf-tags" id="pf-tags-label">Tags</label><input type="text" id="pf-tags" placeholder="home, kitchen, high value (comma-separated)" /></div>
         <div class="form-field"><label for="pf-notes" id="pf-notes-label">Notes</label><textarea id="pf-notes" rows="2" placeholder="Optional notes"></textarea></div>
 
         <div class="form-actions">
@@ -616,11 +650,11 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>    <!-- Classic scripts share global scope; ORDER MATTERS: utils -> api ->
     auth -> app (app.js load-time code calls utils/api/auth functions). -->
-    <script src="/js/warranty.js?v=8"></script>
-    <script src="/js/utils.js?v=8"></script>
-    <script src="/js/api.js?v=8"></script>
-    <script src="/js/auth.js?v=8"></script>
-    <script src="/js/app.js?v=8"></script>
+    <script src="/js/warranty.js?v=9"></script>
+    <script src="/js/utils.js?v=9"></script>
+    <script src="/js/api.js?v=9"></script>
+    <script src="/js/auth.js?v=9"></script>
+    <script src="/js/app.js?v=9"></script>
     <script type="module" src="/js/effects.js?v=4"></script>
 </body>
 </html>

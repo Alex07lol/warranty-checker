@@ -1,6 +1,6 @@
 # Phase 4 — Advanced Product Features: Baseline
 
-Status: **IN PROGRESS** — Tranches 1–4 shipped (data model, status engine, warranty intelligence, reminders & maintenance).
+Status: **IN PROGRESS** — Tranches 1–5 shipped (data model, status engine, warranty intelligence, reminders & maintenance, filters & tags).
 
 ## Tranche 1 — Data model foundation (shipped)
 
@@ -100,11 +100,32 @@ user-configurable and added the maintenance half:
   never duplicates on re-run; disabled alerts suppress reminders; preferences
   endpoint round-trips and validates bad payloads.
 
+## Tranche 5 — Advanced product filtering + user-scoped tags (shipped)
+
+Spec §9/§10/§11/§12:
+
+- **Tags** — `Product.tags[]` (lower-cased + trimmed, deduped, max 20,
+  validated 1–30 chars each). User-scoped automatically because products are.
+  Editable in the product form; rendered as #chips on product cards;
+  index `{ userId, isDeleted, tags }`.
+- **Server-side filters** — `GET /api/v1/products` accepts category, brand,
+  lifecycleStatus, warrantyStatus (translated to the engine's own date
+  windows: 30-day expiring window, future purchase => not_started, missing
+  expiry => unknown), purchaseStore, repeatable `tags` (AND), minPrice/maxPrice,
+  purchaseFrom/To and expiryFrom/To. Sorting also accepts `purchasePrice`.
+- **Extended search** — beyond name/brand/model, matches serial number,
+  purchase store, warranty provider and tags (regex `$or`; a pure-regex plan
+  avoids the Mongo "No query solutions" error from `$text` inside `$or`).
+- **UI** — Products view gains a collapsible ⚙️ Filters panel (category
+  datalist from the centralized `PRODUCT_CATEGORIES`, lifecycle select,
+  warranty-status select, tags, store, price + purchase-date ranges) with
+  Apply/Clear; guest mode filters the demo cache client-side.
+- **Tests** — tag normalization/round-trip/cap, tag AND-filtering, per-filter
+  assertions (lifecycle+category, warrantyStatus, price range, date range,
+  brand), combined filters, cross-user isolation, serial/tag search.
+
 ## Open tranches (mapped to the spec)
 
-4. **Product lifecycle UI + filters** (§8, §9) — distinguish current vs
-   archived/sold products, advanced filtering.
-5. **Categories + tags** (§11, §12) — normalized categories, user-scoped tags.
 6. **Document organization + verification** (§13, §14) — document states,
    tags/notes, user-verified flag.
 7. **Warranty claim preparation + export** (§15, §16) — structured claim

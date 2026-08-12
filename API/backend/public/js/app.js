@@ -17,6 +17,9 @@ function makeProductCard(p, index) {
   card.addEventListener('keydown', e => { if(e.key === 'Enter') openDetail(p._id); });
   
   const expiryStr = p.warrantyExpiryDate ? fmtDate(p.warrantyExpiryDate) : 'No expiry set';
+  const tagChips = (Array.isArray(p.tags) && p.tags.length)
+    ? '<div class="product-tags">' + p.tags.slice(0, 4).map(t => '<span class="product-tag">#' + escapeHtml(t) + '</span>').join('') + '</div>'
+    : '';
   
   card.innerHTML =
     '<img class="product-img" src="' + escapeHtml(productImage(p)) + '" alt="" ' +
@@ -26,6 +29,7 @@ function makeProductCard(p, index) {
       '<div class="product-info-name">' + escapeHtml(p.productName) + '</div>' +
       '<div class="product-info-brand">' + escapeHtml([p.brand, p.model].filter(Boolean).join(' · ') || '—') + '</div>' +
       '<div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Expires: ' + escapeHtml(expiryStr) + '</div>' +
+      tagChips +
     '</div>' +
     '<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">' +
       '<span class="product-warranty-badge ' + info.badgeClass + '">' + info.label + '</span>' +
@@ -46,6 +50,7 @@ const DEMO_PRODUCTS = [
     serialNumber: 'XPS15-7G2K9', purchaseDate: '2023-11-02',
     purchasePrice: 2099, currency: 'USD', purchaseStore: 'Best Buy',
     warrantyPeriodMonths: 12, warrantyExpiryDate: daysFromNow(-35),
+    tags: ['work', 'high value'],
     notes: 'Primary work machine — extended support plan.'
   },
   {
@@ -56,6 +61,7 @@ const DEMO_PRODUCTS = [
     purchasePrice: 899, currency: 'USD', purchaseStore: 'Amazon',
     warrantyPeriodMonths: 24, warrantyExpiryDate: daysFromNow(4),
     lifecycleStatus: 'in_use',
+    tags: ['mobile', 'daily'],
     warrantyProvider: 'Samsung Care+', warrantyProviderType: 'extended',
     warrantyContact: 'support@samsung.com',
     warranties: [
@@ -238,23 +244,104 @@ function updateNavBadge(count) {
 let productsCache = [];
 let productsSearchTimer = null;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Advanced filtering (Phase 4 §9): server-side query params composed from the
+// filter panel. Guest mode filters the demo cache client-side.
+// ─────────────────────────────────────────────────────────────────────────────
+let activeFilters = {};
+
+function currentFilterQuery() {
+  const params = new URLSearchParams();
+  const v = (id) => (document.getElementById(id) || {}).value || '';
+  const set = (key, val) => { if (val) params.set(key, val); };
+  set('category', v('flt-category').trim());
+  set('brand', v('flt-brand').trim());
+  set('lifecycleStatus', v('flt-lifecycle'));
+  set('warrantyStatus', v('flt-status'));
+  set('purchaseStore', v('flt-store').trim());
+  const tags = v('flt-tags').split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+  tags.forEach(t => params.append('tags', t));
+  set('minPrice', v('flt-price-min').trim());
+  set('maxPrice', v('flt-price-max').trim());
+  set('purchaseFrom', v('flt-purchase-from'));
+  set('purchaseTo', v('flt-purchase-to'));
+  return params;
+}
+
+function matchClientSide(p, filters) {
+  const has = (val, key) => !val || String(p[key] || '').toLowerCase() === String(val).toLowerCase();
+  if (!has(filters.category, 'category')) return false;
+  if (!has(filters.brand, 'brand')) return false;
+  if (!has(filters.lifecycleStatus, 'lifecycleStatus')) return false;
+  if (!has(filters.purchaseStore, 'purchaseStore')) return false;
+  if (filters.warrantyStatus) {
+    const status = warrantyInfo(p).status;
+    const norm = status === 'none' ? 'unknown' : status;
+    if (norm !== filters.warrantyStatus &&
+        !(filters.warrantyStatus === 'expiring_soon' && (status === 'soon' || status === 'critical')) &&
+        !(filters.warrantyStatus === 'active' && status === 'safe')) return false;
+  }
+  if (filters.tags && filters.tags.length) {
+    const ptags = (p.tags || []).map(t => t.toLowerCase());
+    if (!filters.tags.every(t => ptags.includes(t))) return false;
+  }
+  // Parity with the server: a price-range query excludes products with no
+  // recorded price, so guest mode must too.
+  if ((filters.minPrice != null || filters.maxPrice != null) && p.purchasePrice == null) return false;
+  if (filters.minPrice != null && p.purchasePrice != null && p.purchasePrice < Number(filters.minPrice)) return false;
+  if (filters.maxPrice != null && p.purchasePrice != null && p.purchasePrice > Number(filters.maxPrice)) return false;
+  if (filters.purchaseFrom && p.purchaseDate && new Date(p.purchaseDate) < new Date(filters.purchaseFrom)) return false;
+  if (filters.purchaseTo && p.purchaseDate && new Date(p.purchaseDate) > new Date(filters.purchaseTo + 'T23:59:59')) return false;
+  return true;
+}
+
+function filtersFromQuery(params) {
+  const f = {};
+  for (const key of ['category', 'brand', 'lifecycleStatus', 'warrantyStatus', 'purchaseStore', 'minPrice', 'maxPrice', 'purchaseFrom', 'purchaseTo']) {
+    const val = params.get(key);
+    if (val) f[key] = val;
+  }
+  f.tags = params.getAll('tags');
+  return f;
+}
+
 async function loadProducts() {
   const list = document.getElementById('products-list');
   list.innerHTML = '';
   list.appendChild(skeletonProductCards(3));
   if (isGuest()) {
     productsCache = demoProducts();
-    renderProducts(productsCache);
+    renderProducts(productsCache.filter(p => matchClientSide(p, activeFilters)));
     return;
   }
   try {
-    const data = await api('/products?limit=100');
+    const params = currentFilterQuery();
+    params.set('limit', '100');
+    const data = await api('/products?' + params.toString());
     productsCache = data.products || [];
     renderProducts(productsCache);
   } catch (e) {
     list.innerHTML = '';
     list.appendChild(emptyState('⚠️', 'Could not load products', e.message));
   }
+}
+
+function applyProductFilters() {
+  activeFilters = filtersFromQuery(currentFilterQuery());
+  loadProducts();
+}
+
+function clearProductFilters() {
+  ['flt-category', 'flt-brand', 'flt-tags', 'flt-store', 'flt-price-min', 'flt-price-max', 'flt-purchase-from', 'flt-purchase-to'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['flt-lifecycle', 'flt-status'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  activeFilters = {};
+  loadProducts();
 }
 
 function renderProducts(items) {
@@ -269,11 +356,11 @@ function renderProducts(items) {
 
 async function searchProducts(q) {
   const list = document.getElementById('products-list');
-  if (!q.trim()) { renderProducts(productsCache); return; }
+  if (!q.trim()) { loadProducts(); return; }
   if (isGuest()) {
     const term = q.trim().toLowerCase();
     const filtered = productsCache.filter(p =>
-      (p.productName + ' ' + (p.brand || '') + ' ' + (p.model || '') + ' ' + (p.category || '')).toLowerCase().includes(term)
+      (p.productName + ' ' + (p.brand || '') + ' ' + (p.model || '') + ' ' + (p.category || '') + ' ' + (p.serialNumber || '') + ' ' + (p.tags || []).join(' ')).toLowerCase().includes(term)
     );
     renderProducts(filtered);
     return;
@@ -369,6 +456,7 @@ function populateProductForm(product) {
   document.getElementById('pf-warranty-months').value = p.warrantyPeriodMonths != null ? p.warrantyPeriodMonths : '';
   document.getElementById('pf-expiry').value = p.warrantyExpiryDate ? new Date(p.warrantyExpiryDate).toISOString().slice(0, 10) : '';
   document.getElementById('pf-notes').value = p.notes || '';
+  document.getElementById('pf-tags').value = (Array.isArray(p.tags) ? p.tags : []).join(', ');
   populatePhase4Form(p);
 }
 
@@ -424,6 +512,7 @@ async function saveProductForm() {
     warrantyContact: document.getElementById('pf-warranty-contact').value.trim() || undefined,
     warrantyWebsite: document.getElementById('pf-warranty-website').value.trim() || undefined,
     warranties: extraWarranties.length ? extraWarranties : undefined,
+    tags: document.getElementById('pf-tags').value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) || undefined,
     notes: document.getElementById('pf-notes').value.trim() || undefined
   };
   Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
@@ -2080,6 +2169,29 @@ function wireEvents() {
     clearTimeout(productsSearchTimer);
     productsSearchTimer = setTimeout(() => searchProducts(search.value), 300);
   });
+
+  // Phase 4 §9: filter panel — toggle, populate options, apply/clear.
+  const filterToggle = document.getElementById('filter-toggle-btn');
+  const filterPanel = document.getElementById('filter-panel');
+  if (filterToggle && filterPanel) {
+    filterToggle.addEventListener('click', () => {
+      const show = filterPanel.hidden;
+      filterPanel.hidden = !show;
+      filterToggle.setAttribute('aria-expanded', show ? 'true' : 'false');
+    });
+  }
+  const lifecycleSelect = document.getElementById('flt-lifecycle');
+  if (lifecycleSelect && typeof LIFECYCLE_STATUSES !== 'undefined') {
+    lifecycleSelect.innerHTML = '<option value="">Any</option>' + enumOptionsHtml(LIFECYCLE_STATUSES, '');
+  }
+  const categoryDatalist = document.getElementById('category-list');
+  if (categoryDatalist && typeof PRODUCT_CATEGORIES !== 'undefined') {
+    categoryDatalist.innerHTML = PRODUCT_CATEGORIES.map(c => '<option value="' + escapeHtml(c) + '"></option>').join('');
+  }
+  const applyBtn = document.getElementById('filter-apply-btn');
+  if (applyBtn) applyBtn.addEventListener('click', applyProductFilters);
+  const clearBtn = document.getElementById('filter-clear-btn');
+  if (clearBtn) clearBtn.addEventListener('click', clearProductFilters);
 
   document.getElementById('detail-back-btn').addEventListener('click', closeDetail);
   document.getElementById('detail-edit-btn').addEventListener('click', () => openProductForm(currentProduct));

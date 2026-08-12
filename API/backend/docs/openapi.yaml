@@ -218,12 +218,30 @@ paths:
   /api/v1/products:
     get:
       tags: [Products]
-      summary: List products (paginated, sortable)
+      summary: List products (paginated, sortable, filterable)
+      description: |
+        Phase 4 §9/§12 — advanced server-side filters. All are optional and
+        combinable: category, brand, lifecycleStatus, warrantyStatus
+        (engine-derived: active/expiring_soon/expired/not_started/unknown),
+        purchaseStore, repeated `tags` (AND semantics), minPrice/maxPrice,
+        purchaseFrom/purchaseTo and expiryFrom/expiryTo date ranges.
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
-        - { name: sortBy, in: query, schema: { type: string, enum: [createdAt, updatedAt, productName, warrantyExpiryDate], default: createdAt } }
+        - { name: sortBy, in: query, schema: { type: string, enum: [createdAt, updatedAt, productName, warrantyExpiryDate, purchasePrice], default: createdAt } }
         - { name: order, in: query, schema: { type: string, enum: [asc, desc], default: desc } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: brand, in: query, schema: { type: string } }
+        - { name: lifecycleStatus, in: query, schema: { type: string, enum: [owned, in_use, stored, under_repair, sold, gifted, disposed] } }
+        - { name: warrantyStatus, in: query, schema: { type: string, enum: [active, expiring_soon, expired, not_started, unknown] } }
+        - { name: purchaseStore, in: query, schema: { type: string } }
+        - { name: tags, in: query, schema: { type: string }, description: Repeatable; products must have all given tags (AND) }
+        - { name: minPrice, in: query, schema: { type: number, minimum: 0 } }
+        - { name: maxPrice, in: query, schema: { type: number, minimum: 0 } }
+        - { name: purchaseFrom, in: query, schema: { type: string, format: date } }
+        - { name: purchaseTo, in: query, schema: { type: string, format: date } }
+        - { name: expiryFrom, in: query, schema: { type: string, format: date } }
+        - { name: expiryTo, in: query, schema: { type: string, format: date } }
       responses:
         "200":
           description: OK
@@ -1201,6 +1219,10 @@ components:
         warrantyWebsite: { type: string, nullable: true }
         lifecycleStatus: { type: string, enum: [owned, in_use, stored, under_repair, sold, gifted, disposed], default: owned }
         warranties: { type: array, items: { $ref: "#/components/schemas/WarrantyPeriod" }, default: [] }
+        tags:
+          type: array
+          description: User-scoped tags, lower-cased + trimmed (Phase 4 §12)
+          items: { type: string }
         notes: { type: string, nullable: true }
         isDeleted: { type: boolean }
         thumbnailUrl: { type: string, nullable: true }
@@ -1227,6 +1249,11 @@ components:
         warrantyWebsite: { type: string, format: uri }
         lifecycleStatus: { type: string, enum: [owned, in_use, stored, under_repair, sold, gifted, disposed] }
         warranties: { type: array, maxItems: 20, items: { $ref: "#/components/schemas/WarrantyPeriodInput" } }
+        tags:
+          type: array
+          description: User-scoped tags (max 20, each ≤ 30 chars, lower-cased server-side)
+          maxItems: 20
+          items: { type: string, maxLength: 30 }
         notes: { type: string, maxLength: 2000 }
         thumbnailUrl: { type: string, format: uri }
       description: productName is required on create; warrantyExpiryDate must be after purchaseDate; each warranty period expiry must be after its start.

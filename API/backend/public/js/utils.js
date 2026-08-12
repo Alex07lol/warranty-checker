@@ -160,6 +160,14 @@ function setStatsSkeleton(show) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 4 shared metadata (single source of truth for backend enums)
 // ─────────────────────────────────────────────────────────────────────────────
+// Phase 4 §11: normalized category suggestions. Centralized here so the
+// filter datalist and any future category picker never drift; users can still
+// type a custom category (the field stays free-text on the backend).
+const PRODUCT_CATEGORIES = [
+  'Electronics', 'Appliances', 'Computers', 'Phones', 'Furniture',
+  'Vehicles', 'Tools', 'Cameras', 'Audio', 'Television', 'Other'
+];
+
 const LIFECYCLE_STATUSES = [
   ['owned', 'Owned'], ['in_use', 'In use'], ['stored', 'Stored'],
   ['under_repair', 'Under repair'], ['sold', 'Sold'], ['gifted', 'Gifted'], ['disposed', 'Disposed']

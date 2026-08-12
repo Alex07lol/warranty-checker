@@ -142,9 +142,9 @@ var GROUPS = [
   },
   {
     name: 'Products', endpoints: [
-      { m: 'GET', p: '/api/v1/products', auth: true, d: 'List (paginated). Query: page, limit (≤100), sortBy (createdAt|updatedAt|productName|warrantyExpiryDate), order (asc|desc).' },
-      { m: 'POST', p: '/api/v1/products', auth: true, d: 'Create. Serial numbers are unique per user among active products (409 on duplicate).' },
-      { m: 'GET', p: '/api/v1/products/search?q=', auth: true, d: 'Full-text search over name, brand, model.' },
+      { m: 'GET', p: '/api/v1/products', auth: true, d: 'List (paginated, filterable). Query: page, limit (≤100), sortBy, order + filters: category, brand, lifecycleStatus, warrantyStatus, purchaseStore, tags (repeat = AND), minPrice, maxPrice, purchaseFrom/To, expiryFrom/To.' },
+      { m: 'POST', p: '/api/v1/products', auth: true, d: 'Create. Serial numbers are unique per user among active products (409 on duplicate). Accepts tags[].' },
+      { m: 'GET', p: '/api/v1/products/search?q=', auth: true, d: 'Search over name, brand, model, serial number, store, provider and tags.' },
       { m: 'GET', p: '/api/v1/products/expiring-soon', auth: true, d: 'Products expiring within 30 days.' },
       { m: 'GET', p: '/api/v1/products/{id}/intelligence', auth: true, d: 'Warranty health (deterministic, no AI): conflicts, missing-info nudges, duplicate suggestions. Owner only.' },
       { m: 'GET', p: '/api/v1/products/{id}', auth: true, d: 'Get one product (owner only).' },
