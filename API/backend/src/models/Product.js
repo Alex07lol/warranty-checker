@@ -53,6 +53,18 @@ const productSchema = new mongoose.Schema(
 productSchema.index({ userId: 1 });
 productSchema.index({ warrantyExpiryDate: 1 });
 productSchema.index({ userId: 1, isDeleted: 1 });
+// DB-level invariant backing the application-level serial deduplication:
+// one active (non-deleted) product per serial number per user. Products
+// without a serial are excluded (partial filter), and soft-deleted products
+// don't hold their serial hostage. Duplicate-key races are handled
+// gracefully in product.service (re-query and reuse instead of crashing).
+productSchema.index(
+  { userId: 1, serialNumber: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { serialNumber: { $type: "string" }, isDeleted: false }
+  }
+);
 // Compound index serving dashboard/expiry-range queries that filter on
 // { userId, isDeleted, warrantyExpiryDate } and sort by expiry date.
 productSchema.index({ userId: 1, isDeleted: 1, warrantyExpiryDate: 1 });

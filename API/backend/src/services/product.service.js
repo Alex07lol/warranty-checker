@@ -47,7 +47,17 @@ async function getProductById(productId, userId) {
   return product;
 }
 
+// An empty serial is "no serial": normalize it away so the partial unique
+// index ({ userId, serialNumber } for active products) never treats two
+// serial-less products as duplicates of each other.
+function normalizeSerial(data) {
+  const clean = { ...data };
+  if (clean.serialNumber === "") clean.serialNumber = undefined;
+  return clean;
+}
+
 async function createProduct(userId, data) {
+  data = normalizeSerial(data);
   if (data.purchaseDate && data.warrantyExpiryDate) {
     if (new Date(data.warrantyExpiryDate) <= new Date(data.purchaseDate)) {
       throw new AppError("Warranty expiry date must be after purchase date", 422);
@@ -62,6 +72,7 @@ async function createProduct(userId, data) {
 
 async function updateProduct(productId, userId, data) {
   const product = await getProductById(productId, userId);
+  data = normalizeSerial(data);
 
   const purchaseDate = data.purchaseDate || product.purchaseDate;
   const expiryDate = data.warrantyExpiryDate || product.warrantyExpiryDate;
@@ -119,6 +130,7 @@ async function getExpiringProducts(userId) {
 // the check-then-create can race, so a duplicate-key error (E11000) is
 // caught and resolved by re-querying instead of crashing.
 async function createProductFromOcr(userId, data) {
+  data = normalizeSerial(data);
   if (data.serialNumber) {
     const existing = await Product.findOne({
       userId,
