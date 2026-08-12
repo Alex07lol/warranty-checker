@@ -18,7 +18,9 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: node src/server.js
-    healthCheckPath: /
+    # Liveness probe — /health always answers 200 while the process runs.
+    # (Readiness is separate: GET /ready reports MongoDB reachability.)
+    healthCheckPath: /health
     autoDeploy: true
     envVars:
       - key: NODE_ENV

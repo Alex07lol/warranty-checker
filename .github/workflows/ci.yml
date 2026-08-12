@@ -35,3 +35,20 @@ jobs:
         env:
           NODE_ENV: test
           JWT_SECRET: test_jwt_secret_for_ci
+
+      - name: OCR parser simulation
+        working-directory: ./API/backend
+        run: npm run ocr:sim
+
+      - name: Syntax check
+        working-directory: ./API/backend
+        run: |
+          set -e
+          for f in $(find src scripts -name '*.js'); do
+            node --check "$f"
+          done
+
+      - name: Production dependency audit (non-blocking)
+        working-directory: ./API/backend
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
