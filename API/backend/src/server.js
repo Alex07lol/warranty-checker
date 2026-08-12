@@ -16,6 +16,7 @@ const { getOcrMetrics } = require("./services/ocr.service");
 const authRoutes = require("./routes/auth.routes");
 const productRoutes = require("./routes/product.routes");
 const documentRoutes = require("./routes/document.routes");
+const { router: shareRoutes, publicRouter: sharedRoutes } = require("./routes/share.routes");
 const serviceHistoryRoutes = require("./routes/serviceHistory.routes");
 const notificationRoutes = require("./routes/notification.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
@@ -28,6 +29,13 @@ const {
 } = require("./services/notification.service");
 
 const app = express();
+
+// Render (and similar hosts) terminate TLS at a single reverse proxy hop, so
+// req.ip must read the client IP from X-Forwarded-For through that one hop;
+// without this every request appears to come from the proxy and the per-IP
+// rate limiters (shared-view, guest uploads/OCR) collapse into one global
+// bucket. Exactly one hop is trusted — more would allow spoofing.
+app.set("trust proxy", 1);
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -175,6 +183,9 @@ app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 // Phase 4 §16: JSON/CSV export of the user's products (ownership-scoped).
 app.use("/api/v1/export", exportRoutes);
+// Phase 4 §17 — secure product sharing: owner mount + public token mount.
+app.use("/api/v1/products/:productId/shares", shareRoutes);
+app.use("/api/v1/shared", sharedRoutes);
 // Google Places proxy (rate-limited + fully validated — see places.routes.js).
 app.use("/api/v1/places", placesRoutes);
 

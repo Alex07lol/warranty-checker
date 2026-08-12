@@ -269,5 +269,6 @@ module.exports = {
   exportProducts,
   toCsv,
   csvEscape,
-  CSV_HEADERS
+  CSV_HEADERS,
+  toDateString
 };
