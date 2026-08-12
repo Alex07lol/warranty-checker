@@ -91,6 +91,7 @@ function fmtDate(d) {
 // Animate a stat value from 0 to `target` with a smooth count-up effect.
 const statAnimations = new WeakMap();
 function animateCountUp(el, target, duration = 500) {
+  if (!el) return; // Element may have been removed from the DOM — never crash the view.
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     el.textContent = Number(target).toLocaleString('en-US');
     return;
@@ -454,7 +455,6 @@ function renderGuestDashboard() {
   animateCountUp(document.getElementById('stat-expiring'), expiringSoon.length);
   animateCountUp(document.getElementById('stat-expired'), expiredWarranties.length);
   animateCountUp(document.getElementById('stat-documents'), 0);
-  animateCountUp(document.getElementById('stat-unread'), demoUnreadCount());
   updateNavBadge(demoUnreadCount());
 
   const list = document.getElementById('attention-list');
@@ -503,7 +503,6 @@ async function loadDashboard() {
     animateCountUp(document.getElementById('stat-expiring'), d.expiringSoonCount || 0);
     animateCountUp(document.getElementById('stat-expired'), expiredCount);
     animateCountUp(document.getElementById('stat-documents'), d.totalDocuments || 0);
-    animateCountUp(document.getElementById('stat-unread'), d.unreadNotificationsCount || 0);
     updateNavBadge(d.unreadNotificationsCount || 0);
 
     renderExpiringProducts(d.expiringSoon || [], list);
