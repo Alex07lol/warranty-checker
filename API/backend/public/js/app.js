@@ -638,6 +638,8 @@ function renderDetailSpecs(p) {
 }
 
 // Phase 4: list of additional coverage periods under the warranty block.
+// Each period's status chip comes from the canonical status engine — never
+// a separate date calculation.
 function renderDetailCoverage(p) {
   const box = document.getElementById('detail-coverage-list');
   if (!box) return;
@@ -646,10 +648,13 @@ function renderDetailCoverage(p) {
   if (heading) heading.style.display = periods.length ? '' : 'none';
   if (!periods.length) { box.innerHTML = ''; return; }
   box.innerHTML = periods.map(w => {
+    const engine = warrantyStatusOf(w);
     const span = (w.startDate ? fmtDate(w.startDate) : '—') + ' → ' + (w.expiryDate ? fmtDate(w.expiryDate) : '—');
     return '<div class="coverage-card">' +
       '<div class="coverage-card-head"><span class="coverage-type">' + escapeHtml(w.type || 'Coverage') + '</span>' +
-      (w.provider ? '<span class="coverage-provider">' + escapeHtml(w.provider) + '</span>' : '') + '</div>' +
+      (w.provider ? '<span class="coverage-provider">' + escapeHtml(w.provider) + '</span>' : '') +
+      '<span class="coverage-status ' + escapeHtml(engine.status) + '">' + escapeHtml(statusLabel(engine.status)) + '</span>' +
+      '</div>' +
       '<div class="coverage-meta">' + escapeHtml(span) + '</div>' +
       (w.coverage ? '<div class="coverage-desc">' + escapeHtml(w.coverage) + '</div>' : '') +
       (w.notes ? '<div class="coverage-notes">' + escapeHtml(w.notes) + '</div>' : '') +

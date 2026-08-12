@@ -1087,6 +1087,8 @@ components:
         serialNumber: { type: string, nullable: true }
         warrantyExpiryDate: { type: string, format: date, nullable: true }
         warrantyPeriodMonths: { type: integer, nullable: true }
+        warrantyStatus: { type: string, enum: [not_started, active, expiring_soon, expired, unknown], description: Primary warranty status computed by the canonical engine (Phase 4 §5) }
+        warrantyStatusLabel: { type: string }
         warrantyProvider: { type: string, nullable: true }
         warrantyProviderType: { type: string, enum: [manufacturer, retailer, third_party, extended, unknown], nullable: true }
         warrantyContact: { type: string, nullable: true }

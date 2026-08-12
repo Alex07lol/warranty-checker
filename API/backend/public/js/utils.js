@@ -65,17 +65,27 @@ function animateCountUp(el, target, duration = 500) {
   statAnimations.set(el, requestAnimationFrame(frame));
 }
 
-// Warranty status from the product's warrantyExpiryDate
+// Warranty status for UI presentation. The STATUS itself comes from the
+// canonical engine (warranty.js mirror of src/services/warranty.service.js);
+// this wrapper only maps engine state onto the existing badge/block classes
+// and keeps the legacy return shape (status, label, badgeClass, blockClass,
+// valueClass, days) that cards and the dashboard depend on.
 function warrantyInfo(p) {
-  if (!p.warrantyExpiryDate) return { status: 'none', label: 'No expiry set', badgeClass: 'badge-safe', blockClass: 'safe', valueClass: 'safe', days: Infinity };
-  const expiry = new Date(p.warrantyExpiryDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const days = Math.ceil((expiry - today) / 86400000);
-  if (days <= 0) return { status: 'expired', label: 'Expired', badgeClass: 'badge-expired', blockClass: 'expired', valueClass: 'expired', days };
-  if (days <= 7) return { status: 'critical', label: days + ' days remaining', badgeClass: 'badge-critical', blockClass: 'critical', valueClass: 'critical', days };
-  if (days <= 30) return { status: 'soon', label: days + ' days remaining', badgeClass: 'badge-soon', blockClass: 'critical', valueClass: 'critical', days };
-  return { status: 'safe', label: days + ' days remaining', badgeClass: 'badge-safe', blockClass: 'safe', valueClass: 'safe', days };
+  const engine = warrantyStatusOf({ startDate: p.purchaseDate, expiryDate: p.warrantyExpiryDate });
+  const days = engine.daysRemaining;
+  switch (engine.status) {
+    case 'not_started':
+      return { status: 'not_started', label: 'Not started', badgeClass: 'badge-soon', blockClass: 'critical', valueClass: 'critical', days };
+    case 'expired':
+      return { status: 'expired', label: 'Expired', badgeClass: 'badge-expired', blockClass: 'expired', valueClass: 'expired', days };
+    case 'expiring_soon':
+      if (days <= 7) return { status: 'critical', label: days + ' days remaining', badgeClass: 'badge-critical', blockClass: 'critical', valueClass: 'critical', days };
+      return { status: 'soon', label: days + ' days remaining', badgeClass: 'badge-soon', blockClass: 'critical', valueClass: 'critical', days };
+    case 'active':
+      return { status: 'safe', label: days + ' days remaining', badgeClass: 'badge-safe', blockClass: 'safe', valueClass: 'safe', days };
+    default:
+      return { status: 'none', label: 'No expiry set', badgeClass: 'badge-safe', blockClass: 'safe', valueClass: 'safe', days: Infinity };
+  }
 }
 
 function productImage(p) {

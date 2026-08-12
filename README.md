@@ -243,7 +243,8 @@ There is also a machine-readable **OpenAPI 3.0.3** document at [`API/backend/doc
 
 **Phase 4 — Advanced product features — IN PROGRESS**
 - Data model foundation (tranche 1, backward compatible): warranty provider fields, `lifecycleStatus` (owned → disposed), additional `warranties[]` coverage periods — editable in the product form, shown in the detail view
-- Remaining: centralized warranty-status engine, custom reminder + maintenance schedules, warranty-intelligence checks, advanced filters, categories/tags, document verification, claim prep + export, secure sharing
+- Centralized warranty-status engine (tranche 2, spec §5): one source of truth for `not_started / active / expiring_soon / expired / unknown` — backend `warranty.service.js` + frontend mirror, with a CI drift guard proving they never diverge
+- Remaining: custom reminder + maintenance schedules, warranty-intelligence checks, advanced filters, categories/tags, document verification, claim prep + export, secure sharing
 
 See [docs/PRODUCTION.md](docs/PRODUCTION.md) for operations, [docs/PHASE3-BASELINE.md](docs/PHASE3-BASELINE.md) for the gap checklist.
 

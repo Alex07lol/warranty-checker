@@ -1,6 +1,6 @@
 # Phase 4 — Advanced Product Features: Baseline
 
-Status: **IN PROGRESS** — Tranche 1 (data model foundation) shipped.
+Status: **IN PROGRESS** — Tranche 1 (data model) and Tranche 2 (warranty-status engine) shipped.
 
 ## Tranche 1 — Data model foundation (shipped)
 
@@ -25,20 +25,36 @@ Rules enforced at create/update:
 
 UI: the product form gains lifecycle/provider fields and an editable
 "Additional coverage periods" list (+ Add period / Remove); the product detail
-view shows provider/lifecycle rows and coverage cards. The centralized
-**warranty-status engine** (spec §5) is the next tranche — `status` on each
-period is currently stored as `unknown` by default until the engine derives it.
+view shows provider/lifecycle rows and coverage cards.
+
+## Tranche 2 — Centralized warranty-status engine (shipped)
+
+One source of truth for `not_started | active | expiring_soon | expired |
+unknown`, per spec §5:
+
+- **`src/services/warranty.service.js`** — canonical engine: `warrantyStatusOf`
+  (per period), `primaryWarrantyStatus` (legacy expiry + purchase start),
+  `statusLabel`. Expiring-soon window = **30 days** (matches the dashboard's
+  existing expiring window). No expiry → `unknown`; future start → `not_started`.
+- **Frontend mirror** — `public/js/warranty.js` mirrors the engine exactly
+  (classic scripts share no module system) and is loaded before `utils.js`,
+  whose `warrantyInfo()` now delegates to it (return shape preserved).
+  Coverage cards show an engine-derived status chip.
+- **No drift allowed** — `tests/warranty-status.test.js` runs both engines
+  against identical fixtures (every status + exact 30-day boundary) and fails
+  CI if they diverge.
+- **Backend wiring** — `product.service` stamps each period's `status` on
+  write from the engine, and product responses carry fresh `warrantyStatus` /
+  `warrantyStatusLabel` for the primary warranty.
 
 ## Open tranches (mapped to the spec)
 
-1. **Warranty-status engine** (§5) — one source of truth for
-   not-started / active / expiring-soon / expired / unknown, shared by
-   frontend and backend.
-2. **Custom reminder schedules + maintenance reminders** (§6, §7) — user
+1. **Custom reminder schedules + maintenance reminders** (§6, §7) — user
    preferences, duplicate-safe notification generation, maintenance
    next-service dates.
 3. **Warranty intelligence (no AI)** (§19) — conflict detection, missing-info
-   suggestions, OCR-review flags, duplicate suggestions.
+   suggestions, OCR-review flags, duplicate suggestions (can reuse the engine
+   to spot e.g. purchase-after-expiry inconsistencies).
 4. **Product lifecycle UI + filters** (§8, §9) — distinguish current vs
    archived/sold products, advanced filtering.
 5. **Categories + tags** (§11, §12) — normalized categories, user-scoped tags.
