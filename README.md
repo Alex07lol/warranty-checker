@@ -250,7 +250,8 @@ There is also a machine-readable **OpenAPI 3.0.3** document at [`API/backend/doc
 - Warranty claim prep + export (tranche 6, spec §15/§16): `GET /products/:id/claim` structured claim summary (copy/download), `GET /export/products?format=json|csv` RFC-4180 CSV + JSON downloads — both ownership-scoped
 - Document verification + organization (tranche 7, spec §13/§14): `PATCH /documents/:id` for docState (unreviewed/reviewed/important/archived), manual ✓ verified flag (never implied by OCR), user-scoped tags; state selector + verify toggle on every document card
 - Secure product sharing (tranche 8, spec §17): unguessable read-only share links per product (`POST/GET/DELETE /products/:id/shares`), optional expiry + instant revocation, public `GET /shared/:token` snapshot (metadata only — never file bytes) rendered by a standalone `shared.html` page
-- Remaining: notification center polish
+- Notification center polish (tranche 9, spec §22/§23): `document_processing` (OCR done/failed) + `shared_access` notifications with type-aware icons/actions, preference-gated via `documentAlerts`/`sharedAccessAlerts` toggles in the Notification settings card
+- **Phase 4 complete** — all tranches shipped except family ownership (§18), deliberately declined for a per-product sharing model
 
 See [docs/PRODUCTION.md](docs/PRODUCTION.md) for operations, [docs/PHASE3-BASELINE.md](docs/PHASE3-BASELINE.md) for the gap checklist.
 

@@ -170,6 +170,8 @@ paths:
               properties:
                 expiryAlerts: { type: boolean, description: Warranty expiry reminders on/off (default true) }
                 maintenanceAlerts: { type: boolean, description: Maintenance/service reminders on/off (default true) }
+                documentAlerts: { type: boolean, description: Document processing (OCR finished/failed) on/off (default true) }
+                sharedAccessAlerts: { type: boolean, description: Share link activity on/off (default true) }
                 reminderDays:
                   type: array
                   description: Remind N days before expiry / next service (default [30, 7, 1])
@@ -1327,6 +1329,8 @@ components:
           properties:
             expiryAlerts: { type: boolean, description: Warranty expiry reminders (default true) }
             maintenanceAlerts: { type: boolean, description: Maintenance/service reminders (default true) }
+            documentAlerts: { type: boolean, description: Document processing notifications — OCR finished/failed (default true) }
+            sharedAccessAlerts: { type: boolean, description: Share link activity notifications (default true) }
             reminderDays:
               type: array
               description: Remind N days before expiry / next service
@@ -1691,7 +1695,8 @@ components:
                 warrantyExpiryDate: { type: string, format: date, nullable: true }
             - type: string
               nullable: true
-        notificationType: { type: string, enum: [warranty_expiry, service_reminder] }
+        documentId: { type: string, nullable: true, description: Set for document_processing notifications }
+        notificationType: { type: string, enum: [warranty_expiry, service_reminder, document_processing, shared_access, system] }
         title: { type: string }
         message: { type: string }
         isRead: { type: boolean }

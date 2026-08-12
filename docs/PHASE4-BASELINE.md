@@ -1,6 +1,6 @@
 # Phase 4 — Advanced Product Features: Baseline
 
-Status: **IN PROGRESS** — Tranches 1–8 shipped (data model, status engine, warranty intelligence, reminders & maintenance, filters & tags, claim prep & export, document verification & organization, secure sharing).
+Status: **COMPLETE** — Tranches 1–9 shipped (data model, status engine, warranty intelligence, reminders & maintenance, filters & tags, claim prep & export, document verification & organization, secure sharing, notification center polish).
 
 ## Tranche 1 — Data model foundation (shipped)
 
@@ -193,13 +193,41 @@ Spec §17:
   private-field leak checks (fileUrl/publicId/ocrText absent from JSON),
   unknown/expired/revoked → 404, revoke-then-inactive, soft-deleted → 404.
 
+## Tranche 9 — Notification center polish + preference-driven types (shipped)
+
+Spec §22/§23:
+
+- **New notification types** — `document_processing` (OCR finished/failed)
+  and `shared_access` (share link created), plus `system` in the enum.
+  `Notification.productId` is now optional and a `documentId` ref was added,
+  so standalone-document notifications carry the right resource.
+- **Document processing notifications** — fired from `ocr.service
+  processDocument` on both success and failure (never breaks OCR); deduped
+  on an unread notification per document so retries don't spam the center.
+- **Share activity notifications** — fired when the owner creates a share
+  link (`share.service`), message names the product.
+- **Preferences (§23)** — `documentAlerts` + `sharedAccessAlerts` (default
+  true) join expiry/maintenance in `notificationPreferences`; both new types
+  respect their gate (default-true semantics for legacy accounts). The
+  settings card is renamed **Notification settings** with the two new
+  toggles; `PUT /api/v1/auth/preferences` accepts the new keys (Joi
+  validated, partial update preserved).
+- **Type-aware UI** — distinct icons (⏳/🛠️/📄/🔗/🔔), and document
+  notifications without a product get an **Open Documents** action instead
+  of a dead warranty link; guest demo data includes both new types.
+- **Tests** — 6 new: OCR-done notification + fields, retry dedup,
+  `documentAlerts:false` suppression, share notification + message,
+  `sharedAccessAlerts:false` suppression, preferences round-trip with key
+  preservation.
+
 ## Open tranches (mapped to the spec)
 
 6. **Family/shared ownership** (§18) — deliberately not built: it would
    require an auth-model review; secure per-product sharing (§17) already
    covers the stated use cases (technician/family read access).
-7. **Notification center + preferences** (§22, §23) — type-specific rendering,
-   in-app preference toggles (email only if a provider is configured).
+
+All Phase 4 tranches are shipped; §18 is the only explicitly declined item
+(by design, documented above).
 
 ## Constraints carried forward
 

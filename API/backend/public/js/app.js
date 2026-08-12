@@ -103,6 +103,8 @@ const DEMO_NOTIFICATIONS = [
   { _id: 'demo-n1', title: 'Warranty expiring soon', message: 'Samsung Galaxy S23 warranty expires in 4 days.', isRead: false, createdAt: daysFromNow(0), productId: 'demo-2', notificationType: 'warranty_expiry' },
   { _id: 'demo-n2', title: 'Warranty expired', message: 'The warranty on your Dell XPS 15 Laptop has expired.', isRead: false, createdAt: daysFromNow(-2), productId: 'demo-1', notificationType: 'warranty_expiry' },
   { _id: 'demo-n4', title: 'Service due in 7 days', message: 'LG 4K OLED TV is due for service on ' + fmtDate(daysFromNow(7)) + '.', isRead: false, createdAt: daysFromNow(0), productId: 'demo-3', notificationType: 'service_reminder' },
+  { _id: 'demo-n5', title: 'Document processed', message: 'OCR finished reading warranty-card.pdf. Review the extracted data and verify it.', isRead: false, createdAt: daysFromNow(-1), documentId: 'demo-doc-1', notificationType: 'document_processing' },
+  { _id: 'demo-n6', title: 'Share link created', message: 'Samsung Galaxy S23 is now viewable by anyone with the link. Revoke it any time.', isRead: true, createdAt: daysFromNow(-3), productId: 'demo-2', notificationType: 'shared_access' },
   { _id: 'demo-n3', title: 'Welcome to WarrantyVault', message: 'This is guest mode — sign in to save products, receipts and service records.', isRead: true, createdAt: daysFromNow(-7), notificationType: 'system' }
 ];
 
@@ -1771,8 +1773,12 @@ async function loadReminderSettings() {
     const prefs = (user && user.notificationPreferences) || {};
     const expiryEl = document.getElementById('pref-expiry');
     const maintEl = document.getElementById('pref-maintenance');
+    const docEl = document.getElementById('pref-document');
+    const sharedEl = document.getElementById('pref-shared');
     if (expiryEl) expiryEl.checked = prefs.expiryAlerts !== false;
     if (maintEl) maintEl.checked = prefs.maintenanceAlerts !== false;
+    if (docEl) docEl.checked = prefs.documentAlerts !== false;
+    if (sharedEl) sharedEl.checked = prefs.sharedAccessAlerts !== false;
     renderReminderDayChips(prefs.reminderDays || [30, 7, 1]);
     showReminderSettings(true);
   } catch (e) {
@@ -1807,6 +1813,8 @@ async function saveReminderSettings() {
   const payload = {
     expiryAlerts: document.getElementById('pref-expiry').checked,
     maintenanceAlerts: document.getElementById('pref-maintenance').checked,
+    documentAlerts: document.getElementById('pref-document').checked,
+    sharedAccessAlerts: document.getElementById('pref-shared').checked,
     reminderDays: collectReminderDays()
   };
   try {
@@ -1852,8 +1860,15 @@ function renderNotifications(notifs) {
     
     const pIdStr = (n.productId && typeof n.productId === 'object') ? n.productId._id : (n.productId || '');
     
+    // Phase 4 §22 — type-aware actions: document notifications without a
+    // product jump to the scan/documents view; everything product-linked
+    // opens the warranty detail.
+    const docAction = (n.notificationType === 'document_processing' && n.documentId && !pIdStr)
+      ? '<button class="btn btn-primary btn-small" onclick="showView(\'scan\')">Open Documents</button>'
+      : '';
     let actions = '<div class="notification-actions" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">' +
       (pIdStr ? '<button class="btn btn-primary btn-small" onclick="openDetail(\'' + pIdStr + '\')">View Warranty</button>' : '') +
+      docAction +
       (n.isRead ? '' : '<button class="btn btn-ghost btn-small" onclick="markNotifRead(\'' + n._id + '\')">Mark read</button>') +
       '<button class="btn btn-danger btn-small" onclick="deleteNotif(\'' + n._id + '\')">Delete</button>' +
     '</div>';
@@ -1868,7 +1883,11 @@ function renderNotifications(notifs) {
       }
     }
     
-    const typeIcon = n.notificationType === 'service_reminder' ? '🛠️ ' : (n.notificationType === 'warranty_expiry' ? '⏳ ' : '🔔 ');
+    const typeIcon = n.notificationType === 'service_reminder' ? '🛠️ '
+      : n.notificationType === 'warranty_expiry' ? '⏳ '
+      : n.notificationType === 'document_processing' ? '📄 '
+      : n.notificationType === 'shared_access' ? '🔗 '
+      : '🔔 ';
     el.innerHTML =
       '<div class="notification-title">' + typeIcon + escapeHtml(n.title || n.notificationType || 'Alert') + '</div>' +
       (message ? '<div class="notification-message">' + escapeHtml(message) + '</div>' : '') +
