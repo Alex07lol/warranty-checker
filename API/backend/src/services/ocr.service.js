@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const { createWorker } = require("tesseract.js");
 const Document = require("../models/Document");
 const cloudinary = require("../config/cloudinary");
+const logger = require("../utils/logger");
 const { applyOcrToProduct } = require("./product.service");
 
 const OCR_DOCUMENT_TYPES = new Set(["receipt", "warranty_card"]);
@@ -652,9 +653,63 @@ async function runPdfOcr(pdfBuffer, ocrFn = runOcr) {
   return texts.join("\n");
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// OCR concurrency + metrics
+// ─────────────────────────────────────────────────────────────────────────────
+// Tesseract runs through one shared worker and mupdf rasterization is
+// CPU-heavy, so concurrent OCR jobs are limited with a small in-process
+// semaphore. Jobs beyond the limit queue (the document is already marked
+// "processing" before it waits, so the UI just shows a spinner) instead of
+// piling unbounded CPU work onto the event loop. On Render's 0.1 vCPU free
+// tier, 2 concurrent jobs is already generous.
+class Semaphore {
+  constructor(max) {
+    this.max = max;
+    this.active = 0;
+    this.queue = [];
+  }
+  async acquire() {
+    if (this.active < this.max) {
+      this.active += 1;
+      return;
+    }
+    await new Promise((resolve) => this.queue.push(resolve));
+    this.active += 1;
+  }
+  release() {
+    this.active -= 1;
+    const next = this.queue.shift();
+    if (next) next();
+  }
+}
+
+const OCR_MAX_CONCURRENT = Math.max(1, Number(process.env.OCR_MAX_CONCURRENT) || 2);
+const ocrSemaphore = new Semaphore(OCR_MAX_CONCURRENT);
+
+// Counters only — no document contents, no PII. Exposed on /health.
+const ocrMetrics = { started: 0, completed: 0, failed: 0 };
+
+function getOcrMetrics() {
+  return {
+    ...ocrMetrics,
+    active: ocrSemaphore.active,
+    queued: ocrSemaphore.queue.length,
+    maxConcurrent: OCR_MAX_CONCURRENT
+  };
+}
+
 async function processDocument(document, options = {}) {
   document.ocrStatus = "processing";
   await document.save();
+
+  await ocrSemaphore.acquire();
+  const startedAt = Date.now();
+  ocrMetrics.started += 1;
+  const fields = {
+    documentId: String(document._id),
+    mimeType: document.mimeType
+  };
+  logger.info("OCR job started", fields);
 
   try {
     const ocrFn = options.ocrFn || runOcr;
@@ -699,12 +754,25 @@ async function processDocument(document, options = {}) {
     if (document.productId) {
       await applyOcrToProduct(document.productId, parsed);
     }
+    ocrMetrics.completed += 1;
+    logger.info("OCR job completed", {
+      ...fields,
+      durationMs: Date.now() - startedAt
+    });
     return document;
   } catch (error) {
     document.ocrStatus = "failed";
     document.ocrError = error.message;
     await document.save();
+    ocrMetrics.failed += 1;
+    logger.error("OCR job failed", {
+      ...fields,
+      durationMs: Date.now() - startedAt,
+      error: error.message
+    });
     return document;
+  } finally {
+    ocrSemaphore.release();
   }
 }
 
@@ -756,6 +824,7 @@ module.exports = {
   processDocument,
   fetchStoredFileBytes,
   isOcrEligible,
+  getOcrMetrics,
   OCR_DOCUMENT_TYPES,
   OCR_IMAGE_MIME_TYPES,
   OCR_PDF_MIME_TYPE
