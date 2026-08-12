@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Shared Warranty · WarrantyVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0e1022;
+      --bg-2: #171a33;
+      --card: #ffffff;
+      --ink: #151a33;
+      --muted: #667;
+      --accent: #5b8def;
+      --accent-deep: #4d55a5;
+      --green: #2e7d32;
+      --amber: #b45309;
+      --red: #c62828;
+      --border: #e6e8f2;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background:
+        radial-gradient(1200px 500px at 15% -10%, rgba(138,149,242,0.35), transparent 60%),
+        radial-gradient(900px 420px at 90% 0%, rgba(77,85,165,0.45), transparent 55%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+      min-height: 100vh;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 640px; margin: 0 auto; padding: 40px 16px 56px; }
+    .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+    .brand svg { width: 30px; height: 30px; }
+    .brand-name { color: #eef; font-weight: 700; font-size: 17px; letter-spacing: 0.2px; }
+    .brand-name span { color: #9aa4f5; }
+
+    .notice {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      color: #cdd3f5;
+      font-size: 12.5px;
+      line-height: 1.5;
+      padding: 12px 14px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      font-size: 11px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 12px;
+    }
+    .product-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .product-name { font-size: 22px; font-weight: 800; color: var(--ink); }
+    .product-sub { color: var(--muted); font-size: 13.5px; margin-top: 3px; }
+    .status-pill {
+      font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px;
+      background: #e8f5e9; color: var(--green); white-space: nowrap;
+    }
+    .status-pill.expiring_soon { background: #fff3e0; color: var(--amber); }
+    .status-pill.expired { background: #ffebee; color: var(--red); }
+    .status-pill.not_started { background: #e3f2fd; color: #1565c0; }
+    .status-pill.unknown { background: #f0f0f0; color: #666; }
+
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 7px 0; font-size: 13.5px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    td.k { color: var(--muted); width: 42%; font-size: 12.5px; }
+    td.v { font-weight: 600; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .tag { background: #eef0fb; border: 1px solid #dbe0f7; color: #3949ab; border-radius: 10px; padding: 2px 9px; font-size: 11px; font-weight: 600; }
+
+    .cov-item { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+    .cov-item .top { display: flex; justify-content: space-between; gap: 10px; font-weight: 700; font-size: 13.5px; }
+    .cov-item .sub { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+    .cov-status { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #f0f0f0; color: #555; white-space: nowrap; }
+
+    .srv-item, .doc-item { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+    .srv-item:last-child, .doc-item:last-child { border-bottom: none; }
+    .srv-main { display: flex; justify-content: space-between; gap: 10px; font-weight: 600; }
+    .srv-sub { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+    .doc-name { font-weight: 600; }
+    .doc-meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .doc-badge { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #e3f2fd; color: #1565c0; margin-left: 6px; }
+    .doc-state { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #f0f0f0; color: #666; margin-left: 4px; text-transform: capitalize; }
+    .doc-state.important { background: #fff3e0; color: var(--amber); }
+    .doc-state.reviewed { background: #e8f5e9; color: var(--green); }
+    .doc-state.archived { background: #eceff1; color: #546e7a; text-decoration: line-through; }
+
+    .empty { color: var(--muted); font-size: 13px; }
+    .footer { color: #8d93c9; font-size: 12px; text-align: center; margin-top: 20px; line-height: 1.6; }
+
+    .err-card { text-align: center; padding: 40px 20px; }
+    .err-card .big { font-size: 34px; margin-bottom: 10px; }
+    .err-card h1 { font-size: 18px; font-weight: 700; color: #fff; }
+    .err-card p { color: #aab1e8; font-size: 13.5px; margin-top: 6px; }
+
+    .skeleton { height: 14px; border-radius: 7px; background: linear-gradient(90deg, #eceef6 25%, #f6f7fc 50%, #eceef6 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; margin-bottom: 10px; }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    @media (max-width: 480px) {
+      .wrap { padding: 24px 12px 40px; }
+      .product-name { font-size: 19px; }
+      .card { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M24 4 L40 9 V21 C40 33 33 42 24 45 C15 42 8 33 8 21 V9 Z" fill="rgba(138,149,242,0.18)" stroke="#9aa4f5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M16 25 L22 31 L32 19" stroke="#9aa4f5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="brand-name">Warranty<span>Vault</span></div>
+    </div>
+
+    <div class="notice" role="status">
+      This is a <strong>read-only</strong> warranty snapshot shared by a WarrantyVault user — for
+      service centres, repair technicians or family members. Documents listed here are metadata only;
+      the original files are not exposed through this link.
+    </div>
+
+    <div id="app"></div>
+
+    <div class="footer">
+      Shared via WarrantyVault · This link can be revoked by its owner at any time.
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+    (function () {
+      var TOKEN_KEY = 't';
+      var token = new URLSearchParams(window.location.search).get(TOKEN_KEY) || '';
+
+      var app = document.getElementById('app');
+      function skeleton() {
+        app.innerHTML =
+          '<div class="card"><div class="skeleton"></div><div class="skeleton" style="width:60%"></div></div>' +
+          '<div class="card"><div class="skeleton"></div><div class="skeleton" style="width:80%"></div><div class="skeleton" style="width:45%"></div></div>';
+      }
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+      function money(v, cur) {
+        if (v == null) return '—';
+        return (cur || '$') + ' ' + Number(v).toLocaleString('en-US');
+      }
+      function date(v) { return v ? v : '—'; }
+      function statusPill(s) {
+        var label = s && s.warrantyStatusLabel ? s.warrantyStatusLabel : 'Unknown';
+        return '<span class="status-pill ' + esc(s ? s.warrantyStatus : 'unknown') + '">' + esc(label) + '</span>';
+      }
+      function docStateClass(s) { return s === 'important' || s === 'reviewed' || s === 'archived' ? s : ''; }
+
+      function render(data) {
+        var p = data.product;
+        var html = '';
+
+        // Header card.
+        html += '<div class="card">';
+        html += '<div class="product-head"><div>' +
+          '<div class="product-name">' + esc(p.productName) + '</div>' +
+          '<div class="product-sub">' + [p.brand, p.model].filter(Boolean).join(' · ') + (p.serialNumber ? ' · SN ' + esc(p.serialNumber) : '') + '</div>' +
+          '</div>' + statusPill(p) + '</div>';
+        if (p.tags && p.tags.length) {
+          html += '<div class="tags">' + p.tags.map(function (t) { return '<span class="tag">#' + esc(t) + '</span>'; }).join('') + '</div>';
+        }
+        html += '</div>';
+
+        // Warranty overview.
+        html += '<div class="card"><h2>Warranty Overview</h2><table>';
+        html += '<tr><td class="k">Purchase date</td><td class="v">' + date(p.purchaseDate) + '</td></tr>';
+        html += '<tr><td class="k">Purchase store</td><td class="v">' + esc(p.purchaseStore || '—') + '</td></tr>';
+        html += '<tr><td class="k">Purchase price</td><td class="v">' + money(p.purchasePrice, p.currency) + '</td></tr>';
+        html += '<tr><td class="k">Warranty provider</td><td class="v">' + esc(p.warrantyProvider || '—') + (p.warrantyProviderType ? ' <span style="font-weight:400;color:#667;">(' + esc(p.warrantyProviderType) + ')</span>' : '') + '</td></tr>';
+        if (p.warrantyContact) html += '<tr><td class="k">Provider contact</td><td class="v">' + esc(p.warrantyContact) + '</td></tr>';
+        if (p.warrantyWebsite) html += '<tr><td class="k">Provider website</td><td class="v">' + esc(p.warrantyWebsite) + '</td></tr>';
+        html += '<tr><td class="k">Warranty expiry</td><td class="v">' + date(p.warrantyExpiryDate) + '</td></tr>';
+        html += '<tr><td class="k">Lifecycle</td><td class="v">' + esc(p.lifecycleStatus || 'owned') + '</td></tr>';
+        html += '</table>';
+
+        if (p.warranties && p.warranties.length) {
+          html += '<div style="margin-top:12px;">';
+          p.warranties.forEach(function (w) {
+            html += '<div class="cov-item"><div class="top"><span>' + esc(w.type || 'Coverage') + (w.provider ? ' · ' + esc(w.provider) : '') + '</span><span class="cov-status">' + esc(w.status || 'unknown') + '</span></div>' +
+              '<div class="sub">' + (w.startDate ? date(w.startDate) + ' → ' : '') + date(w.expiryDate) + (w.coverage ? ' · ' + esc(w.coverage) : '') + '</div></div>';
+          });
+          html += '</div>';
+        }
+        html += '</div>';
+
+        // Service history.
+        html += '<div class="card"><h2>Service History</h2>';
+        if (!data.serviceHistory.length) {
+          html += '<div class="empty">No service records.</div>';
+        } else {
+          html += data.serviceHistory.map(function (r) {
+            return '<div class="srv-item"><div class="srv-main"><span>' + esc(r.serviceType || 'Service') + (r.serviceProvider ? ' — ' + esc(r.serviceProvider) : '') + '</span><span>' + date(r.serviceDate) + '</span></div>' +
+              '<div class="srv-sub">' + [r.description, (r.cost != null ? money(r.cost, r.currency) : null)].filter(Boolean).join(' · ') + (r.nextServiceDate ? ' · Next: ' + date(r.nextServiceDate) : '') + '</div></div>';
+          }).join('');
+        }
+        html += '</div>';
+
+        // Documents metadata.
+        html += '<div class="card"><h2>Documents</h2>';
+        if (!data.documents.length) {
+          html += '<div class="empty">No documents attached.</div>';
+        } else {
+          html += data.documents.map(function (d) {
+            var badges = '<span class="doc-badge">' + esc(d.documentType || 'other') + '</span>';
+            if (d.verified) badges += '<span class="doc-badge" style="background:#e8f5e9;color:#2e7d32;">✓ verified</span>';
+            badges += '<span class="doc-state ' + docStateClass(d.docState) + '">' + esc(d.docState || 'unreviewed') + '</span>';
+            return '<div class="doc-item"><div class="doc-name">' + esc(d.fileName) + badges + '</div>' +
+              '<div class="doc-meta">' + date((d.uploadedAt || '').slice(0, 10)) + (d.fileSize ? ' · ' + Math.round(d.fileSize / 1024) + ' KB' : '') +
+              ((d.tags && d.tags.length) ? ' · ' + d.tags.map(function (t) { return '#' + esc(t); }).join(' ') : '') + '</div></div>';
+          }).join('');
+        }
+        html += '</div>';
+
+        app.innerHTML = html;
+      }
+
+      function renderError() {
+        app.innerHTML =
+          '<div class="card err-card"><div class="big">🔒</div><h1>Link not available</h1>' +
+          '<p>This share link is invalid, expired or has been revoked by its owner.</p></div>';
+      }
+
+      if (!token || !/^[0-9a-f]{48}$/.test(token)) {
+        renderError();
+        return;
+      }
+      skeleton();
+      fetch('/api/v1/shared/' + encodeURIComponent(token))
+        .then(function (res) {
+          if (!res.ok) throw new Error('not found');
+          return res.json();
+        })
+        .then(function (body) { render(body.data); })
+        .catch(function () { renderError(); });
+    })();
+  </script>
+</body>
+</html>

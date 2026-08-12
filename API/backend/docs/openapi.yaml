@@ -463,6 +463,104 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # ── Secure product sharing (Phase 4 §17) ───────────────────────────────────
+  /api/v1/products/{productId}/shares:
+    parameters:
+      - { name: productId, in: path, required: true, schema: { type: string, description: Mongo ObjectId } }
+    get:
+      tags: [Products]
+      summary: List the owner's share links for a product (active + revoked)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Share" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Products]
+      summary: Create a read-only share link for a product
+      description: |
+        Phase 4 §17 — grants read-only access to exactly one product via an
+        unguessable 48-hex-char token. Optional expiry 1–90 days (omitted =
+        never expires, still revocable).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expiresInDays: { type: integer, minimum: 1, maximum: 90, nullable: true }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Share" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/products/{productId}/shares/{shareId}:
+    parameters:
+      - { name: productId, in: path, required: true, schema: { type: string } }
+      - { name: shareId, in: path, required: true, schema: { type: string } }
+    delete:
+      tags: [Products]
+      summary: Revoke a share link (takes effect immediately)
+      responses:
+        "200":
+          $ref: "#/components/responses/Success"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/shared/{token}:
+    parameters:
+      - { name: token, in: path, required: true, schema: { type: string, pattern: "^[0-9a-f]{48}$" } }
+    get:
+      tags: [Sharing]
+      summary: Public read-only product snapshot behind a share token
+      description: |
+        No authentication — the token itself is the credential (48 hex chars,
+        unguessable). Returns product + warranty + service + document
+        *metadata* only: never file bytes, Cloudinary publicIds, OCR text or
+        account internals. Revoked/expired/unknown tokens all 404. Per-IP rate
+        limited.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/SharedProduct" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
   /api/v1/products/{productId}/documents:
     parameters:
       - { name: productId, in: path, required: true, schema: { type: string, description: Mongo ObjectId } }
@@ -1456,6 +1554,81 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Document" }
         pagination: { $ref: "#/components/schemas/Pagination" }
+
+    Share:
+      type: object
+      properties:
+        shareId: { type: string }
+        token: { type: string, description: 48 hex chars — unguessable }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time, nullable: true, description: null = never expires }
+        revokedAt: { type: string, format: date-time, nullable: true }
+        active: { type: boolean, description: false once revoked or expired }
+        url: { type: string, example: /shared.html?t=<token> }
+
+    SharedProduct:
+      type: object
+      description: Read-only public snapshot — never includes file bytes, publicIds, OCR text or account internals.
+      properties:
+        sharedAt: { type: string, format: date-time }
+        product:
+          type: object
+          properties:
+            productName: { type: string }
+            brand: { type: string, nullable: true }
+            model: { type: string, nullable: true }
+            serialNumber: { type: string, nullable: true }
+            category: { type: string, nullable: true }
+            purchaseDate: { type: string, format: date, nullable: true }
+            purchasePrice: { type: number, nullable: true }
+            currency: { type: string, nullable: true }
+            purchaseStore: { type: string, nullable: true }
+            warrantyProvider: { type: string, nullable: true }
+            warrantyProviderType: { type: string, nullable: true }
+            warrantyContact: { type: string, nullable: true }
+            warrantyWebsite: { type: string, nullable: true }
+            warrantyExpiryDate: { type: string, format: date, nullable: true }
+            warrantyStatus: { type: string, enum: [not_started, active, expiring_soon, expired, unknown] }
+            warrantyStatusLabel: { type: string }
+            lifecycleStatus: { type: string }
+            tags: { type: array, items: { type: string } }
+            notes: { type: string, nullable: true }
+            warranties:
+              type: array
+              items:
+                type: object
+                properties:
+                  type: { type: string, nullable: true }
+                  provider: { type: string, nullable: true }
+                  coverage: { type: string, nullable: true }
+                  startDate: { type: string, format: date, nullable: true }
+                  expiryDate: { type: string, format: date, nullable: true }
+                  status: { type: string }
+        serviceHistory:
+          type: array
+          items:
+            type: object
+            properties:
+              serviceDate: { type: string, format: date, nullable: true }
+              serviceType: { type: string }
+              serviceProvider: { type: string, nullable: true }
+              cost: { type: number, nullable: true }
+              currency: { type: string, nullable: true }
+              description: { type: string, nullable: true }
+              nextServiceDate: { type: string, format: date, nullable: true }
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              fileName: { type: string }
+              documentType: { type: string }
+              fileSize: { type: integer }
+              uploadedAt: { type: string, format: date-time }
+              docState: { type: string, enum: [unreviewed, reviewed, important, archived] }
+              verified: { type: boolean }
+              tags: { type: array, items: { type: string } }
+              parsedData: { type: object, nullable: true }
 
     ConfirmProductInput:
       type: object

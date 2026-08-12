@@ -1,6 +1,6 @@
 # Phase 4 — Advanced Product Features: Baseline
 
-Status: **IN PROGRESS** — Tranches 1–7 shipped (data model, status engine, warranty intelligence, reminders & maintenance, filters & tags, claim prep & export, document verification & organization).
+Status: **IN PROGRESS** — Tranches 1–8 shipped (data model, status engine, warranty intelligence, reminders & maintenance, filters & tags, claim prep & export, document verification & organization, secure sharing).
 
 ## Tranche 1 — Data model foundation (shipped)
 
@@ -166,10 +166,38 @@ Spec §13/§14:
   cross-user 403, 404, and a default-state assertion proving OCR never
   auto-verifies.
 
+## Tranche 8 — Secure product sharing (shipped)
+
+Spec §17:
+
+- **`Share` model** — one link = one product, `token` (48 hex chars from
+  `crypto.randomBytes(24)`, unique-indexed, unguessable), optional `expiresAt`
+  (1–90 days; null = never, still revocable), `revokedAt`.
+- **Owner endpoints** — `POST/GET /api/v1/products/:productId/shares`,
+  `DELETE .../shares/:shareId` — all ownership-checked (403 cross-user);
+  revoked links stay listed (marked inactive) so the owner sees history.
+- **Public endpoint** — `GET /api/v1/shared/:token` needs **no auth** (the
+  token IS the credential); per-IP rate limited; unknown/revoked/expired
+  tokens all return 404 so the URL space is not enumerable or probable.
+- **Read-only by construction** — the snapshot includes product, warranty
+  (engine-derived status), service history and document *metadata* (file
+  name/type/size/date, docState, verified, tags, parsedData) — **never**
+  file bytes, Cloudinary publicIds, OCR text or account internals. Soft-deleted
+  products 404 even with a valid token.
+- **UI** — product detail Quick Actions gains **Share** → modal with expiry
+  presets (7 days / 30 days / never), one-click copy of the public link and
+  inline revoke. New standalone `public/shared.html` renders the read-only
+  snapshot (branded, no SPA, no auth) — the repair-technician view.
+- **Tests** — 12: token format, expiry math, 422s, cross-user 403 on
+  create/list/revoke, public no-auth snapshot with content assertions,
+  private-field leak checks (fileUrl/publicId/ocrText absent from JSON),
+  unknown/expired/revoked → 404, revoke-then-inactive, soft-deleted → 404.
+
 ## Open tranches (mapped to the spec)
 
-6. **Secure sharing / family ownership** (§17, §18) — only if the architecture
-   supports it cleanly (shared ownership requires an auth-model review first).
+6. **Family/shared ownership** (§18) — deliberately not built: it would
+   require an auth-model review; secure per-product sharing (§17) already
+   covers the stated use cases (technician/family read access).
 7. **Notification center + preferences** (§22, §23) — type-specific rendering,
    in-app preference toggles (email only if a provider is configured).
 

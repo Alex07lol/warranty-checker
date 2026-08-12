@@ -249,7 +249,8 @@ There is also a machine-readable **OpenAPI 3.0.3** document at [`API/backend/doc
 - Advanced filtering + user-scoped tags (tranche 5, spec §9–§12): server-side filters on `GET /api/v1/products` (category, brand, lifecycle, warranty status, tags, store, price/date ranges), #tag chips, extended search over serial/store/provider
 - Warranty claim prep + export (tranche 6, spec §15/§16): `GET /products/:id/claim` structured claim summary (copy/download), `GET /export/products?format=json|csv` RFC-4180 CSV + JSON downloads — both ownership-scoped
 - Document verification + organization (tranche 7, spec §13/§14): `PATCH /documents/:id` for docState (unreviewed/reviewed/important/archived), manual ✓ verified flag (never implied by OCR), user-scoped tags; state selector + verify toggle on every document card
-- Remaining: secure sharing, notification center polish
+- Secure product sharing (tranche 8, spec §17): unguessable read-only share links per product (`POST/GET/DELETE /products/:id/shares`), optional expiry + instant revocation, public `GET /shared/:token` snapshot (metadata only — never file bytes) rendered by a standalone `shared.html` page
+- Remaining: notification center polish
 
 See [docs/PRODUCTION.md](docs/PRODUCTION.md) for operations, [docs/PHASE3-BASELINE.md](docs/PHASE3-BASELINE.md) for the gap checklist.
 

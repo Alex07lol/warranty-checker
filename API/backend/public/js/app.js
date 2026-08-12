@@ -859,6 +859,100 @@ function downloadClaimSummary() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Secure product sharing (Phase 4 §17): create/revoke read-only links with
+// an optional expiry, and copy the public /shared.html?t=TOKEN link.
+// ─────────────────────────────────────────────────────────────────────────────
+async function openShareModal() {
+  if (!requireAuth('share a product')) return;
+  if (!currentProductId) return;
+  openDialog(document.getElementById('share-overlay'), {
+    initialFocus: '#share-expiry-select',
+    onClose: () => closeDialog(document.getElementById('share-overlay'))
+  });
+  await loadShareLinks();
+}
+
+async function loadShareLinks() {
+  const box = document.getElementById('share-links-list');
+  if (!box) return;
+  box.innerHTML = '';
+  box.appendChild(skeletonLineCards(2));
+  try {
+    const links = await api('/products/' + currentProductId + '/shares');
+    renderShareLinks(links || []);
+  } catch (e) {
+    box.innerHTML = '';
+    box.appendChild(emptyState('⚠️', 'Could not load share links', e.message));
+  }
+}
+
+function renderShareLinks(links) {
+  const box = document.getElementById('share-links-list');
+  if (!box) return;
+  box.innerHTML = '';
+  const active = links.filter((l) => l.active);
+  if (!active.length) {
+    box.appendChild(emptyState('🔗', 'No active links', 'Create one above to share this product read-only.'));
+    return;
+  }
+  active.forEach((l) => {
+    const url = window.location.origin + l.url;
+    const row = document.createElement('div');
+    row.className = 'share-link-row';
+    row.innerHTML =
+      '<div class="share-link-info">' +
+        '<div class="share-link-url" title="' + escapeHtml(url) + '">' + escapeHtml(url) + '</div>' +
+        '<div class="share-link-meta">' + (l.expiresAt ? 'Expires ' + fmtDate(l.expiresAt) : 'Never expires') + '</div>' +
+      '</div>' +
+      '<div class="share-link-actions">' +
+        '<button class="btn btn-ghost btn-small" onclick="copyShareLink(\'' + l.token + '\')">Copy</button>' +
+        '<button class="btn btn-danger btn-small" onclick="revokeShareLink(\'' + l.shareId + '\')">Revoke</button>' +
+      '</div>';
+    box.appendChild(row);
+  });
+}
+
+async function createShareLink() {
+  if (!requireAuth('create a share link')) return;
+  const select = document.getElementById('share-expiry-select');
+  const days = select && select.value ? Number(select.value) : null;
+  const btn = document.getElementById('share-create-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+  try {
+    await api('/products/' + currentProductId + '/shares', {
+      method: 'POST',
+      body: JSON.stringify(days ? { expiresInDays: days } : {})
+    });
+    toast('Share link created');
+    await loadShareLinks();
+  } catch (e) {
+    toast('Could not create share link: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔗 Create link'; }
+  }
+}
+
+async function revokeShareLink(shareId) {
+  if (!requireAuth('revoke a share link')) return;
+  if (!window.confirm('Revoke this share link? Anyone with it loses access immediately.')) return;
+  try {
+    await api('/products/' + currentProductId + '/shares/' + shareId, { method: 'DELETE' });
+    toast('Share link revoked');
+    await loadShareLinks();
+  } catch (e) {
+    toast('Could not revoke share link: ' + e.message, 'error');
+  }
+}
+
+function copyShareLink(token) {
+  const url = window.location.origin + '/shared.html?t=' + token;
+  copyToClipboard(url).then(
+    () => toast('Link copied', 'success'),
+    () => toast('Could not copy — copy the link manually', 'error')
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Export (Phase 4 §16): download all products as JSON or CSV via the
 // authenticated download endpoint.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2414,6 +2508,13 @@ function wireEvents() {
   if (claimCopy) claimCopy.addEventListener('click', copyClaimSummary);
   const claimDownload = document.getElementById('claim-download-btn');
   if (claimDownload) claimDownload.addEventListener('click', downloadClaimSummary);
+  // Phase 4 §17 — secure product sharing.
+  const shareBtn = document.getElementById('detail-share-btn');
+  if (shareBtn) shareBtn.addEventListener('click', openShareModal);
+  const shareClose = document.getElementById('share-close');
+  if (shareClose) shareClose.addEventListener('click', () => closeDialog(document.getElementById('share-overlay')));
+  const shareCreate = document.getElementById('share-create-btn');
+  if (shareCreate) shareCreate.addEventListener('click', createShareLink);
   const exportJson = document.getElementById('export-json-btn');
   if (exportJson) exportJson.addEventListener('click', () => exportProductsFile('json'));
   const exportCsv = document.getElementById('export-csv-btn');

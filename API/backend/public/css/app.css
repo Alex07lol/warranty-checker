@@ -337,6 +337,26 @@
     body.dark-mode .detail-action-btn.claim { background: #2a2350; color: #b3a7ff; }
     body.dark-mode .detail-action-btn.claim:hover { background: #332a63; }
     body.dark-mode .claim-line { color: #b8b8d0; border-bottom-color: #33335a; }
+    /* Phase 4 §17: secure product sharing */
+    .detail-action-btn.share { background: linear-gradient(160deg, #fdf2e3 0%, #fff7ec 100%); color: #b45309; }
+    .detail-action-btn.share:hover { box-shadow: 0 6px 18px rgba(180,83,9,0.16); }
+    body.dark-mode .detail-action-btn.share { background: #3a2a12; color: #ffb74d; }
+    body.dark-mode .detail-action-btn.share:hover { background: #45331a; }
+    .share-create-row { display: flex; gap: 10px; align-items: flex-end; }
+    .share-label { display: block; font-size: 11.5px; font-weight: 600; color: #666; margin-bottom: 5px; }
+    body.dark-mode .share-label { color: #999; }
+    .share-link-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: #fafbfc; border: 1px solid #eceef5; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;
+    }
+    body.dark-mode .share-link-row { background: #1c1c21; border-color: #33335a; }
+    .share-link-info { min-width: 0; flex: 1; }
+    .share-link-url {
+      font-size: 12px; font-weight: 600; color: #3949ab; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; word-break: break-all;
+    }
+    .share-link-meta { font-size: 11px; color: #888; margin-top: 2px; }
+    .share-link-actions { display: flex; gap: 6px; flex-shrink: 0; }
     .search-input {
       flex: 1; border: 1.5px solid #e0e0e0; border-radius: 14px; padding: 12px 16px;
       font-size: 14px; font-family: 'Inter', sans-serif; color: #111; background: #fff;

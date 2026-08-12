@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/app.css?v=11" />
+  <link rel="stylesheet" href="/css/app.css?v=12" />
 </head>
 <body>
 
@@ -497,6 +497,12 @@
             </svg>
             Prepare Claim
           </button>
+          <button class="detail-action-btn share" id="detail-share-btn">
+            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            Share
+          </button>
         </div>
 
         <div style="display:flex;gap:10px;margin-top:12px;" id="detail-edit-row">
@@ -573,6 +579,39 @@
         <div style="display:flex;gap:8px;margin-top:14px;">
           <button class="btn btn-primary btn-small" id="claim-copy-btn" style="flex:1;">📋 Copy summary</button>
           <button class="btn btn-ghost btn-small" id="claim-download-btn" style="flex:1;">⬇ Download</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================== SHARE OVERLAY (Phase 4 §17) ======================== -->
+    <div class="form-overlay" id="share-overlay" role="dialog" aria-modal="true" aria-labelledby="share-title">
+      <div class="form-sheet">
+        <div class="form-sheet-head">
+          <div class="form-sheet-title" id="share-title">Share this product</div>
+          <button class="icon-btn" id="share-close" aria-label="Close">✕</button>
+        </div>
+
+        <p style="font-size:13px;color:#666;margin:0 0 12px;">
+          Create a read-only link for a repair technician or service centre. It reveals only this
+          product's warranty, service history and document <em>metadata</em> — never the files themselves.
+          Revoke the link any time to cut access instantly.
+        </p>
+
+        <div class="share-create-row">
+          <label class="form-field" style="flex:1;">
+            <span class="share-label">Link expires</span>
+            <select id="share-expiry-select" class="form-select" aria-label="Share link expiry">
+              <option value="7">in 7 days</option>
+              <option value="30">in 30 days</option>
+              <option value="">never (revocable anytime)</option>
+            </select>
+          </label>
+          <button class="btn btn-primary btn-small" id="share-create-btn" style="align-self:flex-end;">🔗 Create link</button>
+        </div>
+
+        <div class="attention-label" role="heading" aria-level="2" style="margin:18px 0 8px;">Active links</div>
+        <div id="share-links-list">
+          <div style="color:#888;font-size:13px;padding:8px 0;">No share links yet.</div>
         </div>
       </div>
     </div>
@@ -681,7 +720,7 @@
     <script src="/js/utils.js?v=10"></script>
     <script src="/js/api.js?v=10"></script>
     <script src="/js/auth.js?v=10"></script>
-    <script src="/js/app.js?v=11"></script>
+    <script src="/js/app.js?v=12"></script>
     <script type="module" src="/js/effects.js?v=4"></script>
 </body>
 </html>
