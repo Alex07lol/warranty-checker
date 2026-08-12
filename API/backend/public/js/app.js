@@ -499,7 +499,7 @@ async function openDetail(id) {
     renderDetailHeader(p);
     renderDetailSpecs(p);
     openDetailDialog();
-    await Promise.all([loadDetailDocs(), loadServiceHistory()]);
+    await Promise.all([loadDetailDocs(), loadServiceHistory(), loadIntelligence()]);
   } catch (e) {
     toast(e.message, 'error');
   }
@@ -660,6 +660,56 @@ function renderDetailCoverage(p) {
       (w.notes ? '<div class="coverage-notes">' + escapeHtml(w.notes) + '</div>' : '') +
     '</div>';
   }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Warranty health (Phase 4 §19): deterministic findings from the backend —
+// conflicts, missing info, duplicate suggestions. Purely advisory; the panel
+// hides itself when there's nothing to say.
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadIntelligence() {
+  const box = document.getElementById('detail-intelligence-list');
+  const heading = document.getElementById('detail-intelligence-heading');
+  if (!box || isGuest()) return;
+  try {
+    const data = await api('/products/' + currentProductId + '/intelligence');
+    const findings = Array.isArray(data.findings) ? data.findings : [];
+    if (heading) heading.style.display = findings.length ? '' : 'none';
+    box.innerHTML = '';
+    findings.forEach(f => box.appendChild(intelligenceCard(f)));
+  } catch (e) {
+    // The health panel is advisory — a failure must not break the detail view.
+    if (heading) heading.style.display = 'none';
+    box.innerHTML = '';
+  }
+}
+
+function intelligenceCard(f) {
+  const icon = f.type === 'conflict' ? '⚠️' : (f.type === 'duplicate' ? '🔁' : '💡');
+  const card = document.createElement('div');
+  card.className = 'intel-card intel-' + escapeHtml(f.type || 'info');
+  const title = document.createElement('div');
+  title.className = 'intel-card-head';
+  title.innerHTML = '<span class="intel-icon">' + icon + '</span><span class="intel-title">' + escapeHtml(f.title || 'Heads up') + '</span>';
+  const message = document.createElement('div');
+  message.className = 'intel-message';
+  message.textContent = f.message || '';
+  card.appendChild(title);
+  card.appendChild(message);
+  if (f.action === 'edit') {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-ghost btn-small';
+    btn.textContent = 'Fix it';
+    btn.addEventListener('click', () => openProductForm(currentProduct));
+    card.appendChild(btn);
+  } else if (f.action === 'view' && f.targetId) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-ghost btn-small';
+    btn.textContent = 'View other product';
+    btn.addEventListener('click', () => openDetail(f.targetId));
+    card.appendChild(btn);
+  }
+  return card;
 }
 
 // --- Documents ---

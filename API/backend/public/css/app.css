@@ -615,6 +615,22 @@
     /* Phase 4: editable additional-warranty rows in the product form */
     .warranty-period-row { border: 1px dashed #d5d5e0; border-radius: 14px; padding: 12px 14px; margin-top: 10px; background: #fbfbfd; }
     .warranty-period-row .form-grid { margin-top: 8px; }
+    /* Phase 4: warranty-health findings (conflicts / missing / duplicates) */
+    .intel-card { border: 1px solid #ececf1; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; background: #fafbfe; border-left: 4px solid #90a4ae; }
+    .intel-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .intel-icon { font-size: 15px; }
+    .intel-title { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+    .intel-message { font-size: 12px; color: #555; line-height: 1.5; }
+    .intel-card .btn { margin-top: 8px; }
+    .intel-conflict { border-left-color: #c62828; background: #fdf5f4; }
+    .intel-missing { border-left-color: #e65100; background: #fffaf3; }
+    .intel-duplicate { border-left-color: #1565c0; background: #f5f9fd; }
+    body.dark-mode .intel-card { background: #23233a; border-color: #33335a; }
+    body.dark-mode .intel-title { color: #eef; }
+    body.dark-mode .intel-message { color: #b8b8d0; }
+    body.dark-mode .intel-conflict { background: #331f24; border-left-color: #ef9a9a; }
+    body.dark-mode .intel-missing { background: #33291a; border-left-color: #ffb74d; }
+    body.dark-mode .intel-duplicate { background: #1b2a3c; border-left-color: #64b5f6; }
     body.dark-mode .warranty-period-row { background: #1d1d33; border-color: #33335a; }
     /* OCR summary card copy layout — scoped so other detail-row pages (product
        detail, service history) keep their existing layout. */

@@ -1,6 +1,6 @@
 # Phase 4 — Advanced Product Features: Baseline
 
-Status: **IN PROGRESS** — Tranche 1 (data model) and Tranche 2 (warranty-status engine) shipped.
+Status: **IN PROGRESS** — Tranches 1–3 shipped (data model, status engine, warranty intelligence).
 
 ## Tranche 1 — Data model foundation (shipped)
 
@@ -47,14 +47,39 @@ unknown`, per spec §5:
   write from the engine, and product responses carry fresh `warrantyStatus` /
   `warrantyStatusLabel` for the primary warranty.
 
+Tranche 3 note: the conflict rules in `intelligence.service.js` deliberately
+reuse `startOfDay` semantics from the status engine so a "reversed dates"
+conflict and the engine's status derivation agree about date boundaries.
+
+## Tranche 3 — Warranty intelligence, deterministic (shipped)
+
+Spec §19, no AI — pure rules over the product + the owner's other products.
+Nothing is ever written or merged; everything is advisory.
+
+- **`src/services/intelligence.service.js`** — `analyzeProduct(product, userId)`
+  returns findings of three types:
+  - `conflict` (warning) — expiry before purchase date, or a coverage period
+    whose expiry precedes its start.
+  - `missing` (info) — no warranty expiry anywhere (reminders can't be
+    scheduled), or no purchase date when an expiry exists (timeline can't be
+    drawn).
+  - `duplicate` (info) — another of the user's active products matches by
+    serial number, or by brand + model + store purchased within ~90 days.
+    Findings carry `targetId` so the UI can link to the other product.
+- **Endpoint** — `GET /api/v1/products/:id/intelligence` (owner-only via the
+  existing `getProductById` ownership check). Duplicate matching is always
+  scoped to the caller's own products.
+- **UI** — the product detail view gains a **Warranty Health** panel that
+  hides itself when there are no findings. Conflict/missing cards offer
+  "Fix it" (opens the edit form); duplicate cards offer "View other product".
+- **Tests** — `tests/intelligence.test.js`: unit coverage for every finding
+  rule + API auth / cross-user denial / owner findings.
+
 ## Open tranches (mapped to the spec)
 
 1. **Custom reminder schedules + maintenance reminders** (§6, §7) — user
    preferences, duplicate-safe notification generation, maintenance
    next-service dates.
-3. **Warranty intelligence (no AI)** (§19) — conflict detection, missing-info
-   suggestions, OCR-review flags, duplicate suggestions (can reuse the engine
-   to spot e.g. purchase-after-expiry inconsistencies).
 4. **Product lifecycle UI + filters** (§8, §9) — distinguish current vs
    archived/sold products, advanced filtering.
 5. **Categories + tags** (§11, §12) — normalized categories, user-scoped tags.

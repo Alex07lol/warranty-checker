@@ -321,6 +321,46 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/products/{id}/intelligence:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, description: Mongo ObjectId } }
+    get:
+      tags: [Products]
+      summary: Deterministic warranty intelligence for one product (owner only)
+      description: |
+        Phase 4 §19 — returns advisory findings computed from the product and
+        the owner's other products. No AI, nothing is written:
+
+        * `conflict` — warranty dates are inconsistent (expiry before purchase,
+          coverage-period expiry before its start)
+        * `missing` — no warranty expiry (reminders can't be scheduled) or no
+          purchase date
+        * `duplicate` — another of the user's products matches by serial
+          number, or by brand + model + store purchased within ~90 days
+
+        Findings carry an `action` (`edit` / `view`) the UI can surface, and
+        duplicates carry the matching product's id as `targetId`.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      findings:
+                        type: array
+                        items: { $ref: "#/components/schemas/IntelligenceFinding" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/products/{productId}/documents:
     parameters:
       - { name: productId, in: path, required: true, schema: { type: string, description: Mongo ObjectId } }
@@ -1057,6 +1097,30 @@ components:
               items: { type: integer }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    IntelligenceFinding:
+      type: object
+      description: Phase 4 §19 advisory finding (conflict / missing / duplicate).
+      properties:
+        type:
+          type: string
+          enum: [conflict, missing, duplicate]
+        severity:
+          type: string
+          enum: [warning, info]
+        title: { type: string }
+        message: { type: string }
+        field:
+          type: string
+          description: Which field a user should review (dates / warranties / warrantyExpiryDate / purchaseDate)
+        action:
+          type: string
+          enum: [edit, view]
+          description: Suggested UI action for the finding
+        targetId:
+          type: string
+          nullable: true
+          description: The other product's id when type is duplicate
 
     WarrantyPeriod:
       type: object
