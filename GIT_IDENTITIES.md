@@ -13,9 +13,27 @@ Confirmed by the team (2026-08-12). **Use these identities when committing chang
 ## Notes
 
 - shreyas also built the original WebGL aurora/particles effects.
-- Commit pattern to use:
+
+## Commit policy (mandatory, confirmed 2026-08-12)
+
+**Every commit is made under the identity of its sector. This is the only way to commit.**
+
+1. A change in a named sector **must** be committed as that sector's identity — never default it to Alex07lol.
+2. Alex07lol is only for genuinely default work (UI/web, deploy, chores, docs, general backend logic) — not a catch-all for everything.
+3. A task spanning multiple sectors is **split into one commit per sector**, each under its own identity (same content, correct attribution).
+4. Push after every completed task.
+
+Commit pattern:
 
 ```bash
 git -c user.name='<Identity>' -c user.email='<email>' commit -m '...'
 git push origin main
 ```
+
+### Deciding the identity
+
+- **Places / Google Places proxy / repair centres / maps / geocoding / shop search** → shreyas
+- **OCR / PDF / receipt / warranty-text extraction** → yadhu (Yadhukrishna K B)
+- **MongoDB indexes, serial-dedup, batching, perf, cold starts** → C0sm0-wolf
+- **Security hardening, env validation, upload validation, rate limits, error handling** → Joel
+- **Everything else (frontend, docs, deploy, chores, general backend)** → Alex07lol
