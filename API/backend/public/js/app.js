@@ -2562,13 +2562,10 @@ function wireEvents() {
   const cameraArea = document.getElementById('camera-upload-area');
   const cameraInput = document.getElementById('camera-file-input');
   cameraArea.addEventListener('click', () => cameraInput.click());
-  // Native button semantics: Enter activates on keydown, Space on keyup.
-  cameraArea.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); cameraInput.click(); }
-  });
-  cameraArea.addEventListener('keyup', (e) => {
-    if (e.key === ' ') { e.preventDefault(); cameraInput.click(); }
-  });
+  // Keyboard activation (Enter/Space) is handled by the inline onkeydown/
+  // onkeyup attributes on #camera-upload-area delegating to cameraUploadKey()
+  // (utils.js) — the SonarQube Web analyzer requires the attribute on the
+  // element itself, and JS-only listeners would double-fire.
   cameraInput.addEventListener('change', (e) => handleCameraFile(e.target.files[0] || null));
   document.getElementById('camera-apply-btn').addEventListener('click', applyCameraToProduct);
   document.getElementById('camera-retry-btn').addEventListener('click', resetCamera);

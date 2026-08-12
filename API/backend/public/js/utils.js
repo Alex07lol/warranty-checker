@@ -17,6 +17,18 @@ function toast(msg, type) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
 }
 
+// Keyboard activation for the camera upload area (index.html onkeydown/
+// onkeyup attributes). Native button semantics: Enter activates on keydown,
+// Space on keyup — mirroring what a real <button> does, so the element is
+// fully keyboard-operable and screen-reader friendly (Web:MouseEventWithout
+// KeyboardEquivalentCheck).
+function cameraUploadKey(e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  e.preventDefault();
+  const input = document.getElementById('camera-file-input');
+  if (input) input.click();
+}
+
 function escapeHtml(s) {
   return String(s == null ? '' : s)
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')

@@ -87,10 +87,20 @@ describe("Frontend accessibility scaffolding", () => {
     expect(INDEX).toContain('aria-level="2"');
   });
 
-  test("app.js wires keyboard activation for the camera upload area", () => {
-    const APP = fs.readFileSync(path.join(PUBLIC, "js", "app.js"), "utf8");
-    expect(APP).toContain("cameraArea.addEventListener('keydown'");
-    expect(APP).toContain("cameraArea.addEventListener('keyup'");
+  test("camera upload area is keyboard-operable (inline onkeydown/onkeyup -> cameraUploadKey)", () => {
+    // Keyboard activation moved to inline attributes on the element (the
+    // SonarQube Web analyzer requires the handler on the element itself);
+    // the shared helper must exist in utils.js and be referenced from both
+    // the HTML attribute and a global-scope declaration.
+    const INDEX = fs.readFileSync(path.join(PUBLIC, "index.html"), "utf8");
+    const UTILS = fs.readFileSync(path.join(PUBLIC, "js", "utils.js"), "utf8");
+    expect(INDEX).toContain("onkeydown=\"cameraUploadKey(event)\"");
+    expect(INDEX).toContain("onkeyup=\"cameraUploadKey(event)\"");
+    expect(UTILS).toMatch(/function cameraUploadKey\(e\)/);
+    // The helper activates the hidden file input (Enter on keydown, Space on
+    // keyup, preventDefault to avoid page scroll).
+    expect(UTILS).toMatch(/e\.key !== 'Enter' && e\.key !== ' '/);
+    expect(UTILS).toContain("camera-file-input");
   });
 });
 
