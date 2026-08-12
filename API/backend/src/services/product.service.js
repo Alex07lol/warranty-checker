@@ -32,21 +32,78 @@ function normalizeTags(data) {
 // are clamped, and the warrantyStatus filter is translated into the same
 // date windows the canonical status engine uses (30-day expiring window,
 // future purchase date => not_started, missing expiry => unknown).
+// ─────────────────────────────────────────────────────────────────────────────
+// Filter-input sanitization (SonarCloud jssecurity:S5147).
+//
+// Every value in `buildProductFilter` originates from user query params and
+// ends up inside a MongoDB query document. Values are therefore coerced,
+// length-capped and validated so operator-shaped input (e.g. `{$gt: ...}`,
+// `$where`, `$regex`) or pathological values (unbounded strings, garbage
+// dates, NaN prices) can never reach the query builder.
+// ─────────────────────────────────────────────────────────────────────────────
+const FILTER_STRING_MAX = 200; // product.service / product model string caps
+const FILTER_TAG_MAX = 50;
+const FILTER_TAG_COUNT_MAX = 20;
+const LIFECYCLE_STATUSES = new Set([
+  "owned",
+  "in_use",
+  "stored",
+  "under_repair",
+  "sold",
+  "gifted",
+  "disposed"
+]);
+
+// Coerce to a bounded plain string; reject anything that isn't a scalar
+// (objects/arrays could smuggle MongoDB operators) and `$`-prefixed keys.
+function safeFilterString(value, max = FILTER_STRING_MAX) {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string" && typeof value !== "number") return undefined;
+  const s = String(value).trim();
+  if (!s || s.length > max || s.startsWith("$")) return undefined;
+  return s;
+}
+
+// A filter date must parse into a valid Date; garbage input is dropped
+// rather than passed to MongoDB as an Invalid Date.
+function safeFilterDate(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return d;
+}
+
+// A filter price must be a finite, non-negative number.
+function safeFilterPrice(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return n;
+}
+
 function buildProductFilter(userId, q = {}) {
   const filter = { userId, isDeleted: false };
 
-  if (q.category) filter.category = q.category;
-  if (q.brand) filter.brand = q.brand;
-  if (q.lifecycleStatus) filter.lifecycleStatus = q.lifecycleStatus;
-  if (q.warrantyProvider) filter.warrantyProvider = q.warrantyProvider;
-  if (q.purchaseStore) filter.purchaseStore = q.purchaseStore;
+  const category = safeFilterString(q.category);
+  if (category) filter.category = category;
+  const brand = safeFilterString(q.brand);
+  if (brand) filter.brand = brand;
+  const lifecycleStatus = safeFilterString(q.lifecycleStatus);
+  if (lifecycleStatus) {
+    if (LIFECYCLE_STATUSES.has(lifecycleStatus)) filter.lifecycleStatus = lifecycleStatus;
+  }
+  const warrantyProvider = safeFilterString(q.warrantyProvider);
+  if (warrantyProvider) filter.warrantyProvider = warrantyProvider;
+  const purchaseStore = safeFilterString(q.purchaseStore);
+  if (purchaseStore) filter.purchaseStore = purchaseStore;
 
-  // tags=home (single) or tags=home&tags=gaming (repeat) both work.
+  // tags=home (single) or tags=home&tags=gaming (repeat) both work. Each tag
+  // is bounded and operator-free; the set is capped to match normalizeTags.
   const tags = (Array.isArray(q.tags) ? q.tags : [q.tags])
-    .map((t) => String(t || "").trim().toLowerCase())
-    .filter(Boolean);
+    .map((t) => safeFilterString(t, FILTER_TAG_MAX))
+    .filter(Boolean)
+    .slice(0, FILTER_TAG_COUNT_MAX);
   if (tags.length) filter.tags = { $all: tags };
-
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayEnd = new Date(today);
@@ -82,8 +139,10 @@ function buildProductFilter(userId, q = {}) {
 
   const dateFilter = (from, to) => {
     const range = {};
-    if (from) range.$gte = new Date(from);
-    if (to) range.$lte = new Date(to);
+    const fromDate = safeFilterDate(from);
+    const toDate = safeFilterDate(to);
+    if (fromDate) range.$gte = fromDate;
+    if (toDate) range.$lte = toDate;
     return Object.keys(range).length ? range : null;
   };
   const purchaseRange = dateFilter(q.purchaseFrom, q.purchaseTo);
@@ -92,13 +151,14 @@ function buildProductFilter(userId, q = {}) {
   if (expiryRange) filter.warrantyExpiryDate = { ...filter.warrantyExpiryDate, ...expiryRange };
 
   // Guard against empty-string params (e.g. ?maxPrice=) — Number("") is 0,
-  // which would silently turn maxPrice into "free items only".
-  const hasMinPrice = q.minPrice !== "" && q.minPrice != null;
-  const hasMaxPrice = q.maxPrice !== "" && q.maxPrice != null;
-  if (hasMinPrice || hasMaxPrice) {
+  // which would silently turn maxPrice into "free items only". Prices are
+  // also bounded to finite, non-negative numbers.
+  const minPrice = safeFilterPrice(q.minPrice);
+  const maxPrice = safeFilterPrice(q.maxPrice);
+  if (minPrice !== undefined || maxPrice !== undefined) {
     const price = {};
-    if (hasMinPrice) price.$gte = Number(q.minPrice);
-    if (hasMaxPrice) price.$lte = Number(q.maxPrice);
+    if (minPrice !== undefined) price.$gte = minPrice;
+    if (maxPrice !== undefined) price.$lte = maxPrice;
     filter.purchasePrice = price;
   }
 

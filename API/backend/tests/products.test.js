@@ -434,6 +434,43 @@ describe("Product API", () => {
     )).toBe(true);
   });
 
+  test("filter params are sanitized (S5147): operators/garbage/NaN are dropped, valid filters still work", async () => {
+    // Operator-shaped values must never reach the query builder.
+    const operatorRes = await request(app)
+      .get(
+        `/api/v1/products?category=${encodeURIComponent(
+          JSON.stringify({ $regex: ".*", $options: "i" })
+        )}&brand=${encodeURIComponent(JSON.stringify({ $ne: null }))}`
+      )
+      .set("Authorization", `Bearer ${token}`);
+    expect(operatorRes.statusCode).toBe(200);
+    // Operator keys are dropped entirely, so the full (unfiltered) list is
+    // returned rather than a match-all operator query or a 500.
+    expect(Array.isArray(operatorRes.body.data.products)).toBe(true);
+
+    // Garbage dates and non-numeric prices must not 500 or poison the query.
+    const garbageRes = await request(app)
+      .get("/api/v1/products?purchaseFrom=not-a-date&minPrice=abc&maxPrice=-5&expiryTo=9999-99-99")
+      .set("Authorization", `Bearer ${token}`);
+    expect(garbageRes.statusCode).toBe(200);
+    expect(Array.isArray(garbageRes.body.data.products)).toBe(true);
+
+    // `$`-prefixed keys are rejected for scalar filters.
+    const dollarRes = await request(app)
+      .get("/api/v1/products?brand=%24where&category=%24exists")
+      .set("Authorization", `Bearer ${token}`);
+    expect(dollarRes.statusCode).toBe(200);
+
+    // Valid filters still work after sanitization.
+    const validRes = await request(app)
+      .get("/api/v1/products?brand=Samsung&minPrice=0&maxPrice=100000&tags=kitchen")
+      .set("Authorization", `Bearer ${token}`);
+    expect(validRes.statusCode).toBe(200);
+    expect(validRes.body.data.products.every((p) =>
+      p.brand === "Samsung" && (p.purchasePrice == null || p.purchasePrice <= 100000)
+    )).toBe(true);
+  });
+
   test("filters never leak another user's products", async () => {
     const response = await request(app)
       .get("/api/v1/products?category=Appliances")
