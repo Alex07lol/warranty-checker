@@ -64,8 +64,12 @@ WarrantyVault solves this by providing a dedicated, secure, web platform where e
 - JWT authentication with 7-day token expiry
 - Passwords hashed with bcrypt (cost factor 12)
 - Input validation on every endpoint
-- Rate limiting on authentication routes
-- Security headers via Helmet
+- Rate limiting on auth, upload, OCR and Places endpoints
+- Google Places proxy: validated inputs, per-IP rate limits, safe error mapping (no raw upstream errors or API keys leaked)
+- Upload magic-byte signature validation (renamed/mismatched files rejected)
+- Cross-user access denied on every resource (products, documents, service history, notifications)
+- DB-level serial-number uniqueness per user (partial unique index)
+- Security headers via Helmet; production CORS fails fast on a wildcard origin
 
 ---
 
@@ -200,22 +204,26 @@ For the complete API specification including request and response schemas see [d
 
 ## Roadmap
 
-**Day 1 (August 2, 2026) — Done**
-- Repository structure and organization
-- Complete technical documentation
-- Database design and API design
-- Backend folder scaffolding
+**Phase 1 — Product/UI completion — DONE**
+- Web frontend (HTML/CSS/JS served from `API/backend/public/`) wired to the full API: products CRUD, document upload + OCR, dashboard, notifications, service history, repair-centre finder
+- OCR reads warranty certificates and receipts across formats (digital PDF text layer + scanned-page rasterization)
+- Guest demo mode, dark mode, reduced-motion support
+- Deployed to Render with Atlas + Cloudinary
 
-**Day 2 (August 3–6, 2026) — Done**
-- Backend: Node.js/Express + MongoDB Atlas + Cloudinary (JWT auth, products, documents, service history, notifications, dashboard)
-- OCR: tesseract.js receipt/warranty-card parsing with auto-fill (async after upload + retry endpoint)
-- Tests: 60+ integration tests, CI workflow, smoke script
-- Web frontend served from `API/backend/public/`
-- **Pivot (Aug 6):** web-only — the Flutter/Android app was removed (recoverable in git history)
+**Phase 2 — Security & engineering — IN PROGRESS**
+- Google Places proxy hardened: input validation, per-IP rate limiting, safe error mapping, controlled 503 when unconfigured
+- Production CORS fail-fast (wildcard origin rejected at boot) + env validation (JWT_EXPIRES_IN, MONGO_URI)
+- Upload magic-byte signature validation (JPEG/PNG/WebP/PDF)
+- Rate limiting on document uploads and OCR retries
+- OCR stuck-in-`processing` recovery + graceful failure/retry paths
+- DB-level serial-number deduplication per user (partial unique index)
+- Security test suite: cross-user access, malformed/expired JWTs, XSS escaping, Places validation, upload signatures, rate limits
 
-**Next**
-- Replace the static demo page with a real web app wired to the API (products CRUD, document upload + OCR status, dashboard)
-- Deploy backend (Render/Railway) with real Atlas + Cloudinary env vars
+**Phase 3 — Production optimization — PLANNED**
+- Frontend module split (app.js → api/auth/dashboard/products/documents/…)
+- CSS semantic variable consolidation
+- CSP tightening (inline-handler removal)
+- Performance profiling and cache tuning
 
 ---
 
