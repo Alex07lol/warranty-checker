@@ -19,6 +19,7 @@ const documentRoutes = require("./routes/document.routes");
 const serviceHistoryRoutes = require("./routes/serviceHistory.routes");
 const notificationRoutes = require("./routes/notification.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
+const exportRoutes = require("./routes/export.routes");
 const placesRoutes = require("./routes/places.routes");
 const cron = require("node-cron");
 const {
@@ -172,6 +173,8 @@ app.use("/api/v1/documents", documentRoutes);
 app.use("/api/v1/products/:productId/service-history", serviceHistoryRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
+// Phase 4 §16: JSON/CSV export of the user's products (ownership-scoped).
+app.use("/api/v1/export", exportRoutes);
 // Google Places proxy (rate-limited + fully validated — see places.routes.js).
 app.use("/api/v1/places", placesRoutes);
 
