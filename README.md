@@ -71,6 +71,15 @@ WarrantyVault solves this by providing a dedicated, secure, web platform where e
 - DB-level serial-number uniqueness per user (partial unique index)
 - Security headers via Helmet; production CORS fails fast on a wildcard origin
 
+**Production / observability**
+- Request tracing: `X-Request-ID` on every response, log line and error
+- Structured JSON request logs (method, route, status, duration, request id)
+- Classified error taxonomy (`validation` / `authentication` / `authorization` / `external` / …) on every error payload
+- `GET /health` (liveness) and `GET /ready` (MongoDB readiness) endpoints
+- Graceful shutdown on SIGTERM/SIGINT (drain connections, close DB)
+- OCR concurrency capped (in-process semaphore, `OCR_MAX_CONCURRENT`), job metrics on `/health`
+- Pagination on all collection endpoints (products, documents, notifications)
+
 ---
 
 ## Architecture
@@ -210,20 +219,25 @@ For the complete API specification including request and response schemas see [d
 - Guest demo mode, dark mode, reduced-motion support
 - Deployed to Render with Atlas + Cloudinary
 
-**Phase 2 — Security & engineering — IN PROGRESS**
+**Phase 2 — Security & engineering — DONE**
 - Google Places proxy hardened: input validation, per-IP rate limiting, safe error mapping, controlled 503 when unconfigured
 - Production CORS fail-fast (wildcard origin rejected at boot) + env validation (JWT_EXPIRES_IN, MONGO_URI)
 - Upload magic-byte signature validation (JPEG/PNG/WebP/PDF)
 - Rate limiting on document uploads and OCR retries
 - OCR stuck-in-`processing` recovery + graceful failure/retry paths
 - DB-level serial-number deduplication per user (partial unique index)
+- Frontend module split started (app.js → utils.js / api.js / auth.js)
 - Security test suite: cross-user access, malformed/expired JWTs, XSS escaping, Places validation, upload signatures, rate limits
 
-**Phase 3 — Production optimization — PLANNED**
-- Frontend module split (app.js → api/auth/dashboard/products/documents/…)
-- CSS semantic variable consolidation
-- CSP tightening (inline-handler removal)
-- Performance profiling and cache tuning
+**Phase 3 — Production readiness — IN PROGRESS**
+- Request tracing (`X-Request-ID`), structured JSON logs, classified error taxonomy
+- `GET /ready` readiness endpoint + graceful shutdown (SIGTERM/SIGINT)
+- OCR concurrency cap + job metrics; pagination on documents/notifications
+- `.env.example` full documentation; CI gains OCR simulation, syntax checks, dependency audit
+- Production checklist + backup/recovery + security docs (`docs/PRODUCTION.md`, `docs/PHASE3-BASELINE.md`)
+- Remaining: OpenAPI spec, accessibility/mobile pass, data export, frontend perf + CSP tightening
+
+See [docs/PRODUCTION.md](docs/PRODUCTION.md) for operations, [docs/PHASE3-BASELINE.md](docs/PHASE3-BASELINE.md) for the gap checklist.
 
 ---
 
