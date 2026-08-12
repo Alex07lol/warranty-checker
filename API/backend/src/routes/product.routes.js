@@ -13,6 +13,7 @@ router.use(auth);
 router.get("/", controller.getAllProducts);
 router.get("/search", controller.searchProducts);
 router.get("/expiring-soon", controller.getExpiringProducts);
+router.get("/:id/intelligence", controller.getProductIntelligence);
 router.get("/:id", controller.getProductById);
 router.post("/", validate(createProductSchema), controller.createProduct);
 router.put("/:id", validate(updateProductSchema), controller.updateProduct);

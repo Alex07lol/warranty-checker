@@ -1,4 +1,5 @@
 const productService = require("../services/product.service");
+const intelligenceService = require("../services/intelligence.service");
 const { sendSuccess } = require("../utils/response");
 
 async function getAllProducts(req, res, next) {
@@ -70,6 +71,19 @@ async function getExpiringProducts(req, res, next) {
   }
 }
 
+// Phase 4 §19: deterministic warranty intelligence (conflicts, missing
+// info, duplicate suggestions). Ownership is enforced by getProductById,
+// and duplicates only ever compare against the caller's own products.
+async function getProductIntelligence(req, res, next) {
+  try {
+    const product = await productService.getProductById(req.params.id, req.user.userId);
+    const findings = await intelligenceService.analyzeProduct(product, req.user.userId);
+    return sendSuccess(res, { findings }, "Product intelligence retrieved");
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getAllProducts,
   getProductById,
@@ -77,5 +91,6 @@ module.exports = {
   updateProduct,
   deleteProduct,
   searchProducts,
-  getExpiringProducts
+  getExpiringProducts,
+  getProductIntelligence
 };
