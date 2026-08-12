@@ -7,7 +7,9 @@ const mongoose = require("mongoose");
 const { paginate, paginationMeta } = require("../utils/pagination");
 const logger = require("../utils/logger");
 
-async function getNotifications(userId, unreadOnly = false, page, limit) {
+// Non-default params first (S1788): `page`/`limit` before the defaulted
+// `unreadOnly`. The controller passes all four positionally.
+async function getNotifications(userId, page, limit, unreadOnly = false) {
   const filter = { userId };
   if (unreadOnly) {
     filter.isRead = false;

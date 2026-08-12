@@ -8,9 +8,9 @@ async function getNotifications(req, res, next) {
       res,
       await service.getNotifications(
         req.user.userId,
-        unreadOnly,
         req.query.page,
-        req.query.limit
+        req.query.limit,
+        unreadOnly
       ),
       "Notifications retrieved"
     );

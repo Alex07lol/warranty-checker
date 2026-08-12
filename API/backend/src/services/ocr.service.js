@@ -54,6 +54,19 @@ function parseDateValue(raw) {
   return null;
 }
 
+// Shared helper (S4144): given a label line at index `i`, return the date
+// found on the NEXT non-empty line ("Warranty End\n14 March 2028"). Stops at
+// the first non-empty line so "Warranty Type\nLimited Manufacturer Warranty"
+// never reaches a later date. Returns null when there is no follow-up date.
+function nextDate(lines, i) {
+  for (let j = i + 1; j < lines.length; j++) {
+    const match = lines[j].match(DATE_RE);
+    if (match) return match[1];
+    if (lines[j].trim()) break;
+  }
+  return null;
+}
+
 function parseDate(text) {
   if (!text) return null;
   const lines = String(text).split(/\r?\n/);
@@ -65,22 +78,11 @@ function parseDate(text) {
     /\b(?:warranty\s*start|start|begins?|valid\s*from|purchase\s*date|date\s*of\s*purchase|bought|sold|issued|mfr|mfg)\b/i;
   const DATE_LABEL =
     /\b(?:expiry|expiration|expires|exp|valid|warranty|guarantee|good\s*until|start|end|purchase|mfr|mfg|date|issued|bought|sold|from)\b/i;
-  // A label line with the value on the NEXT line ("Warranty End\n14 March
-  // 2028") — stop at the first non-empty line so "Warranty Type\nLimited
-  // Manufacturer Warranty" never reaches a later date.
-  const nextDate = (i) => {
-    for (let j = i + 1; j < lines.length; j++) {
-      const match = lines[j].match(DATE_RE);
-      if (match) return match[1];
-      if (lines[j].trim()) break;
-    }
-    return null;
-  };
   let fallback = null;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const inline = line.match(DATE_RE);
-    const raw = inline ? inline[1] : DATE_LABEL.test(line) ? nextDate(i) : null;
+    const raw = inline ? inline[1] : DATE_LABEL.test(line) ? nextDate(lines, i) : null;
     if (!raw) continue;
     const date = parseDateValue(raw);
     if (!date) continue;
@@ -249,30 +251,20 @@ function parsePurchaseDate(text) {
   const MANUFACTURE_LABEL = /(mfr|mfg|manufactur)/i;
   const EXPIRY_LABEL = /(expir|expires|valid thru|valid through|warranty|good until|exp\b)/i;
 
-  // A label line with the date on the NEXT line ("Purchase Date\n15 March 2026").
-  const nextDate = (i) => {
-    for (let j = i + 1; j < lines.length; j++) {
-      const match = lines[j].match(DATE_RE);
-      if (match) return match[1];
-      if (lines[j].trim()) break;
-    }
-    return null;
-  };
   const scan = (labelRe) => {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (EXPIRY_LABEL.test(line)) continue;
       if (!labelRe.test(line)) continue;
       const inline = line.match(DATE_RE);
-      const raw = inline ? inline[1] : nextDate(i);
+      const raw = inline ? inline[1] : nextDate(lines, i);
       if (raw) {
         const date = parseDateValue(raw);
         if (date) return date;
       }
     }
     return null;
-  };
-  return scan(PURCHASE_LABEL) || scan(MANUFACTURE_LABEL) || scan(/(?:)/);
+  };    return scan(PURCHASE_LABEL) || scan(MANUFACTURE_LABEL) || scan(/.*/);
 }
 
 // Common consumer-electronics/appliance brands, longest first so a longer
@@ -399,7 +391,7 @@ function parseModel(text) {
     if (line.length < 3 || line.length > 60) continue;
     if (SERIAL_LABEL.test(line)) continue;
     if (/\$\s?\d/.test(line)) continue;
-    const match = line.match(/\b[A-Z]{1,8}(?:-|\/)?\d[A-Za-z0-9-]{1,14}\b/);
+    const match = line.match(/\b[A-Z]{1,8}[-/]?\d[A-Za-z0-9-]{1,14}\b/);
     if (match) return match[0];
   }
 
