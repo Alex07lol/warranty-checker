@@ -1503,4 +1503,33 @@
     body.dark-mode .repair-action-btn.directions:hover { background: rgba(21, 101, 192, 0.25); }
     body.dark-mode .repair-action-btn.website { background: #27272f; color: #a1a1aa; border-color: rgba(255,255,255,0.08); }
     body.dark-mode .repair-action-btn.website:hover { background: #3f3f46; color: #fff; }
+
+    /* ─── PHASE 3 — MOBILE UX AUDIT FIXES (2026-08-12) ───
+       Findings from the 360–1440 px breakpoint audit. These are additive
+       overrides; see docs/PHASE3-MOBILE-AUDIT.md for the full report. */
+
+    /* (1) The global --ui-scale zoom eats ~13% of the layout width on small
+       phones (360 px device → ~313 px of usable space). Give narrow screens
+       most of that width back; desktop keeps the full 1.15 scale. */
+    @media (max-width: 480px) {
+      html { zoom: 1.05; }
+    }
+
+    /* (2) Long unbroken strings — Google addresses, long product names, long
+       user names — could overflow on ≤412 px screens. Break anywhere so the
+       text wraps instead of pushing the card wider. */
+    .repair-card-address { overflow-wrap: break-word; min-width: 0; }
+    .detail-product-name { overflow-wrap: anywhere; }
+    .greeting-name { overflow-wrap: anywhere; }
+    .detail-warranty-value { overflow-wrap: anywhere; }
+
+    /* (3) Tap targets below the ~40 px comfort zone on touch screens. */
+    .copy-btn { width: 34px; height: 34px; }
+    .repair-card-locate { width: 36px; height: 36px; }
+    .btn-timeline-action { padding: 8px 14px; }
+    .login-tab { padding: 11px 9px; }
+
+    /* (4) Detail rows: let the value take the space it needs on narrow
+       screens instead of competing with the label at a fixed 200 px cap. */
+    .detail-row-value { max-width: min(200px, 55%); }
     /* ---- END DARK MODE PHASE 1 UPDATES ---- */
