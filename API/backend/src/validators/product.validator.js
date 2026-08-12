@@ -35,6 +35,10 @@ const productFields = {
   lifecycleStatus: Joi.string().valid(...lifecycleStatuses),
   // Phase 4: additional coverage periods.
   warranties: Joi.array().items(warrantyPeriodSchema).max(20),
+  // Phase 4 §12: user-scoped tags (max 20, each ≤ 30 chars, trimmed
+  // server-side). `allow("")` so a trailing empty entry from the UI doesn't
+  // 422 — the service drops blanks.
+  tags: Joi.array().items(Joi.string().trim().allow("").max(30)).max(20),
   notes: Joi.string().max(2000),
   thumbnailUrl: Joi.string().uri().allow("")
 };

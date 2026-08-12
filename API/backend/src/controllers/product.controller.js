@@ -4,12 +4,15 @@ const { sendSuccess } = require("../utils/response");
 
 async function getAllProducts(req, res, next) {
   try {
+    // Phase 4 §9: advanced filters come through as query params. `tags` may
+    // repeat (tags=a&tags=b) and Express parses repeats into an array.
     const data = await productService.getAllProducts(
       req.user.userId,
       req.query.page,
       req.query.limit,
       req.query.sortBy,
-      req.query.order
+      req.query.order,
+      req.query
     );
     return sendSuccess(res, data, "Products retrieved");
   } catch (error) {

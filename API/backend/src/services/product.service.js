@@ -9,13 +9,109 @@ function assertObjectId(id) {
   }
 }
 
-async function getAllProducts(userId, page = 1, limit = 20, sortBy = "createdAt", order = "desc") {
+// Phase 4 §12: tags are lower-cased + trimmed, blanks dropped, deduped, and
+// capped at 20 (matches the validator). Products are user-scoped already, so
+// tags are implicitly user-scoped with them.
+function normalizeTags(data) {
+  if (!Array.isArray(data.tags)) return data;
+  const seen = new Set();
+  const tags = data.tags
+    .map((t) => String(t || "").trim().toLowerCase())
+    .filter((t) => t !== "")
+    .filter((t) => {
+      if (seen.has(t)) return false;
+      seen.add(t);
+      return true;
+    })
+    .slice(0, 20);
+  return { ...data, tags };
+}
+
+// Build the Mongo filter for advanced product filtering (Phase 4 §9). Every
+// value is defensive: unknown/empty inputs are ignored, out-of-range values
+// are clamped, and the warrantyStatus filter is translated into the same
+// date windows the canonical status engine uses (30-day expiring window,
+// future purchase date => not_started, missing expiry => unknown).
+function buildProductFilter(userId, q = {}) {
+  const filter = { userId, isDeleted: false };
+
+  if (q.category) filter.category = q.category;
+  if (q.brand) filter.brand = q.brand;
+  if (q.lifecycleStatus) filter.lifecycleStatus = q.lifecycleStatus;
+  if (q.warrantyProvider) filter.warrantyProvider = q.warrantyProvider;
+  if (q.purchaseStore) filter.purchaseStore = q.purchaseStore;
+
+  // tags=home (single) or tags=home&tags=gaming (repeat) both work.
+  const tags = (Array.isArray(q.tags) ? q.tags : [q.tags])
+    .map((t) => String(t || "").trim().toLowerCase())
+    .filter(Boolean);
+  if (tags.length) filter.tags = { $all: tags };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(today);
+  todayEnd.setHours(23, 59, 59, 999);
+  const in30 = new Date(today);
+  in30.setDate(in30.getDate() + 30);
+  in30.setHours(23, 59, 59, 999);
+
+  // Windows mirror the canonical engine's day-boundary semantics exactly:
+  // daysRemaining <= 0 (expiry on or before today) is expired; (today, +30]
+  // is expiring_soon; beyond is active. Using end-of-day bounds keeps a
+  // product expiring *today* classified as expired here, matching the badge
+  // the engine renders on its card.
+  switch (q.warrantyStatus) {
+    case "expired":
+      filter.warrantyExpiryDate = { $lte: todayEnd };
+      break;
+    case "expiring_soon":
+      filter.warrantyExpiryDate = { $gt: todayEnd, $lte: in30 };
+      break;
+    case "active":
+      filter.warrantyExpiryDate = { $gt: in30 };
+      break;
+    case "not_started":
+      filter.purchaseDate = { $gt: today };
+      break;
+    case "unknown":
+      filter.warrantyExpiryDate = null;
+      break;
+    default:
+      break;
+  }
+
+  const dateFilter = (from, to) => {
+    const range = {};
+    if (from) range.$gte = new Date(from);
+    if (to) range.$lte = new Date(to);
+    return Object.keys(range).length ? range : null;
+  };
+  const purchaseRange = dateFilter(q.purchaseFrom, q.purchaseTo);
+  if (purchaseRange) filter.purchaseDate = { ...filter.purchaseDate, ...purchaseRange };
+  const expiryRange = dateFilter(q.expiryFrom, q.expiryTo);
+  if (expiryRange) filter.warrantyExpiryDate = { ...filter.warrantyExpiryDate, ...expiryRange };
+
+  // Guard against empty-string params (e.g. ?maxPrice=) — Number("") is 0,
+  // which would silently turn maxPrice into "free items only".
+  const hasMinPrice = q.minPrice !== "" && q.minPrice != null;
+  const hasMaxPrice = q.maxPrice !== "" && q.maxPrice != null;
+  if (hasMinPrice || hasMaxPrice) {
+    const price = {};
+    if (hasMinPrice) price.$gte = Number(q.minPrice);
+    if (hasMaxPrice) price.$lte = Number(q.maxPrice);
+    filter.purchasePrice = price;
+  }
+
+  return filter;
+}
+
+async function getAllProducts(userId, page = 1, limit = 20, sortBy = "createdAt", order = "desc", filters = {}) {
   const safePage = Math.max(Number(page) || 1, 1);
   const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
-  const allowedSort = ["createdAt", "updatedAt", "productName", "warrantyExpiryDate"];
+  const allowedSort = ["createdAt", "updatedAt", "productName", "warrantyExpiryDate", "purchasePrice"];
   const field = allowedSort.includes(sortBy) ? sortBy : "createdAt";
   const direction = order === "asc" ? 1 : -1;
-  const filter = { userId, isDeleted: false };
+  const filter = buildProductFilter(userId, filters);
 
   const [products, total] = await Promise.all([
     Product.find(filter)
@@ -92,6 +188,7 @@ function normalizeWarranties(data) {
 async function createProduct(userId, data) {
   data = normalizeSerial(data);
   data = normalizeWarranties(data);
+  data = normalizeTags(data);
   if (data.purchaseDate && data.warrantyExpiryDate) {
     if (new Date(data.warrantyExpiryDate) <= new Date(data.purchaseDate)) {
       throw new AppError("Warranty expiry date must be after purchase date", 422);
@@ -110,6 +207,7 @@ async function updateProduct(productId, userId, data) {
   const product = await getProductById(productId, userId);
   data = normalizeSerial(data);
   data = normalizeWarranties(data);
+  data = normalizeTags(data);
 
   const purchaseDate = data.purchaseDate || product.purchaseDate;
   const expiryDate = data.warrantyExpiryDate || product.warrantyExpiryDate;
@@ -146,11 +244,29 @@ async function searchProducts(userId, query) {
     return [];
   }
 
+  // Phase 4 §10: match name/brand/model (the $text-indexed fields) plus
+  // serial number, purchase store, warranty provider and tags with a
+  // case-insensitive substring, so a scan or a receipt fragment finds the
+  // product. A pure regex $or keeps a single valid query plan (mixing $text
+  // into the $or makes the planner error with "No query solutions").
+  const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(escaped, "i");
+
   return Product.find({
     userId,
     isDeleted: false,
-    $text: { $search: text }
-  }).sort({ score: { $meta: "textScore" } });
+    $or: [
+      { productName: regex },
+      { brand: regex },
+      { model: regex },
+      { serialNumber: regex },
+      { purchaseStore: regex },
+      { warrantyProvider: regex },
+      { tags: regex }
+    ]
+  })
+    .sort({ createdAt: -1 })
+    .limit(100);
 }
 
 async function getExpiringProducts(userId) {
@@ -178,6 +294,7 @@ async function getExpiringProducts(userId) {
 // caught and resolved by re-querying instead of crashing.
 async function createProductFromOcr(userId, data) {
   data = normalizeSerial(data);
+  data = normalizeTags(data);
   if (data.serialNumber) {
     const existing = await Product.findOne({
       userId,

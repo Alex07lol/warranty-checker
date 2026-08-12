@@ -302,4 +302,159 @@ describe("Product API", () => {
     expect(response.body.data.warranties).toEqual([]);
     expect(response.body.data.lifecycleStatus).toBe("owned");
   });
+
+  // ── Phase 4 §12: user-scoped tags ──
+
+  test("creates a product with normalized tags", async () => {
+    const response = await request(app)
+      .post("/api/v1/products")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        productName: "Tagged TV",
+        tags: ["  Home ", "Living Room", "home", "", "GAMING"]
+      });
+    expect(response.statusCode).toBe(201);
+    // Lower-cased + trimmed + deduped; blanks dropped.
+    expect(response.body.data.tags).toEqual(["home", "living room", "gaming"]);
+  });
+
+  test("rejects too many tags", async () => {
+    const response = await request(app)
+      .post("/api/v1/products")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        productName: "Tag Flood",
+        tags: Array.from({ length: 21 }, (_, i) => `tag${i}`)
+      });
+    expect(response.statusCode).toBe(422);
+  });
+
+  test("updates tags on an existing product", async () => {
+    const created = await request(app)
+      .post("/api/v1/products")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ productName: "Tag Update" });
+    const id = created.body.data._id;
+
+    const response = await request(app)
+      .put(`/api/v1/products/${id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ tags: ["Kitchen", "High Value"] });
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.tags).toEqual(["kitchen", "high value"]);
+  });
+
+  test("filters products by tag (repeat param ANDs tags)", async () => {
+    await request(app)
+      .post("/api/v1/products")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ productName: "Kitchen Gadget", tags: ["kitchen", "gadget"] });
+
+    const both = await request(app)
+      .get("/api/v1/products?tags=kitchen&tags=gadget")
+      .set("Authorization", `Bearer ${token}`);
+    expect(both.statusCode).toBe(200);
+    expect(both.body.data.products.some((p) => p.productName === "Kitchen Gadget")).toBe(true);
+
+    // AND semantics: a product with only one of the tags must not match.
+    await request(app)
+      .post("/api/v1/products")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ productName: "Kitchen Only", tags: ["kitchen"] });
+    const kitchenOnly = await request(app)
+      .get("/api/v1/products?tags=kitchen&tags=gadget")
+      .set("Authorization", `Bearer ${token}`);
+    expect(kitchenOnly.body.data.products.some((p) => p.productName === "Kitchen Only")).toBe(false);
+  });
+
+  // ── Phase 4 §9: advanced filtering ──
+
+  test("filters products by lifecycle status and category", async () => {
+    const response = await request(app)
+      .get("/api/v1/products?lifecycleStatus=in_use&category=Appliances")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.products.every((p) => p.lifecycleStatus === "in_use" && p.category === "Appliances")).toBe(true);
+  });
+
+  test("filters products by warranty status (expiring_soon)", async () => {
+    const response = await request(app)
+      .get("/api/v1/products?warrantyStatus=expiring_soon")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    // Every returned product must be in the expiring window (or have no
+    // matching expiry at all — filtered out entirely).
+    expect(response.body.data.products.every((p) => {
+      if (!p.warrantyExpiryDate) return false;
+      const days = (new Date(p.warrantyExpiryDate) - Date.now()) / 86400000;
+      return days >= 0 && days <= 30;
+    })).toBe(true);
+  });
+
+  test("filters products by price range", async () => {
+    const response = await request(app)
+      .get("/api/v1/products?minPrice=1000&maxPrice=60000")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.products.every((p) =>
+      p.purchasePrice == null || (p.purchasePrice >= 1000 && p.purchasePrice <= 60000)
+    )).toBe(true);
+  });
+
+  test("filters products by purchase date range", async () => {
+    const response = await request(app)
+      .get("/api/v1/products?purchaseFrom=2025-01-01&purchaseTo=2025-12-31")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.products.every((p) => {
+      if (!p.purchaseDate) return false;
+      const d = new Date(p.purchaseDate).getTime();
+      return d >= new Date("2025-01-01").getTime() && d <= new Date("2025-12-31T23:59:59").getTime();
+    })).toBe(true);
+  });
+
+  test("filters products by brand", async () => {
+    const response = await request(app)
+      .get("/api/v1/products?brand=Samsung")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.products.every((p) => p.brand === "Samsung")).toBe(true);
+  });
+
+  test("combines multiple filters safely", async () => {
+    // A combination that should match the expiring AC Unit created earlier
+    // plus anything else that fits; assert the response is well-formed and
+    // every row satisfies BOTH constraints.
+    const response = await request(app)
+      .get("/api/v1/products?lifecycleStatus=owned&brand=Samsung&minPrice=0&maxPrice=100000")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.products.every((p) =>
+      p.lifecycleStatus === "owned" && p.brand === "Samsung"
+    )).toBe(true);
+  });
+
+  test("filters never leak another user's products", async () => {
+    const response = await request(app)
+      .get("/api/v1/products?category=Appliances")
+      .set("Authorization", `Bearer ${otherToken}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.products.length).toBe(0);
+  });
+
+  test("search finds products by serial number", async () => {
+    const response = await request(app)
+      .get("/api/v1/products/search?q=SN12345")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.some((p) => p.serialNumber === "SN12345")).toBe(true);
+  });
+
+  test("search finds products by tag", async () => {
+    const response = await request(app)
+      .get("/api/v1/products/search?q=gaming")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.some((p) => Array.isArray(p.tags) && p.tags.includes("gaming"))).toBe(true);
+  });
 });

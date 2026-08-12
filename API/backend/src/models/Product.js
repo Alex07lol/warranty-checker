@@ -83,6 +83,13 @@ const productSchema = new mongoose.Schema(
       type: [warrantyPeriodSchema],
       default: []
     },
+    // Phase 4 §12: user-scoped tags. Always owned by the product's user
+    // (products themselves are user-scoped); stored lower-cased + trimmed for
+    // consistent filtering/search.
+    tags: {
+      type: [String],
+      default: []
+    },
     notes: String,
     isDeleted: {
       type: Boolean,
@@ -113,6 +120,8 @@ productSchema.index(
 // Compound index serving dashboard/expiry-range queries that filter on
 // { userId, isDeleted, warrantyExpiryDate } and sort by expiry date.
 productSchema.index({ userId: 1, isDeleted: 1, warrantyExpiryDate: 1 });
+productSchema.index({ userId: 1, isDeleted: 1, lifecycleStatus: 1 });
+productSchema.index({ userId: 1, isDeleted: 1, tags: 1 });
 productSchema.index({ productName: "text", brand: "text", model: "text" });
 
 module.exports = mongoose.model("Product", productSchema);
