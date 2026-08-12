@@ -591,6 +591,20 @@
     .detail-row:last-child { border-bottom: none; }
     .detail-row-label { font-size: 13px; color: #666; }
     .detail-row-value { font-size: 13px; font-weight: 500; color: #111; text-align: right; max-width: 200px; overflow-wrap: anywhere; }
+    /* Phase 4: additional coverage period cards in the product detail */
+    .coverage-card { border: 1px solid #ececf1; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; background: #fafbfe; }
+    .coverage-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .coverage-type { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+    .coverage-provider { font-size: 12px; color: #3949ab; font-weight: 600; }
+    .coverage-meta { font-size: 12px; color: #666; margin-bottom: 4px; }
+    .coverage-desc { font-size: 12px; color: #444; }
+    .coverage-notes { font-size: 11px; color: #888; margin-top: 4px; }
+    body.dark-mode .coverage-card { background: #23233a; border-color: #33335a; }
+    body.dark-mode .coverage-type { color: #eef; }
+    /* Phase 4: editable additional-warranty rows in the product form */
+    .warranty-period-row { border: 1px dashed #d5d5e0; border-radius: 14px; padding: 12px 14px; margin-top: 10px; background: #fbfbfd; }
+    .warranty-period-row .form-grid { margin-top: 8px; }
+    body.dark-mode .warranty-period-row { background: #1d1d33; border-color: #33335a; }
     /* OCR summary card copy layout — scoped so other detail-row pages (product
        detail, service history) keep their existing layout. */
     #camera-extracted-fields .detail-row { gap: 12px; }

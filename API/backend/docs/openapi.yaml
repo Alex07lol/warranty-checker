@@ -1058,6 +1058,19 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
+    WarrantyPeriod:
+      type: object
+      description: Phase 4 additional warranty/coverage period on a product. status is derived by the centralized status engine.
+      properties:
+        _id: { type: string }
+        type: { type: string, description: e.g. Standard warranty, Extended warranty }
+        provider: { type: string }
+        startDate: { type: string, format: date, nullable: true }
+        expiryDate: { type: string, format: date, nullable: true }
+        coverage: { type: string }
+        status: { type: string, enum: [not_started, active, expiring_soon, expired, unknown] }
+        notes: { type: string }
+
     Product:
       type: object
       properties:
@@ -1074,6 +1087,12 @@ components:
         serialNumber: { type: string, nullable: true }
         warrantyExpiryDate: { type: string, format: date, nullable: true }
         warrantyPeriodMonths: { type: integer, nullable: true }
+        warrantyProvider: { type: string, nullable: true }
+        warrantyProviderType: { type: string, enum: [manufacturer, retailer, third_party, extended, unknown], nullable: true }
+        warrantyContact: { type: string, nullable: true }
+        warrantyWebsite: { type: string, nullable: true }
+        lifecycleStatus: { type: string, enum: [owned, in_use, stored, under_repair, sold, gifted, disposed], default: owned }
+        warranties: { type: array, items: { $ref: "#/components/schemas/WarrantyPeriod" }, default: [] }
         notes: { type: string, nullable: true }
         isDeleted: { type: boolean }
         thumbnailUrl: { type: string, nullable: true }
@@ -1094,9 +1113,26 @@ components:
         serialNumber: { type: string, maxLength: 200 }
         warrantyExpiryDate: { type: string, format: date }
         warrantyPeriodMonths: { type: integer, minimum: 1 }
+        warrantyProvider: { type: string, maxLength: 200 }
+        warrantyProviderType: { type: string, enum: [manufacturer, retailer, third_party, extended, unknown] }
+        warrantyContact: { type: string, maxLength: 200 }
+        warrantyWebsite: { type: string, format: uri }
+        lifecycleStatus: { type: string, enum: [owned, in_use, stored, under_repair, sold, gifted, disposed] }
+        warranties: { type: array, maxItems: 20, items: { $ref: "#/components/schemas/WarrantyPeriodInput" } }
         notes: { type: string, maxLength: 2000 }
         thumbnailUrl: { type: string, format: uri }
-      description: productName is required on create; warrantyExpiryDate must be after purchaseDate.
+      description: productName is required on create; warrantyExpiryDate must be after purchaseDate; each warranty period expiry must be after its start.
+
+    WarrantyPeriodInput:
+      type: object
+      properties:
+        type: { type: string, maxLength: 100 }
+        provider: { type: string, maxLength: 200 }
+        startDate: { type: string, format: date }
+        expiryDate: { type: string, format: date }
+        coverage: { type: string, maxLength: 500 }
+        status: { type: string, enum: [not_started, active, expiring_soon, expired, unknown] }
+        notes: { type: string, maxLength: 2000 }
 
     ProductList:
       type: object

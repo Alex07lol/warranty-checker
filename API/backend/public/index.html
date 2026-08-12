@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/app.css?v=4" />
+  <link rel="stylesheet" href="/css/app.css?v=5" />
 </head>
 <body>
 
@@ -408,6 +408,8 @@
 
         <div class="detail-section-title" role="heading" aria-level="2">Product Details</div>
         <div id="detail-specs"></div>
+        <div class="detail-section-title" role="heading" aria-level="2" id="detail-coverage-heading">Additional Coverage</div>
+        <div id="detail-coverage-list"></div>
 
         <div class="detail-section-title" role="heading" aria-level="2">Quick Actions</div>
         <div class="detail-actions">
@@ -518,6 +520,22 @@
           <div class="form-field"><label for="pf-warranty-months" id="pf-warranty-months-label">Warranty period (months)</label><input type="number" id="pf-warranty-months" min="1" placeholder="12" /></div>
           <div class="form-field"><label for="pf-expiry" id="pf-expiry-label">Warranty expiry date</label><input type="date" id="pf-expiry" /></div>
         </div>
+        <div class="form-grid">
+          <div class="form-field"><label for="pf-lifecycle" id="pf-lifecycle-label">Lifecycle status</label><select id="pf-lifecycle"></select></div>
+          <div class="form-field"><label for="pf-warranty-provider" id="pf-warranty-provider-label">Warranty provider</label><input type="text" id="pf-warranty-provider" placeholder="e.g. Sony India" /></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-field"><label for="pf-warranty-provider-type" id="pf-warranty-provider-type-label">Provider type</label><select id="pf-warranty-provider-type"></select></div>
+          <div class="form-field"><label for="pf-warranty-contact" id="pf-warranty-contact-label">Provider contact</label><input type="text" id="pf-warranty-contact" placeholder="Support phone / email" /></div>
+        </div>
+        <div class="form-field"><label for="pf-warranty-website" id="pf-warranty-website-label">Warranty website</label><input type="url" id="pf-warranty-website" placeholder="https://support.example.com" /></div>
+        <div class="form-field">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label id="pf-extra-warranties-label">Additional coverage periods</label>
+            <button type="button" class="btn btn-ghost btn-small" id="pf-add-warranty">+ Add period</button>
+          </div>
+          <div id="pf-warranties-list"></div>
+        </div>
         <div class="form-field"><label for="pf-notes" id="pf-notes-label">Notes</label><textarea id="pf-notes" rows="2" placeholder="Optional notes"></textarea></div>
 
         <div class="form-actions">
@@ -569,10 +587,10 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>    <!-- Classic scripts share global scope; ORDER MATTERS: utils -> api ->
     auth -> app (app.js load-time code calls utils/api/auth functions). -->
-    <script src="/js/utils.js?v=4"></script>
-    <script src="/js/api.js?v=4"></script>
-    <script src="/js/auth.js?v=4"></script>
-    <script src="/js/app.js?v=4"></script>
+    <script src="/js/utils.js?v=5"></script>
+    <script src="/js/api.js?v=5"></script>
+    <script src="/js/auth.js?v=5"></script>
+    <script src="/js/app.js?v=5"></script>
     <script type="module" src="/js/effects.js?v=4"></script>
 </body>
 </html>

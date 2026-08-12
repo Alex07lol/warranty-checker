@@ -231,13 +231,19 @@ There is also a machine-readable **OpenAPI 3.0.3** document at [`API/backend/doc
 - Frontend module split started (app.js → utils.js / api.js / auth.js)
 - Security test suite: cross-user access, malformed/expired JWTs, XSS escaping, Places validation, upload signatures, rate limits
 
-**Phase 3 — Production readiness — IN PROGRESS**
+**Phase 3 — Production readiness — DONE**
 - Request tracing (`X-Request-ID`), structured JSON logs, classified error taxonomy
 - `GET /ready` readiness endpoint + graceful shutdown (SIGTERM/SIGINT)
 - OCR concurrency cap + job metrics; pagination on documents/notifications
 - `.env.example` full documentation; CI gains OCR simulation, syntax checks, dependency audit
 - Production checklist + backup/recovery + security docs (`docs/PRODUCTION.md`, `docs/PHASE3-BASELINE.md`)
-- Remaining: OpenAPI spec, accessibility/mobile pass, data export, frontend perf + CSP tightening
+- OpenAPI 3.0.3 spec + `/api/docs` developer route (spec drift-guarded in CI)
+- Accessibility pass (modal focus traps, ARIA labels, keyboard-only) + mobile UX audit at 8 breakpoints
+- Repo hygiene: obsolete `mongo/scratch/` experiments removed
+
+**Phase 4 — Advanced product features — IN PROGRESS**
+- Data model foundation (tranche 1, backward compatible): warranty provider fields, `lifecycleStatus` (owned → disposed), additional `warranties[]` coverage periods — editable in the product form, shown in the detail view
+- Remaining: centralized warranty-status engine, custom reminder + maintenance schedules, warranty-intelligence checks, advanced filters, categories/tags, document verification, claim prep + export, secure sharing
 
 See [docs/PRODUCTION.md](docs/PRODUCTION.md) for operations, [docs/PHASE3-BASELINE.md](docs/PHASE3-BASELINE.md) for the gap checklist.
 

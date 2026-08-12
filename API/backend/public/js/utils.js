@@ -148,6 +148,37 @@ function setStatsSkeleton(show) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Phase 4 shared metadata (single source of truth for backend enums)
+// ─────────────────────────────────────────────────────────────────────────────
+const LIFECYCLE_STATUSES = [
+  ['owned', 'Owned'], ['in_use', 'In use'], ['stored', 'Stored'],
+  ['under_repair', 'Under repair'], ['sold', 'Sold'], ['gifted', 'Gifted'], ['disposed', 'Disposed']
+];
+
+const WARRANTY_PROVIDER_TYPES = [
+  ['manufacturer', 'Manufacturer'], ['retailer', 'Retailer'],
+  ['third_party', 'Third-party'], ['extended', 'Extended warranty provider'], ['unknown', 'Unknown']
+];
+
+function lifecycleLabel(v) {
+  const hit = LIFECYCLE_STATUSES.find(([k]) => k === v);
+  return hit ? hit[1] : 'Owned';
+}
+
+function providerTypeLabel(v) {
+  const hit = WARRANTY_PROVIDER_TYPES.find(([k]) => k === v);
+  return hit ? hit[1] : 'Unknown';
+}
+
+// Build <option> markup for a [value, label][] list (values are trusted
+// constants, labels are trusted constants).
+function enumOptionsHtml(pairs, selected) {
+  return pairs
+    .map(([k, label]) => '<option value="' + k + '"' + (k === selected ? ' selected' : '') + '>' + escapeHtml(label) + '</option>')
+    .join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Modal dialog helpers: focus trap, Escape-to-close, focus restore
 // ─────────────────────────────────────────────────────────────────────────────
 const DIALOG_FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';

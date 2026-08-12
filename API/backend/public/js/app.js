@@ -55,6 +55,13 @@ const DEMO_PRODUCTS = [
     serialNumber: 'S23-84KD2', purchaseDate: '2024-01-15',
     purchasePrice: 899, currency: 'USD', purchaseStore: 'Amazon',
     warrantyPeriodMonths: 24, warrantyExpiryDate: daysFromNow(4),
+    lifecycleStatus: 'in_use',
+    warrantyProvider: 'Samsung Care+', warrantyProviderType: 'extended',
+    warrantyContact: 'support@samsung.com',
+    warranties: [
+      { type: 'Standard warranty', provider: 'Samsung', startDate: '2024-01-15', expiryDate: daysFromNow(4), coverage: 'Manufacturer defects' },
+      { type: 'Accidental damage protection', provider: 'Samsung Care+', startDate: '2024-01-15', expiryDate: daysFromNow(370), coverage: 'Screen and back panel' }
+    ],
     notes: 'Screen replaced once.'
   },
   {
@@ -281,6 +288,72 @@ async function searchProducts(q) {
 
 let editingProductId = null;
 
+// Phase 4: populate the lifecycle + provider selects and the dynamic
+// additional-warranty-period rows.
+function populatePhase4Form(p) {
+  const lifecycleEl = document.getElementById('pf-lifecycle');
+  const providerTypeEl = document.getElementById('pf-warranty-provider-type');
+  if (lifecycleEl) lifecycleEl.innerHTML = enumOptionsHtml(LIFECYCLE_STATUSES, p.lifecycleStatus || 'owned');
+  if (providerTypeEl) {
+    // Lead with an explicit empty option so an untouched select submits as
+    // "not specified" instead of silently defaulting to the first enum value.
+    const selected = p.warrantyProviderType || '';
+    providerTypeEl.innerHTML =
+      '<option value="">— Not specified —</option>' + enumOptionsHtml(WARRANTY_PROVIDER_TYPES, selected);
+    providerTypeEl.value = selected;
+  }
+  const providerEl = document.getElementById('pf-warranty-provider');
+  const contactEl = document.getElementById('pf-warranty-contact');
+  const websiteEl = document.getElementById('pf-warranty-website');
+  if (providerEl) providerEl.value = p.warrantyProvider || '';
+  if (contactEl) contactEl.value = p.warrantyContact || '';
+  if (websiteEl) websiteEl.value = p.warrantyWebsite || '';
+  const list = document.getElementById('pf-warranties-list');
+  if (list) {
+    list.innerHTML = '';
+    (Array.isArray(p.warranties) ? p.warranties : []).forEach(w => addWarrantyRow(w));
+  }
+}
+
+// One editable additional-coverage row. All values are escaped; values are
+// read back from the DOM on save (never from innerHTML).
+function addWarrantyRow(w) {
+  const row = w || {};
+  const list = document.getElementById('pf-warranties-list');
+  if (!list) return;
+  const div = document.createElement('div');
+  div.className = 'warranty-period-row';
+  div.innerHTML =
+    '<div class="form-grid">' +
+      '<div class="form-field"><label>Type</label><input type="text" class="wp-type" placeholder="Extended warranty" value="' + escapeHtml(row.type || '') + '" /></div>' +
+      '<div class="form-field"><label>Provider</label><input type="text" class="wp-provider" placeholder="e.g. Croma Assure" value="' + escapeHtml(row.provider || '') + '" /></div>' +
+    '</div>' +
+    '<div class="form-grid">' +
+      '<div class="form-field"><label>Start date</label><input type="date" class="wp-start" value="' + escapeHtml(row.startDate ? new Date(row.startDate).toISOString().slice(0, 10) : '') + '" /></div>' +
+      '<div class="form-field"><label>Expiry date</label><input type="date" class="wp-expiry" value="' + escapeHtml(row.expiryDate ? new Date(row.expiryDate).toISOString().slice(0, 10) : '') + '" /></div>' +
+    '</div>' +
+    '<div class="form-field"><label>Coverage</label><input type="text" class="wp-coverage" placeholder="e.g. Compressor, parts and labour" value="' + escapeHtml(row.coverage || '') + '" /></div>' +
+    '<div class="form-field"><label>Notes</label><input type="text" class="wp-notes" placeholder="Optional" value="' + escapeHtml(row.notes || '') + '" /></div>' +
+    '<div style="text-align:right;"><button type="button" class="btn btn-ghost btn-small wp-remove">Remove</button></div>';
+  div.querySelector('.wp-remove').addEventListener('click', () => div.remove());
+  list.appendChild(div);
+}
+
+// Read warranty rows back from the DOM, dropping empty rows (matches the
+// server-side normalization).
+function collectWarrantyRows() {
+  const list = document.getElementById('pf-warranties-list');
+  if (!list) return [];
+  return Array.from(list.querySelectorAll('.warranty-period-row')).map(div => ({
+    type: div.querySelector('.wp-type').value.trim(),
+    provider: div.querySelector('.wp-provider').value.trim(),
+    startDate: div.querySelector('.wp-start').value || undefined,
+    expiryDate: div.querySelector('.wp-expiry').value || undefined,
+    coverage: div.querySelector('.wp-coverage').value.trim(),
+    notes: div.querySelector('.wp-notes').value.trim()
+  })).filter(w => w.type || w.provider || w.startDate || w.expiryDate || w.coverage || w.notes);
+}
+
 function populateProductForm(product) {
   const p = product || {};
   document.getElementById('pf-name').value = p.productName || '';
@@ -295,6 +368,7 @@ function populateProductForm(product) {
   document.getElementById('pf-warranty-months').value = p.warrantyPeriodMonths != null ? p.warrantyPeriodMonths : '';
   document.getElementById('pf-expiry').value = p.warrantyExpiryDate ? new Date(p.warrantyExpiryDate).toISOString().slice(0, 10) : '';
   document.getElementById('pf-notes').value = p.notes || '';
+  populatePhase4Form(p);
 }
 
 function openProductForm(product) {
@@ -321,6 +395,16 @@ async function saveProductForm() {
   const name = document.getElementById('pf-name').value.trim();
   if (!name) { errEl.textContent = 'Product name is required.'; return; }
 
+  // Phase 4: client-side check for additional warranty periods mirrors the
+  // server rule (expiry must be after start within each period).
+  const extraWarranties = collectWarrantyRows();
+  for (const w of extraWarranties) {
+    if (w.startDate && w.expiryDate && new Date(w.expiryDate) <= new Date(w.startDate)) {
+      errEl.textContent = 'Each warranty period\'s expiry must be after its start date.';
+      return;
+    }
+  }
+
   const payload = {
     productName: name,
     brand: document.getElementById('pf-brand').value.trim() || undefined,
@@ -333,6 +417,12 @@ async function saveProductForm() {
     purchaseStore: document.getElementById('pf-store').value.trim() || undefined,
     warrantyPeriodMonths: document.getElementById('pf-warranty-months').value ? Number(document.getElementById('pf-warranty-months').value) : undefined,
     warrantyExpiryDate: document.getElementById('pf-expiry').value || undefined,
+    lifecycleStatus: document.getElementById('pf-lifecycle').value || undefined,
+    warrantyProvider: document.getElementById('pf-warranty-provider').value.trim() || undefined,
+    warrantyProviderType: document.getElementById('pf-warranty-provider-type').value || undefined,
+    warrantyContact: document.getElementById('pf-warranty-contact').value.trim() || undefined,
+    warrantyWebsite: document.getElementById('pf-warranty-website').value.trim() || undefined,
+    warranties: extraWarranties.length ? extraWarranties : undefined,
     notes: document.getElementById('pf-notes').value.trim() || undefined
   };
   Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
@@ -528,6 +618,7 @@ async function copyAllExtracted() {
 }
 
 function renderDetailSpecs(p) {
+  const providerParts = [p.warrantyProvider, p.warrantyContact].filter(Boolean).join(' · ');
   const rows = [
     ['Serial number', p.serialNumber],
     ['Model', p.model],
@@ -536,9 +627,34 @@ function renderDetailSpecs(p) {
     ['Price', fmtMoney(p)],
     ['Store', p.purchaseStore],
     ['Warranty period', p.warrantyPeriodMonths ? p.warrantyPeriodMonths + ' months' : null],
+    ['Lifecycle', p.lifecycleStatus ? lifecycleLabel(p.lifecycleStatus) : 'Owned'],
+    ['Warranty provider', providerParts || null],
+    ['Provider type', p.warrantyProviderType ? providerTypeLabel(p.warrantyProviderType) : null],
+    ['Warranty website', p.warrantyWebsite || null],
     ['Notes', p.notes]
   ];
   document.getElementById('detail-specs').innerHTML = rows.map(r => detailRow(r[0], r[1])).join('');
+  renderDetailCoverage(p);
+}
+
+// Phase 4: list of additional coverage periods under the warranty block.
+function renderDetailCoverage(p) {
+  const box = document.getElementById('detail-coverage-list');
+  if (!box) return;
+  const periods = Array.isArray(p.warranties) ? p.warranties : [];
+  const heading = document.getElementById('detail-coverage-heading');
+  if (heading) heading.style.display = periods.length ? '' : 'none';
+  if (!periods.length) { box.innerHTML = ''; return; }
+  box.innerHTML = periods.map(w => {
+    const span = (w.startDate ? fmtDate(w.startDate) : '—') + ' → ' + (w.expiryDate ? fmtDate(w.expiryDate) : '—');
+    return '<div class="coverage-card">' +
+      '<div class="coverage-card-head"><span class="coverage-type">' + escapeHtml(w.type || 'Coverage') + '</span>' +
+      (w.provider ? '<span class="coverage-provider">' + escapeHtml(w.provider) + '</span>' : '') + '</div>' +
+      '<div class="coverage-meta">' + escapeHtml(span) + '</div>' +
+      (w.coverage ? '<div class="coverage-desc">' + escapeHtml(w.coverage) + '</div>' : '') +
+      (w.notes ? '<div class="coverage-notes">' + escapeHtml(w.notes) + '</div>' : '') +
+    '</div>';
+  }).join('');
 }
 
 // --- Documents ---
@@ -1856,6 +1972,9 @@ function wireEvents() {
     document.getElementById('doc-file-name').textContent = detailDocFile ? detailDocFile.name : 'Choose file…';
   });
   document.getElementById('doc-upload-btn').addEventListener('click', uploadDoc);
+
+  const addWarrantyBtn = document.getElementById('pf-add-warranty');
+  if (addWarrantyBtn) addWarrantyBtn.addEventListener('click', () => addWarrantyRow({}));
 
   document.getElementById('add-service-btn').addEventListener('click', () => toggleServiceForm(true));
   document.getElementById('svc-cancel-btn').addEventListener('click', () => toggleServiceForm(false));
