@@ -45,6 +45,24 @@ const documentSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  // Phase 4 §13/§14 — document organization + manual verification.
+  // docState mirrors the spec's recommended states (Unreviewed / Reviewed /
+  // Important / Archived). verified is a *manual* user assertion and must
+  // never be implied by OCR success — the two concepts stay separate.
+  docState: {
+    type: String,
+    enum: ["unreviewed", "reviewed", "important", "archived"],
+    default: "unreviewed"
+  },
+  verified: {
+    type: Boolean,
+    default: false
+  },
+  tags: {
+    type: [String],
+    default: [],
+    index: true
+  },
   notes: String,
   ocrStatus: {
     type: String,

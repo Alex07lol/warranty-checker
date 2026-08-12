@@ -179,6 +179,133 @@ describe("Document API", () => {
   });
 });
 
+describe("Document organization + verification (Phase 4 §13/§14)", () => {
+  let token;
+  let otherToken;
+  let documentId;
+
+  beforeAll(async () => {
+    await startDb();
+    const user = await registerUser("Org User", `org_${Date.now()}@example.com`);
+    token = user.token;
+    const other = await registerUser("Org Other", `org_other_${Date.now()}@example.com`);
+    otherToken = other.token;
+    const upload = await request(app)
+      .post("/api/v1/documents")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ documentType: "warranty_card" });
+    documentId = upload.body.data._id;
+  });
+
+  afterAll(async () => {
+    await stopDb();
+  });
+
+  test("requires authentication", async () => {
+    const response = await request(app).patch(`/api/v1/documents/${documentId}`).send({ verified: true });
+    expect(response.statusCode).toBe(401);
+  });
+
+  test("defaults are unreviewed and not verified (OCR never auto-verifies)", async () => {
+    const response = await request(app)
+      .get(`/api/v1/documents/${documentId}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.docState).toBe("unreviewed");
+    expect(response.body.data.verified).toBe(false);
+  });
+
+  test("updates docState, verified, tags and notes", async () => {
+    const response = await request(app)
+      .patch(`/api/v1/documents/${documentId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        docState: "important",
+        verified: true,
+        tags: [" Kitchen ", "high value", "kitchen", "", "", "important"],
+        notes: "Verified against the physical card"
+      });
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.docState).toBe("important");
+    expect(response.body.data.verified).toBe(true);
+    // Tags are normalized: trimmed, lowercased, blanks dropped, deduped.
+    expect(response.body.data.tags).toEqual(["kitchen", "high value", "important"]);
+    expect(response.body.data.notes).toBe("Verified against the physical card");
+  });
+
+  test("partial update preserves untouched fields", async () => {
+    const response = await request(app)
+      .patch(`/api/v1/documents/${documentId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ docState: "archived" });
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.docState).toBe("archived");
+    expect(response.body.data.verified).toBe(true); // untouched
+    expect(response.body.data.tags).toEqual(["kitchen", "high value", "important"]); // untouched
+  });
+
+  test("rejects an invalid docState", async () => {
+    const response = await request(app)
+      .patch(`/api/v1/documents/${documentId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ docState: "shredded" });
+    expect(response.statusCode).toBe(422);
+  });
+
+  test("rejects updating another user's document", async () => {
+    const response = await request(app)
+      .patch(`/api/v1/documents/${documentId}`)
+      .set("Authorization", `Bearer ${otherToken}`)
+      .send({ verified: true });
+    expect(response.statusCode).toBe(403);
+  });
+
+  test("returns 404 for a missing document", async () => {
+    const response = await request(app)
+      .patch(`/api/v1/documents/000000000000000000000000`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ verified: true });
+    expect(response.statusCode).toBe(404);
+  });
+
+  test("product-scoped PATCH rejects a standalone document (parity)", async () => {
+    // The router is mounted at both /documents and /products/:productId/documents;
+    // a standalone doc reached through a product URL must 403 (same rule as
+    // get/delete/view on that mount).
+    const response = await request(app)
+      .patch(`/api/v1/products/000000000000000000000000/documents/${documentId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ docState: "reviewed" });
+    expect(response.statusCode).toBe(403);
+  });
+
+  test("rejects oversize tag values and too many tags", async () => {
+    const response = await request(app)
+      .patch(`/api/v1/documents/${documentId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ tags: ["x".repeat(31)] });
+    expect(response.statusCode).toBe(422);
+    const tooMany = await request(app)
+      .patch(`/api/v1/documents/${documentId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ tags: Array.from({ length: 21 }, (_, i) => `t${i}`) });
+    expect(tooMany.statusCode).toBe(422);
+  });
+
+  test("normalizeTags trims, lowercases, dedupes, drops blanks and caps at 20", () => {
+    const { normalizeTags } = require("../src/services/document.service");
+    const many = Array.from({ length: 30 }, (_, i) => `tag-${i}`);
+    const out = normalizeTags(many.concat([" Kitchen ", "kitchen", "", "  ", "high value"]));
+    expect(out).toHaveLength(20);
+    expect(out[0]).toBe("tag-0");
+    expect(out).not.toContain("Kitchen");
+    expect(out.slice(0, 20)).not.toContain("");
+    // A short input: blanks and duplicates collapse, casing normalizes.
+    expect(normalizeTags([" Home ", "HOME", "", "office"])).toEqual(["home", "office"]);
+    expect(normalizeTags("not-an-array")).toEqual([]);
+  });
+});
+
 describe("Document view proxy", () => {
   let token;
   let documentId;

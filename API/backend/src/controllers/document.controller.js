@@ -51,6 +51,27 @@ async function getDocumentById(req, res, next) {
   }
 }
 
+// Phase 4 §13/§14 — update organization + verification fields (docState,
+// verified, tags, notes, documentType) on an existing document.
+async function updateDocument(req, res, next) {
+  try {
+    const existing = await documentService.getDocumentById(req.params.documentId, req.user.userId);
+    // Same conditional product-scope check as getDocumentById/deleteDocument:
+    // on the product-scoped mount a document must belong to that product.
+    if (req.params.productId && (!existing.productId || existing.productId.toString() !== req.params.productId)) {
+      return next(new AppError("Forbidden", 403));
+    }
+    const data = await documentService.updateDocument(
+      req.params.documentId,
+      req.user.userId,
+      req.body
+    );
+    return sendSuccess(res, data, "Document updated");
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function deleteDocument(req, res, next) {
   try {
     const data = await documentService.getDocumentById(req.params.documentId, req.user.userId);
@@ -137,6 +158,7 @@ module.exports = {
   getDocumentById,
   viewDocument,
   deleteDocument,
+  updateDocument,
   runDocumentOcr,
   confirmDocumentProduct
 };

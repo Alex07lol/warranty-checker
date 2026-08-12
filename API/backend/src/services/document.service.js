@@ -313,6 +313,43 @@ async function confirmProductFromDocument(documentId, userId, data, scopeProduct
   return { product, document };
 }
 
+// Normalize user-supplied tags: trim, lowercase, drop blanks, dedupe, cap at
+// 20 — mirrors the product tag normalization so both stay user-scoped and
+// consistently cased for filtering.
+function normalizeTags(tags) {
+  if (!Array.isArray(tags)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const raw of tags) {
+    const tag = String(raw || "").trim().toLowerCase();
+    if (!tag || tag.length > 30 || seen.has(tag)) continue;
+    seen.add(tag);
+    out.push(tag);
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
+// Phase 4 §13/§14 — partial update of organization + verification fields
+// (docState, verified, tags, notes, documentType). Ownership is enforced via
+// getDocumentById before any write; only whitelisted fields are applied.
+async function updateDocument(documentId, userId, data) {
+  const document = await getDocumentById(documentId, userId);
+  const patch = {};
+
+  if (data.documentType !== undefined) patch.documentType = data.documentType;
+  if (data.docState !== undefined) patch.docState = data.docState;
+  if (data.verified !== undefined) patch.verified = Boolean(data.verified);
+  if (data.notes !== undefined) patch.notes = data.notes;
+  if (data.tags !== undefined) patch.tags = normalizeTags(data.tags);
+
+  if (Object.keys(patch).length > 0) {
+    Object.assign(document, patch);
+    await document.save();
+  }
+  return document;
+}
+
 module.exports = {
   getDocumentsByProduct,
   getAllDocuments,
@@ -321,5 +358,7 @@ module.exports = {
   getDocumentStream,
   deleteDocument,
   runDocumentOcr,
-  confirmProductFromDocument
+  confirmProductFromDocument,
+  updateDocument,
+  normalizeTags
 };

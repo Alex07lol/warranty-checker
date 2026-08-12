@@ -5,7 +5,11 @@ const validate = require("../middleware/validate");
 const { uploadSingle } = require("../middleware/upload");
 const { validateFileSignature } = require("../middleware/fileSignature");
 const controller = require("../controllers/document.controller");
-const { uploadDocumentSchema, confirmProductSchema } = require("../validators/document.validator");
+const {
+  uploadDocumentSchema,
+  confirmProductSchema,
+  updateDocumentSchema
+} = require("../validators/document.validator");
 
 const router = express.Router({ mergeParams: true });
 
@@ -50,6 +54,9 @@ router.post(
   controller.confirmDocumentProduct
 );
 router.get("/:documentId", controller.getDocumentById);
+// Phase 4 §13/§14 — organization + verification (docState, verified, tags,
+// notes, documentType) partial update.
+router.patch("/:documentId", validate(updateDocumentSchema), controller.updateDocument);
 router.post("/:documentId/ocr", ocrLimiter, controller.runDocumentOcr);
 router.delete("/:documentId", controller.deleteDocument);
 
