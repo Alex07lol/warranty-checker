@@ -8,9 +8,14 @@ async function getDocuments(req, res, next) {
     // Standalone /api/v1/documents has no productId param → list every
     // document for the user (linked or standalone).
     const data = req.params.productId
-      ? await documentService.getDocumentsByProduct(req.params.productId, req.user.userId)
-      : await documentService.getAllDocuments(req.user.userId);
-    return sendSuccess(res, { documents: data }, "Documents retrieved");
+      ? await documentService.getDocumentsByProduct(
+          req.params.productId,
+          req.user.userId,
+          req.query.page,
+          req.query.limit
+        )
+      : await documentService.getAllDocuments(req.user.userId, req.query.page, req.query.limit);
+    return sendSuccess(res, data, "Documents retrieved");
   } catch (error) {
     return next(error);
   }

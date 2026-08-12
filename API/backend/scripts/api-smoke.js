@@ -354,7 +354,10 @@ async function stepDashboardNotifications() {
   // 21. Notifications (may be empty for a fresh user)
   await runStep("GET /notifications", async () => {
     const { json, ok } = await request("GET", "/notifications");
-    expectOk("GET /notifications", ok && Array.isArray(json?.data), ok ? `${json.data.length} notification(s)` : json?.message);
+    // Legacy shape (array) and paginated shape ({ notifications, pagination })
+    // are both accepted.
+    const list = Array.isArray(json?.data) ? json.data : json?.data?.notifications || [];
+    expectOk("GET /notifications", ok && Array.isArray(list), ok ? `${list.length} notification(s)` : json?.message);
   });
 
   // 22. Mark all as read

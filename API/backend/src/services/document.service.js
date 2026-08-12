@@ -3,6 +3,7 @@ const Document = require("../models/Document");
 const Product = require("../models/Product");
 const AppError = require("../utils/AppError");
 const cloudinary = require("../config/cloudinary");
+const { paginate, paginationMeta } = require("../utils/pagination");
 const { isOcrEligible, processDocument } = require("./ocr.service");
 const { createProductFromOcr } = require("./product.service");
 
@@ -63,10 +64,18 @@ async function assertProductOwner(productId, userId) {
   return product;
 }
 
-async function getDocumentsByProduct(productId, userId) {
+async function getDocumentsByProduct(productId, userId, page, limit) {
   await assertProductOwner(productId, userId);
   await recoverStuckOcrForUser(userId, productId);
-  return Document.find({ productId, userId }).sort({ uploadedAt: -1 });
+  const { page: safePage, limit: safeLimit, skip } = paginate(page, limit, {
+    defaultLimit: 100
+  });
+  const filter = { productId, userId };
+  const [documents, total] = await Promise.all([
+    Document.find(filter).sort({ uploadedAt: -1 }).skip(skip).limit(safeLimit).lean(),
+    Document.countDocuments(filter)
+  ]);
+  return { documents, pagination: paginationMeta(total, safePage, safeLimit) };
 }
 
 // Upload raw bytes to Cloudinary (resource_type auto: images stay images,
@@ -102,8 +111,10 @@ async function uploadDocument(productId, userId, fileData, documentType, notes) 
   // tests, fileData already carries path/public_id and no buffer — the legacy
   // shape is used as-is.)
   let fileBuffer = fileData.buffer;
+  let uploadedPublicId = null;
   if (fileBuffer) {
     const asset = await uploadToCloudinary(fileBuffer, userId, productId, documentType);
+    uploadedPublicId = asset.public_id;
     fileData = {
       ...fileData,
       // Match both the v3 (public_id/secure_url/bytes) and v4 (path/filename/
@@ -117,20 +128,34 @@ async function uploadDocument(productId, userId, fileData, documentType, notes) 
     };
   }
 
-  const document = await Document.create({
-    productId: productId || null,
-    userId,
-    documentType,
-    fileName: fileData.original_filename || fileData.originalname || fileData.filename || "document",
-    fileUrl: fileData.path || fileData.secure_url,
-    // multer-storage-cloudinary v4 only sets { path, size, filename } on
-    // req.file (filename === Cloudinary public_id). Accept both v3 and v4
-    // shapes so uploads don't fail on a missing public_id.
-    publicId: fileData.public_id || fileData.filename,
-    fileSize: fileData.bytes || fileData.size || 0,
-    mimeType: fileData.mimetype || "application/octet-stream",
-    notes
-  });
+  let document;
+  try {
+    document = await Document.create({
+      productId: productId || null,
+      userId,
+      documentType,
+      fileName: fileData.original_filename || fileData.originalname || fileData.filename || "document",
+      fileUrl: fileData.path || fileData.secure_url,
+      // multer-storage-cloudinary v4 only sets { path, size, filename } on
+      // req.file (filename === Cloudinary public_id). Accept both v3 and v4
+      // shapes so uploads don't fail on a missing public_id.
+      publicId: fileData.public_id || fileData.filename,
+      fileSize: fileData.bytes || fileData.size || 0,
+      mimeType: fileData.mimetype || "application/octet-stream",
+      notes
+    });
+  } catch (error) {
+    // Cloudinary succeeded but the DB write failed — clean up the uploaded
+    // asset so it can't be orphaned. Best-effort: a failed destroy only logs.
+    // (There is no transactional guarantee across Cloudinary and MongoDB;
+    // this shrinks the failure window instead of eliminating it.)
+    if (uploadedPublicId) {
+      cloudinary.uploader
+        .destroy(uploadedPublicId, { resource_type: "image" })
+        .catch(() => {});
+    }
+    throw error;
+  }
 
   // A product_photo can only update a product's thumbnail when it is attached
   // to one — standalone photo uploads are stored as documents only.
@@ -156,9 +181,17 @@ async function uploadDocument(productId, userId, fileData, documentType, notes) 
   return document;
 }
 
-async function getAllDocuments(userId) {
+async function getAllDocuments(userId, page, limit) {
   await recoverStuckOcrForUser(userId);
-  return Document.find({ userId }).sort({ uploadedAt: -1 });
+  const { page: safePage, limit: safeLimit, skip } = paginate(page, limit, {
+    defaultLimit: 100
+  });
+  const filter = { userId };
+  const [documents, total] = await Promise.all([
+    Document.find(filter).sort({ uploadedAt: -1 }).skip(skip).limit(safeLimit).lean(),
+    Document.countDocuments(filter)
+  ]);
+  return { documents, pagination: paginationMeta(total, safePage, safeLimit) };
 }
 
 async function getDocumentById(documentId, userId) {

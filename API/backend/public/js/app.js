@@ -1187,7 +1187,9 @@ async function loadNotifications() {
   }
   try {
     const notifs = await api('/notifications');
-    renderNotifications(Array.isArray(notifs) ? notifs : []);
+    // Legacy shape (plain array) and paginated shape ({ notifications, … }) are
+    // both accepted so the panel works against any deployed backend.
+    renderNotifications(Array.isArray(notifs) ? notifs : (notifs && notifs.notifications) || []);
   } catch (e) {
     list.innerHTML = '';
     list.appendChild(emptyState('⚠️', 'Could not load notifications', e.message));

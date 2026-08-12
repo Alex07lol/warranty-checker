@@ -6,7 +6,12 @@ async function getNotifications(req, res, next) {
     const unreadOnly = req.query.unreadOnly === "true";
     return sendSuccess(
       res,
-      await service.getNotifications(req.user.userId, unreadOnly),
+      await service.getNotifications(
+        req.user.userId,
+        unreadOnly,
+        req.query.page,
+        req.query.limit
+      ),
       "Notifications retrieved"
     );
   } catch (error) {

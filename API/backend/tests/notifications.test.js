@@ -41,7 +41,8 @@ describe("Notifications API", () => {
       .get("/api/v1/notifications")
       .set("Authorization", `Bearer ${token}`);
     expect(response.statusCode).toBe(200);
-    expect(Array.isArray(response.body.data)).toBe(true);
+    expect(Array.isArray(response.body.data.notifications)).toBe(true);
+    expect(response.body.data.pagination.total).toBe(0);
   });
 
   test("seeds notifications directly and lists them", async () => {
@@ -61,8 +62,9 @@ describe("Notifications API", () => {
       .get("/api/v1/notifications")
       .set("Authorization", `Bearer ${token}`);
     expect(response.statusCode).toBe(200);
-    expect(response.body.data).toHaveLength(1);
-    expect(response.body.data[0].title).toBe("Warranty expires soon");
+    expect(response.body.data.notifications).toHaveLength(1);
+    expect(response.body.data.notifications[0].title).toBe("Warranty expires soon");
+    expect(response.body.data.pagination.total).toBe(1);
   });
 
   test("filters unread notifications", async () => {
@@ -70,7 +72,33 @@ describe("Notifications API", () => {
       .get("/api/v1/notifications?unreadOnly=true")
       .set("Authorization", `Bearer ${token}`);
     expect(response.statusCode).toBe(200);
-    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data.notifications).toHaveLength(1);
+  });
+
+  test("paginates notifications", async () => {
+    const product = await Product.findOne({ userId });
+    const extra = [
+      { userId, productId: product._id, notificationType: "warranty_expiry", title: "N1", message: "m1" },
+      { userId, productId: product._id, notificationType: "warranty_expiry", title: "N2", message: "m2" },
+      { userId, productId: product._id, notificationType: "warranty_expiry", title: "N3", message: "m3" }
+    ];
+    await Notification.insertMany(extra);
+
+    const response = await request(app)
+      .get("/api/v1/notifications?page=1&limit=2")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.notifications).toHaveLength(2);
+    expect(response.body.data.pagination).toMatchObject({ page: 1, limit: 2, total: 4 });
+
+    const page2 = await request(app)
+      .get("/api/v1/notifications?page=2&limit=2")
+      .set("Authorization", `Bearer ${token}`);
+    expect(page2.body.data.notifications).toHaveLength(2);
+    expect(page2.body.data.pagination.page).toBe(2);
+
+    // Remove the extras so later tests start from a clean list again.
+    await Notification.deleteMany({ title: { $in: ["N1", "N2", "N3"] } });
   });
 
   test("marks a notification as read", async () => {
@@ -97,7 +125,7 @@ describe("Notifications API", () => {
     const after = await request(app)
       .get("/api/v1/notifications")
       .set("Authorization", `Bearer ${token}`);
-    expect(after.body.data).toHaveLength(0);
+    expect(after.body.data.notifications).toHaveLength(0);
   });
 
   test("creates warranty expiry notifications for products expiring on a reminder day", async () => {

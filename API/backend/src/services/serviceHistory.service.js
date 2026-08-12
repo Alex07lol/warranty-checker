@@ -21,7 +21,12 @@ async function assertOwner(productId, userId) {
 
 async function getServiceHistory(productId, userId) {
   await assertOwner(productId, userId);
-  return ServiceHistory.find({ productId, userId }).sort({ serviceDate: -1 });
+  // Product-scoped lists are naturally bounded; the cap only guards against
+  // pathological growth. Kept as a plain array (no pagination metadata) so
+  // the existing timeline UI contract is unchanged.
+  return ServiceHistory.find({ productId, userId })
+    .sort({ serviceDate: -1 })
+    .limit(200);
 }
 
 async function addServiceRecord(productId, userId, data) {

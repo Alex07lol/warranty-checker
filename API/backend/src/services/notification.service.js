@@ -3,16 +3,24 @@ const Product = require("../models/Product");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const mongoose = require("mongoose");
+const { paginate, paginationMeta } = require("../utils/pagination");
 
-async function getNotifications(userId, unreadOnly = false) {
+async function getNotifications(userId, unreadOnly = false, page, limit) {
   const filter = { userId };
   if (unreadOnly) {
     filter.isRead = false;
   }
-
-  return Notification.find(filter)
-    .populate("productId", "productName warrantyExpiryDate")
-    .sort({ createdAt: -1 });
+  const { page: safePage, limit: safeLimit, skip } = paginate(page, limit);
+  const [notifications, total] = await Promise.all([
+    Notification.find(filter)
+      .populate("productId", "productName warrantyExpiryDate")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean(),
+    Notification.countDocuments(filter)
+  ]);
+  return { notifications, pagination: paginationMeta(total, safePage, safeLimit) };
 }
 
 async function markAsRead(notificationId, userId) {
