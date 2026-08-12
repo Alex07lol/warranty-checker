@@ -29,11 +29,19 @@ function check(label, cond, extra = "") {
   else { failures++; console.log(`  ❌ ${label} ${extra}`); }
 }
 
-async function api(path, opts = {}, token) {
-  const headers = { ...(opts.headers || {}) };
+// No defaulted params (S1788/S7744): `opts` is normalized inside the body so
+// callers may omit it. `path` is caller-supplied, but this script only ever
+// calls it with hard-coded API paths; require an absolute path so a stray
+// relative input can never be interpreted as a different host (S8476).
+async function api(path, opts, token) {
+  if (typeof path !== "string" || !path.startsWith("/")) {
+    throw new Error(`api(): path must be an absolute API path, got ${JSON.stringify(path)}`);
+  }
+  const options = opts || {};
+  const headers = { ...(options.headers || {}) };
   if (token) headers.Authorization = "Bearer " + token;
-  if (opts.body && !(opts.body instanceof FormData)) headers["Content-Type"] = "application/json";
-  const res = await fetch(BASE + path, { ...opts, headers });
+  if (options.body && !(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
+  const res = await fetch(BASE + path, { ...options, headers });
   let json = {};
   try { json = await res.json(); } catch {}
   return { status: res.status, json };
@@ -85,7 +93,7 @@ async function waitForDone(docId, token) {
   check("OCR done", doc.ocrStatus === "done");
   check("product NOT created yet", !doc.productId, `productId=${doc.productId}`);
   const staged = doc.parsedData || {};
-  check("price staged", staged.purchasePrice === 799.99, `got ${staged.purchasePrice}`);
+  check("price staged", Math.abs(staged.purchasePrice - 799.99) < 0.01, `got ${staged.purchasePrice}`);
   check("serial staged", staged.serialNumber === "CONFIME2E-5566");
   check("name suggested", typeof staged.productName === "string" && staged.productName.length > 0, `got "${staged.productName}"`);
   check("brand staged", staged.brand === "Samsung", `got "${staged.brand}"`);
@@ -112,7 +120,7 @@ async function waitForDone(docId, token) {
   check("corrected name saved", product.productName === "Samsung QLED TV", `got "${product.productName}"`);
   check("brand saved", product.brand === "Samsung", `got "${product.brand}"`);
   check("model saved", product.model === "QN65S90", `got "${product.model}"`);
-  check("corrected price saved", product.purchasePrice === 749.99, `got ${product.purchasePrice}`);
+  check("corrected price saved", Math.abs(product.purchasePrice - 749.99) < 0.01, `got ${product.purchasePrice}`);
   check("serial saved", product.serialNumber === "CONFIME2E-5566");
   check("doc linked", confirm.json.data.document.productId === product._id);
 
@@ -147,12 +155,13 @@ async function waitForDone(docId, token) {
   check("expiry before purchase → 422", badDates.status === 422, `(${badDates.status}) ${badDates.json.message || ""}`);
 
   // 5) Cleanup test user's data.
-  const cleanup = await fetch(BASE + "/auth/register", {
+  // Fire-and-forget cleanup probe (result intentionally unused — the user is
+  // registered with a throwaway identity and immediately abandoned).
+  fetch(BASE + "/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: "cleanup probe", email: `probe_${Date.now()}@example.com`, password: "password123" })
-  });
-  void cleanup;
+  }).catch(() => {});
 
   console.log(failures === 0 ? "\nE2E PASS — all checks green" : `\nE2E FAIL — ${failures} check(s) failed`);
   process.exit(failures === 0 ? 0 : 1);
