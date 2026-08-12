@@ -10,7 +10,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const PUBLIC = path.join(__dirname, "..", "public");
-const SCRIPTS = ["utils.js", "api.js", "auth.js", "app.js"];
+const SCRIPTS = ["warranty.js", "utils.js", "api.js", "auth.js", "app.js"];
 
 function makeEl() {
   return {
@@ -100,7 +100,7 @@ function loadAppSandbox() {
 describe("Frontend module split", () => {
   test("index.html loads the scripts in dependency order", () => {
     const html = fs.readFileSync(path.join(PUBLIC, "index.html"), "utf8");
-    const order = ["/js/utils.js", "/js/api.js", "/js/auth.js", "/js/app.js"];
+    const order = ["/js/warranty.js", "/js/utils.js", "/js/api.js", "/js/auth.js", "/js/app.js"];
     let lastIndex = -1;
     for (const tag of order) {
       const idx = html.indexOf(tag);
@@ -116,6 +116,8 @@ describe("Frontend module split", () => {
     const { sandbox, context, onDomContentLoaded } = loadAppSandbox();
 
     const mustBeFunction = [
+      // warranty.js
+      "warrantyStatusOf", "statusLabel",
       // utils.js
       "toast", "escapeHtml", "fmtMoney", "fmtDate", "animateCountUp", "warrantyInfo",
       "productImage", "emptyState", "skeletonProductCards", "skeletonLineCards",

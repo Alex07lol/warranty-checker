@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Product = require("../models/Product");
 const AppError = require("../utils/AppError");
+const { warrantyStatusOf, primaryWarrantyStatus } = require("./warranty.service");
 
 function assertObjectId(id) {
   if (!mongoose.isValidObjectId(id)) {
@@ -24,6 +25,8 @@ async function getAllProducts(userId, page = 1, limit = 20, sortBy = "createdAt"
     Product.countDocuments(filter)
   ]);
 
+  products.forEach(attachWarrantyStatus);
+
   return {
     products,
     total,
@@ -44,6 +47,7 @@ async function getProductById(productId, userId) {
     throw new AppError("Product does not belong to authenticated user", 403);
   }
 
+  attachWarrantyStatus(product);
   return product;
 }
 
@@ -57,16 +61,17 @@ function normalizeSerial(data) {
 }
 
 // Phase 4: validate additional warranty periods. Every period with both
-// dates must have expiry > start; periods without dates are left for the
-// status engine. Empty-string fields are normalized away so an array of
-// blank rows doesn't persist noise.
+// dates must have expiry > start. Empty-string fields are normalized away
+// so an array of blank rows doesn't persist noise, and each surviving
+// period's `status` is derived by the canonical status engine (§5) rather
+// than stored blind.
 function normalizeWarranties(data) {
   const raw = Array.isArray(data.warranties) ? data.warranties : [];
   if (!raw.length) return data;
   const warranties = raw
     .map((w) => {
       const clean = { ...w };
-      ["type", "provider", "coverage", "notes", "status"].forEach((k) => {
+      ["type", "provider", "coverage", "notes"].forEach((k) => {
         if (clean[k] === "") delete clean[k];
       });
       if (clean.startDate && clean.expiryDate) {
@@ -74,6 +79,7 @@ function normalizeWarranties(data) {
           throw new AppError("Each warranty period's expiry must be after its start date", 422);
         }
       }
+      clean.status = warrantyStatusOf(clean).status;
       return clean;
     })
     // Drop rows that are empty after cleaning (only schema defaults remain).
@@ -92,10 +98,12 @@ async function createProduct(userId, data) {
     }
   }
 
-  return Product.create({
+  const product = await Product.create({
     ...data,
     userId
   });
+  attachWarrantyStatus(product);
+  return product;
 }
 
 async function updateProduct(productId, userId, data) {
@@ -112,7 +120,17 @@ async function updateProduct(productId, userId, data) {
 
   Object.assign(product, data);
   await product.save();
+  attachWarrantyStatus(product);
   return product;
+}
+
+// Stamp the canonical primary warranty status onto a product document so
+// every product response (create, update, list, detail) carries the same
+// engine-derived fields instead of each consumer re-deriving state (§5).
+function attachWarrantyStatus(product) {
+  const s = primaryWarrantyStatus(product);
+  product._doc.warrantyStatus = s.status;
+  product._doc.warrantyStatusLabel = s.label;
 }
 
 async function softDeleteProduct(productId, userId) {
