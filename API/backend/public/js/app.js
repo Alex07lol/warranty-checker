@@ -951,6 +951,7 @@ function intelligenceCard(f) {
 // --- Documents ---
 async function loadDetailDocs() {
   const box = document.getElementById('detail-docs');
+  if (!box) return; // detail overlay is closed/absent — nothing to render
   box.innerHTML = '';
   box.appendChild(skeletonLineCards(2));
   if (isGuest()) {
@@ -972,6 +973,45 @@ function ocrBadgeClass(status) {
   return map[status] || 'ocr-skipped';
 }
 
+// Phase 4 §13/§14 — document organization states.
+const DOC_STATES = ['unreviewed', 'reviewed', 'important', 'archived'];
+const DOC_STATE_LABELS = { unreviewed: 'Unreviewed', reviewed: 'Reviewed', important: 'Important', archived: 'Archived' };
+
+function docStateClass(state) {
+  const map = { unreviewed: 'doc-state-unreviewed', reviewed: 'doc-state-reviewed', important: 'doc-state-important', archived: 'doc-state-archived' };
+  return map[state] || 'doc-state-unreviewed';
+}
+
+// PATCH a document's organization/verification fields, then re-render the
+// document list the card came from (scan view passes source='scan', the
+// product detail overlay source='detail').
+async function patchDoc(docId, body, source) {
+  if (!requireAuth('update a document')) return;
+  try {
+    await api('/documents/' + docId, { method: 'PATCH', body: JSON.stringify(body) });
+    toast('Document updated');
+    if (source === 'scan') loadScanDocs(); else loadDetailDocs();
+  } catch (e) {
+    toast('Could not update document: ' + e.message, 'error');
+  }
+}
+
+function setDocState(docId, docState, source) {
+  if (!DOC_STATES.includes(docState)) return;
+  patchDoc(docId, { docState }, source);
+}
+
+// Fetch the current verified flag so the toggle is always correct, then flip it.
+async function toggleDocVerified(docId, source) {
+  if (!requireAuth('verify a document')) return;
+  try {
+    const d = await api('/documents/' + docId);
+    await patchDoc(docId, { verified: !d.verified }, source);
+  } catch (e) {
+    toast('Could not update document: ' + e.message, 'error');
+  }
+}
+
 function docCard(d, showProduct) {
   const parsed = [];
   // The API serializes OCR results as parsedData (ocrData is kept as a
@@ -983,7 +1023,24 @@ function docCard(d, showProduct) {
   if (ocr.purchaseStore) parsed.push('🏪 ' + ocr.purchaseStore);
   if (ocr.purchaseDate) parsed.push('🗓️ ' + fmtDate(ocr.purchaseDate));
   const canRetry = d.ocrStatus === 'failed' || d.ocrStatus === 'skipped';
-  let actions = '<button class="btn btn-ghost btn-small" onclick="viewDoc(\'' + d._id + '\')">View</button>';
+  const source = showProduct ? 'scan' : 'detail';
+
+  // Phase 4 §14 — manual verification (never implied by OCR success).
+  const verifiedBadge = d.verified
+    ? '<span class="verified-badge" title="You marked this document as verified">✓ Verified</span>'
+    : '';
+  const stateChip = '<span class="doc-state-chip ' + docStateClass(d.docState) + '">' +
+    escapeHtml(DOC_STATE_LABELS[d.docState] || 'Unreviewed') + '</span>';
+
+  // Phase 4 §13 — state selector + verify toggle, then the existing actions.
+  const stateOptions = DOC_STATES.map(s =>
+    '<option value="' + s + '"' + (s === d.docState ? ' selected' : '') + '>' + s + '</option>'
+  ).join('');
+  let actions = '<select class="doc-state-select" aria-label="Document state" title="Document state" onchange="setDocState(\'' + d._id + '\', this.value, \'' + source + '\')">' + stateOptions + '</select>';
+  actions += d.verified
+    ? '<button class="btn btn-ghost btn-small" onclick="toggleDocVerified(\'' + d._id + '\', \'' + source + '\')">Unverify</button>'
+    : '<button class="btn btn-ghost btn-small" onclick="toggleDocVerified(\'' + d._id + '\', \'' + source + '\')">✓ Verify</button>';
+  actions += '<button class="btn btn-ghost btn-small" onclick="viewDoc(\'' + d._id + '\')">View</button>';
   if (canRetry) actions += '<button class="btn btn-ghost btn-small" onclick="retryDocOcr(\'' + d._id + '\')">⟳ Retry OCR</button>';
   actions += '<button class="btn btn-danger btn-small" onclick="deleteDoc(\'' + d._id + '\')">Delete</button>';
 
@@ -992,13 +1049,19 @@ function docCard(d, showProduct) {
     ? '<span class="doc-product-tag">📦 Attached to product</span>'
     : '';
 
+  const tagChips = (d.tags && d.tags.length)
+    ? '<div class="doc-tags">' + d.tags.map(t => '<span class="doc-tag-chip">#' + escapeHtml(t) + '</span>').join('') + '</div>'
+    : '';
+
   return '<div class="doc-item">' +
     '<div class="doc-item-head">' +
       '<span class="doc-type-chip">' + escapeHtml(d.documentType || 'other') + '</span>' +
       '<span class="doc-filename">' + escapeHtml(d.fileName) + '</span>' +
+      verifiedBadge + stateChip +
       '<span class="ocr-badge ' + ocrBadgeClass(d.ocrStatus) + '">' + escapeHtml(d.ocrStatus || 'skipped') + '</span>' +
     '</div>' +
     '<div class="doc-meta">' + fmtDate(d.uploadedAt || d.createdAt) + (d.fileSize ? ' · ' + Math.round(d.fileSize / 1024) + ' KB' : '') + productTag + '</div>' +
+    tagChips +
     (parsed.length ? '<div class="parsed-chips">' + parsed.map(c => '<span class="parsed-chip">' + escapeHtml(c) + '</span>').join('') + '</div>' : '') +
     '<div class="doc-actions">' + actions + '</div>' +
   '</div>';

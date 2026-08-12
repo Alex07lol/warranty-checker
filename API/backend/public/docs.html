@@ -158,7 +158,8 @@ var GROUPS = [
     name: 'Documents & OCR', endpoints: [
       { m: 'GET', p: '/api/v1/documents', auth: true, d: 'List all of the user’s documents (paginated, newest first).' },
       { m: 'POST', p: '/api/v1/documents', auth: true, d: 'Upload standalone (multipart: documentType + file ≤5 MB: JPEG/PNG/WEBP/PDF). OCR runs async for receipt/warranty_card. Rate-limited 10/min.' },
-      { m: 'GET', p: '/api/v1/documents/{documentId}', auth: true, d: 'Get one document incl. ocrStatus, parsedData.' },
+      { m: 'GET', p: '/api/v1/documents/{documentId}', auth: true, d: 'Get one document incl. ocrStatus, parsedData, docState, verified.' },
+      { m: 'PATCH', p: '/api/v1/documents/{documentId}', auth: true, d: 'Update organization + verification: docState (unreviewed/reviewed/important/archived), verified (manual — OCR never sets it), tags (≤20, normalized), notes, documentType.' },
       { m: 'GET', p: '/api/v1/documents/{documentId}/view', auth: true, d: 'Stream the original file bytes (works with restricted Cloudinary delivery).' },
       { m: 'POST', p: '/api/v1/documents/{documentId}/ocr', auth: true, d: 'Retry OCR. Rate-limited 15/10 min.' },
       { m: 'POST', p: '/api/v1/documents/{documentId}/confirm-product', auth: true, d: 'Create (or reuse by serial) a product from the reviewed OCR fields and link this document.' },

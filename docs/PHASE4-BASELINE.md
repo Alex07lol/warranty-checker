@@ -1,6 +1,6 @@
 # Phase 4 — Advanced Product Features: Baseline
 
-Status: **IN PROGRESS** — Tranches 1–6 shipped (data model, status engine, warranty intelligence, reminders & maintenance, filters & tags, claim prep & export).
+Status: **IN PROGRESS** — Tranches 1–7 shipped (data model, status engine, warranty intelligence, reminders & maintenance, filters & tags, claim prep & export, document verification & organization).
 
 ## Tranche 1 — Data model foundation (shipped)
 
@@ -146,13 +146,31 @@ Spec §15/§16:
   shape, RFC-4180 escaping (comma + embedded quotes), unknown-format
   fallback to JSON, cross-user emptiness, CSV helper units.
 
+## Tranche 7 — Document verification + organization (shipped)
+
+Spec §13/§14:
+
+- **`PATCH /api/v1/documents/:documentId`** — partial update of `docState`
+  (`unreviewed` / `reviewed` / `important` / `archived`), `verified`
+  (manual user assertion), `tags` (≤20, normalized: trimmed, lowercased,
+  deduped, blanks dropped), `notes` and `documentType`. Ownership-checked
+  (403 cross-user); unknown fields stripped by Joi; oversize values 422.
+- **Model** — `Document` gains `docState` (default `unreviewed`),
+  `verified` (default `false`) and `tags[]`. Verification is **never** set
+  by OCR or upload — `extracted ≠ verified` stays a hard separation.
+- **UI** — every document card (Scan view + product detail) now shows the
+  state chip, a ✓ Verified badge, #tag chips, and an inline state selector
+  + Verify/Unverify toggle; the list re-renders after each change.
+- **Tests** — 10 new: PATCH round-trip, partial-update preservation,
+  normalization units, invalid state 422, oversize/many tags 422,
+  cross-user 403, 404, and a default-state assertion proving OCR never
+  auto-verifies.
+
 ## Open tranches (mapped to the spec)
 
-6. **Document organization + verification** (§13, §14) — document states,
-   tags/notes, user-verified flag.
-7. **Secure sharing / family ownership** (§17, §18) — only if the architecture
+6. **Secure sharing / family ownership** (§17, §18) — only if the architecture
    supports it cleanly (shared ownership requires an auth-model review first).
-8. **Notification center + preferences** (§22, §23) — type-specific rendering,
+7. **Notification center + preferences** (§22, §23) — type-specific rendering,
    in-app preference toggles (email only if a provider is configured).
 
 ## Constraints carried forward

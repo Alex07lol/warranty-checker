@@ -710,6 +710,40 @@ paths:
                   data: { $ref: "#/components/schemas/Document" }
         "403":
           $ref: "#/components/responses/Forbidden"
+    patch:
+      tags: [Documents]
+      summary: Update document organization + verification (Phase 4 §13/§14)
+      description: >
+        Partial update of docState (unreviewed/reviewed/important/archived),
+        verified (manual user assertion — never implied by OCR), tags (max 20,
+        normalized), notes and documentType. Unknown fields are ignored.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                documentType: { type: string, enum: [receipt, warranty_card, product_photo, manual, other] }
+                docState: { type: string, enum: [unreviewed, reviewed, important, archived] }
+                verified: { type: boolean }
+                tags: { type: array, maxItems: 20, items: { type: string, maxLength: 30 } }
+                notes: { type: string, maxLength: 2000 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Document" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
     delete:
       tags: [Documents]
       summary: Delete a standalone document
@@ -1395,6 +1429,9 @@ components:
         fileSize: { type: integer }
         mimeType: { type: string }
         uploadedAt: { type: string, format: date-time }
+        docState: { type: string, enum: [unreviewed, reviewed, important, archived], description: Phase 4 §13 organization state }
+        verified: { type: boolean, description: Manual user verification — never set by OCR }
+        tags: { type: array, items: { type: string }, description: User-scoped, normalized (trimmed/lowercased/deduped, max 20) }
         notes: { type: string, nullable: true }
         ocrStatus: { type: string, enum: [pending, processing, done, failed, skipped] }
         ocrText: { type: string, nullable: true }
