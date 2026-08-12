@@ -24,18 +24,27 @@ function buildPdf(lines) {
 }
 
 let failures = 0;
-function check(label, cond, extra = "") {
+// `extra` can carry OCR/API data (prices, names, messages); sanitize it for
+// the terminal so control chars can't inject log lines (jssecurity:S5145).
+function safeExtra(v) {
+  return String(v == null ? "" : v).replace(/[\r\n\t]/g, " ").slice(0, 200);
+}
+function check(label, cond, extra) {
   if (cond) console.log(`  ✅ ${label}`);
-  else { failures++; console.log(`  ❌ ${label} ${extra}`); }
+  else { failures++; console.log(`  ❌ ${label} ${safeExtra(extra)}`); }
 }
 
+// Only these path shapes are ever called (all hard-coded in this script): an
+// absolute API path built from word chars, digits, slashes and hyphens.
+// Anything else — "..", "://", whitespace, query strings — is rejected
+// before it can reach the fetch URL (jssecurity:S7044/S8476).
+const API_PATH_RE = /^\/[A-Za-z0-9_\-/]*$/;
+
 // No defaulted params (S1788/S7744): `opts` is normalized inside the body so
-// callers may omit it. `path` is caller-supplied, but this script only ever
-// calls it with hard-coded API paths; require an absolute path so a stray
-// relative input can never be interpreted as a different host (S8476).
+// callers may omit it.
 async function api(path, opts, token) {
-  if (typeof path !== "string" || !path.startsWith("/")) {
-    throw new Error(`api(): path must be an absolute API path, got ${JSON.stringify(path)}`);
+  if (typeof path !== "string" || !API_PATH_RE.test(path)) {
+    throw new Error(`api(): unsafe API path ${JSON.stringify(path)}`);
   }
   const options = opts || {};
   const headers = { ...(options.headers || {}) };
