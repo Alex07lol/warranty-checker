@@ -159,7 +159,7 @@
         if (v == null) return '—';
         return (cur || '$') + ' ' + Number(v).toLocaleString('en-US');
       }
-      function date(v) { return v ? v : '—'; }
+      function date(v) { return v || '—'; }
       function statusPill(s) {
         var label = s && s.warrantyStatusLabel ? s.warrantyStatusLabel : 'Unknown';
         return '<span class="status-pill ' + esc(s ? s.warrantyStatus : 'unknown') + '">' + esc(label) + '</span>';

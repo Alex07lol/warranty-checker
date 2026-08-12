@@ -228,7 +228,7 @@ function render(filter) {
   GROUPS.forEach(function (group) {
     var eps = group.endpoints.filter(function (ep) {
       if (!f) return true;
-      return (ep.m + ' ' + ep.p + ' ' + ep.d).toLowerCase().indexOf(f) !== -1;
+      return (ep.m + ' ' + ep.p + ' ' + ep.d).toLowerCase().includes(f);
     });
     if (!eps.length) return;
     any = true;

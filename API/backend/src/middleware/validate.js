@@ -9,7 +9,7 @@ function validate(schema) {
 
     if (error) {
       const errors = error.details.map((detail) => detail.message);
-      return next(new AppError("Validation failed", 422, errors));
+      return next(new AppError("Validation failed", 422, "validation", errors));
     }
 
     req.body = value;

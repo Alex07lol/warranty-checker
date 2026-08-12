@@ -16,7 +16,11 @@ const STATUS_TYPE = {
 };
 
 class AppError extends Error {
-  constructor(message, statusCode = 500, errors = [], type) {
+  // Non-default params first (S1788): explicit `type`, then defaulted
+  // `errors`. Callers that pass only a message/statusCode are unaffected;
+  // the single 3-arg caller (validate middleware) passes `type` positionally
+  // and lets `errors` default.
+  constructor(message, statusCode = 500, type, errors = []) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = true;
