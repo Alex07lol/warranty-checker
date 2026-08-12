@@ -83,6 +83,12 @@ async function updateNotificationPreferences(userId, prefs) {
   if (typeof prefs.maintenanceAlerts === "boolean") {
     user.notificationPreferences.maintenanceAlerts = prefs.maintenanceAlerts;
   }
+  if (typeof prefs.documentAlerts === "boolean") {
+    user.notificationPreferences.documentAlerts = prefs.documentAlerts;
+  }
+  if (typeof prefs.sharedAccessAlerts === "boolean") {
+    user.notificationPreferences.sharedAccessAlerts = prefs.sharedAccessAlerts;
+  }
   if (Array.isArray(prefs.reminderDays)) {
     user.notificationPreferences.reminderDays = prefs.reminderDays;
   }

@@ -15,6 +15,7 @@ const Share = require("../models/Share");
 const AppError = require("../utils/AppError");
 const { primaryWarrantyStatus } = require("./warranty.service");
 const { toDateString } = require("./export.service");
+const { createShareLinkNotification } = require("./notification.service");
 
 // Unauthorized users must not be able to distinguish a valid-but-expired
 // token from a random one, so every failure looks like a plain 404.
@@ -42,13 +43,17 @@ async function assertProductOwner(productId, userId) {
 }
 
 async function createShareLink(productId, userId, expiresInDays) {
-  await assertProductOwner(productId, userId);
+  const product = await assertProductOwner(productId, userId);
 
   const token = crypto.randomBytes(24).toString("hex"); // 48 hex chars, unguessable
   const expiresAt =
     expiresInDays && Number.isInteger(expiresInDays) ? new Date(Date.now() + expiresInDays * 86400000) : null;
 
   const share = await Share.create({ productId, userId, token, expiresAt });
+
+  // Phase 4 §22 — record share activity in the notification center
+  // (preference-gated; never fails the create).
+  await createShareLinkNotification(share, product.productName);
 
   return {
     shareId: share._id,

@@ -11,6 +11,17 @@ const notificationPreferencesSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    // Phase 4 §23 — document processing (OCR finished/failed) and share
+    // activity notifications. Both default on; users can toggle them in the
+    // notification settings card.
+    documentAlerts: {
+      type: Boolean,
+      default: true
+    },
+    sharedAccessAlerts: {
+      type: Boolean,
+      default: true
+    },
     reminderDays: {
       type: [Number],
       default: [30, 7, 1],

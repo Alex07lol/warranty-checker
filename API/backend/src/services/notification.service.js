@@ -5,6 +5,7 @@ const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const mongoose = require("mongoose");
 const { paginate, paginationMeta } = require("../utils/pagination");
+const logger = require("../utils/logger");
 
 async function getNotifications(userId, unreadOnly = false, page, limit) {
   const filter = { userId };
@@ -276,11 +277,79 @@ async function createMaintenanceNotifications() {
   return toCreate.length;
 }
 
+// Shared gate for preference-gated event notifications: a user whose stored
+// preferences predate the field (missing => on) or who explicitly enabled it
+// receives the notification; an explicit `false` suppresses it. Never throws.
+async function createGatedNotification(userId, gate, data) {
+  try {
+    const user = await User.findById(userId).select(`notificationPreferences.${gate}`);
+    if (!user || user.notificationPreferences[gate] === false) return null;
+    return Notification.create(data);
+  } catch (error) {
+    // A notification must never break the triggering operation (OCR, share
+    // creation) — log and move on.
+    logger.error(`Failed to create ${data.notificationType} notification`, {
+      userId: String(userId),
+      error: error.message
+    });
+    return null;
+  }
+}
+
+// Phase 4 §22/§23 — document processing notification. Fired when OCR finishes
+// (done or failed). Gated by the user's documentAlerts preference (default
+// true). Deduped on an *unread* notification for the same document, so retries
+// never spam the center — once the user reads/dismisses it, a later status
+// change may notify again.
+async function createDocumentProcessingNotification(document) {
+  try {
+    const existing = await Notification.exists({
+      userId: document.userId,
+      documentId: document._id,
+      notificationType: "document_processing",
+      isRead: false
+    });
+    if (existing) return null;
+
+    const succeeded = document.ocrStatus === "done";
+    return createGatedNotification(document.userId, "documentAlerts", {
+      userId: document.userId,
+      productId: document.productId || undefined,
+      documentId: document._id,
+      notificationType: "document_processing",
+      title: succeeded ? "Document processed" : "Document processing failed",
+      message: succeeded
+        ? `OCR finished reading ${document.fileName}.`
+        : `OCR could not read ${document.fileName}. Review it or re-upload the file.`
+    });
+  } catch (error) {
+    logger.error("Failed to create document processing notification", {
+      documentId: String(document._id),
+      error: error.message
+    });
+    return null;
+  }
+}
+
+// Phase 4 §22/§23 — share activity notification. Fired when the owner creates
+// a share link. Gated by sharedAccessAlerts (default true).
+async function createShareLinkNotification(share, productName) {
+  return createGatedNotification(share.userId, "sharedAccessAlerts", {
+    userId: share.userId,
+    productId: share.productId,
+    notificationType: "shared_access",
+    title: "Share link created",
+    message: `${productName || "Your product"} is now viewable by anyone with the link. Revoke it any time.`
+  });
+}
+
 module.exports = {
   getNotifications,
   markAsRead,
   markAllAsRead,
   deleteNotification,
   createExpiryNotifications,
-  createMaintenanceNotifications
+  createMaintenanceNotifications,
+  createDocumentProcessingNotification,
+  createShareLinkNotification
 };

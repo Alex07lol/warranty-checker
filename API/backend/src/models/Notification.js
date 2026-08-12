@@ -7,14 +7,29 @@ const notificationSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  // Optional: warranty/service reminders always carry the product; document
+  // processing notifications for standalone documents may not have one yet.
   productId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Product",
-    required: true
+    index: true
+  },
+  // Optional: set for document_processing notifications so the UI can link
+  // straight to the document.
+  documentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Document",
+    index: true
   },
   notificationType: {
     type: String,
-    enum: ["warranty_expiry", "service_reminder"],
+    enum: [
+      "warranty_expiry",
+      "service_reminder",
+      "document_processing",
+      "shared_access",
+      "system"
+    ],
     required: true
   },
   title: {

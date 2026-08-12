@@ -6,6 +6,7 @@ const Document = require("../models/Document");
 const cloudinary = require("../config/cloudinary");
 const logger = require("../utils/logger");
 const { applyOcrToProduct } = require("./product.service");
+const { createDocumentProcessingNotification } = require("./notification.service");
 
 const OCR_DOCUMENT_TYPES = new Set(["receipt", "warranty_card"]);
 const OCR_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -751,9 +752,21 @@ async function processDocument(document, options = {}) {
     document.ocrStatus = "done";
     await document.save();
 
+    // Best-effort product enrichment. A failure here (e.g. duplicate serial)
+    // must NOT flip the document to "failed" — the OCR itself succeeded.
     if (document.productId) {
-      await applyOcrToProduct(document.productId, parsed);
+      try {
+        await applyOcrToProduct(document.productId, parsed);
+      } catch (applyError) {
+        logger.error("OCR succeeded but product enrichment failed", {
+          ...fields,
+          error: applyError.message
+        });
+      }
     }
+    // Phase 4 §22 — notify the owner that their document finished processing
+    // (preference-gated; never breaks OCR).
+    await createDocumentProcessingNotification(document);
     ocrMetrics.completed += 1;
     logger.info("OCR job completed", {
       ...fields,
@@ -764,6 +777,8 @@ async function processDocument(document, options = {}) {
     document.ocrStatus = "failed";
     document.ocrError = error.message;
     await document.save();
+    // Phase 4 §22 — notify the owner that OCR failed so they can retry.
+    await createDocumentProcessingNotification(document);
     ocrMetrics.failed += 1;
     logger.error("OCR job failed", {
       ...fields,
