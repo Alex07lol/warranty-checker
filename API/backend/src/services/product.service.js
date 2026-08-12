@@ -56,8 +56,36 @@ function normalizeSerial(data) {
   return clean;
 }
 
+// Phase 4: validate additional warranty periods. Every period with both
+// dates must have expiry > start; periods without dates are left for the
+// status engine. Empty-string fields are normalized away so an array of
+// blank rows doesn't persist noise.
+function normalizeWarranties(data) {
+  const raw = Array.isArray(data.warranties) ? data.warranties : [];
+  if (!raw.length) return data;
+  const warranties = raw
+    .map((w) => {
+      const clean = { ...w };
+      ["type", "provider", "coverage", "notes", "status"].forEach((k) => {
+        if (clean[k] === "") delete clean[k];
+      });
+      if (clean.startDate && clean.expiryDate) {
+        if (new Date(clean.expiryDate) <= new Date(clean.startDate)) {
+          throw new AppError("Each warranty period's expiry must be after its start date", 422);
+        }
+      }
+      return clean;
+    })
+    // Drop rows that are empty after cleaning (only schema defaults remain).
+    .filter((w) =>
+      w.type || w.provider || w.coverage || w.notes || w.startDate || w.expiryDate
+    );
+  return { ...data, warranties };
+}
+
 async function createProduct(userId, data) {
   data = normalizeSerial(data);
+  data = normalizeWarranties(data);
   if (data.purchaseDate && data.warrantyExpiryDate) {
     if (new Date(data.warrantyExpiryDate) <= new Date(data.purchaseDate)) {
       throw new AppError("Warranty expiry date must be after purchase date", 422);
@@ -73,6 +101,7 @@ async function createProduct(userId, data) {
 async function updateProduct(productId, userId, data) {
   const product = await getProductById(productId, userId);
   data = normalizeSerial(data);
+  data = normalizeWarranties(data);
 
   const purchaseDate = data.purchaseDate || product.purchaseDate;
   const expiryDate = data.warrantyExpiryDate || product.warrantyExpiryDate;

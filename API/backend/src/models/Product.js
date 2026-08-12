@@ -1,5 +1,26 @@
 const mongoose = require("mongoose");
 
+// Phase 4: additional coverage periods on a product (standard + extended
+// warranties, accidental-damage protection, etc.). Each period carries the
+// raw dates and notes; the centralized warranty-status engine (Phase 4)
+// derives `status` from those dates so it stays consistent everywhere.
+const warrantyPeriodSchema = new mongoose.Schema(
+  {
+    type: { type: String, trim: true }, // e.g. "Standard warranty", "Extended warranty", "Accidental damage protection"
+    provider: { type: String, trim: true },
+    startDate: Date,
+    expiryDate: Date,
+    coverage: { type: String, trim: true },
+    status: {
+      type: String,
+      enum: ["not_started", "active", "expiring_soon", "expired", "unknown"],
+      default: "unknown"
+    },
+    notes: { type: String, trim: true }
+  },
+  { _id: true }
+);
+
 const productSchema = new mongoose.Schema(
   {
     userId: {
@@ -33,10 +54,34 @@ const productSchema = new mongoose.Schema(
     currency: String,
     purchaseStore: String,
     serialNumber: String,
+    // Primary warranty (legacy fields — kept as the single source for the
+    // existing dashboard/expiry queries). Additional periods live in
+    // `warranties`; both remain valid and backward compatible.
     warrantyExpiryDate: Date,
     warrantyPeriodMonths: {
       type: Number,
       min: 1
+    },
+    // Phase 4: warranty provider / manufacturer details.
+    warrantyProvider: { type: String, trim: true },
+    warrantyProviderType: {
+      type: String,
+      enum: ["manufacturer", "retailer", "third_party", "extended", "unknown"],
+      default: undefined
+    },
+    warrantyContact: { type: String, trim: true },
+    warrantyWebsite: { type: String, trim: true },
+    // Phase 4: product lifecycle state (Owned by default). Changing this
+    // never destroys warranty/document/service history.
+    lifecycleStatus: {
+      type: String,
+      enum: ["owned", "in_use", "stored", "under_repair", "sold", "gifted", "disposed"],
+      default: "owned"
+    },
+    // Phase 4: additional warranty/coverage periods.
+    warranties: {
+      type: [warrantyPeriodSchema],
+      default: []
     },
     notes: String,
     isDeleted: {
