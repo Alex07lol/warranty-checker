@@ -209,6 +209,8 @@ All endpoints are prefixed with `/api/v1`.
 
 For the complete API specification including request and response schemas see [docs/api-design.md](docs/api-design.md).
 
+There is also a machine-readable **OpenAPI 3.0.3** document at [`API/backend/docs/openapi.yaml`](API/backend/docs/openapi.yaml), served live at `/api/docs/openapi.yaml`, with a rendered quick-reference page at `/api/docs`.
+
 ---
 
 ## Roadmap

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WarrantyVault API — Developer Docs</title>
+<style>
+  :root {
+    --bg: #0b0d12; --surface: #141821; --surface2: #1b2130; --border: #2a3345;
+    --text: #e8ecf4; --muted: #8b94a7; --accent: #7c5cff; --accent2: #4cc9f0;
+    --green: #34d399; --amber: #fbbf24; --red: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    padding: 40px 24px 28px; border-bottom: 1px solid var(--border);
+    background: radial-gradient(1200px 400px at 20% -20%, rgba(124,92,255,.18), transparent 60%);
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+  h1 { margin: 0 0 6px; font-size: 30px; letter-spacing: -.02em; }
+  h1 .api { color: var(--accent); }
+  .sub { color: var(--muted); margin: 0 0 14px; max-width: 720px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+    border-radius: 999px; padding: 4px 12px; font-size: 13px;
+  }
+  .chip b { color: var(--text); font-weight: 600; }
+  main { padding: 28px 0 80px; }
+  .note {
+    background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    border-radius: 10px; padding: 14px 18px; margin: 0 0 28px; color: var(--muted); font-size: 14px;
+  }
+  .note code { color: var(--accent2); }
+  .search {
+    width: 100%; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-size: 15px; margin-bottom: 28px;
+    outline: none;
+  }
+  .search:focus { border-color: var(--accent); }
+  section { margin-bottom: 34px; }
+  h2 {
+    font-size: 17px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent2);
+    margin: 0 0 12px;
+  }
+  .ep {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 10px;
+  }
+  .ep-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .method {
+    font-family: ui-monospace, "Cascadia Code", monospace; font-size: 12px; font-weight: 700;
+    padding: 3px 9px; border-radius: 6px; letter-spacing: .04em;
+  }
+  .m-GET { background: rgba(52,211,153,.15); color: var(--green); }
+  .m-POST { background: rgba(76,201,240,.15); color: var(--accent2); }
+  .m-PUT { background: rgba(251,191,36,.15); color: var(--amber); }
+  .m-DELETE { background: rgba(248,113,113,.15); color: var(--red); }
+  .path {
+    font-family: ui-monospace, "Cascadia Code", monospace; font-size: 13.5px;
+    color: var(--text); word-break: break-all;
+  }
+  .auth-badge, .rate-badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border);
+    color: var(--muted); white-space: nowrap;
+  }
+  .auth-badge.secured { color: var(--amber); border-color: rgba(251,191,36,.35); }
+  .desc { color: var(--muted); font-size: 13.5px; margin: 8px 0 0; }
+  footer { border-top: 1px solid var(--border); padding: 22px 0 40px; color: var(--muted); font-size: 13.5px; }
+  a { color: var(--accent2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  kbd {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+    padding: 1px 6px; font-size: 12px; font-family: ui-monospace, monospace;
+  }
+  .empty { color: var(--muted); text-align: center; padding: 30px 0; display: none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>WarrantyVault <span class="api">API</span></h1>
+    <p class="sub">
+      REST API for the WarrantyVault ownership platform — products, warranty documents
+      with OCR, service history, expiry notifications, and a repair-centre finder.
+      All endpoints live under <code>/api/v1</code> and use a JSON envelope.
+    </p>
+    <div class="meta">
+      <span class="chip">Version <b>1.0.0</b></span>
+      <span class="chip">Auth <b>JWT Bearer</b></span>
+      <span class="chip">Base <b>/api/v1</b></span>
+      <span class="chip"><a href="/api/docs/openapi.yaml">OpenAPI spec (YAML)</a></span>
+      <span class="chip"><a href="/">← Back to app</a></span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="note">
+    <b>Auth:</b> send <code>Authorization: Bearer &lt;token&gt;</code> on every endpoint marked
+    <span class="auth-badge secured">🔒 auth</span>. Get a token from
+    <code>POST /api/v1/auth/login</code> or <code>/register</code>.
+    Every response carries an <code>X-Request-ID</code> header — include it when reporting an error.
+    Failures use a stable <code>error.type</code>:
+    <kbd>validation</kbd> <kbd>authentication</kbd> <kbd>authorization</kbd> <kbd>conflict</kbd>
+    <kbd>not_found</kbd> <kbd>rate_limited</kbd> <kbd>external</kbd> <kbd>internal</kbd>.
+    Collection endpoints accept <code>?page=&amp;limit=</code> and return
+    <code>pagination: { page, limit, total, totalPages }</code>.
+  </div>
+
+  <input class="search" id="q" type="search" placeholder="Filter endpoints… (e.g. documents, ocr, places)" autocomplete="off" aria-label="Filter endpoints">
+
+  <div id="groups"></div>
+  <p class="empty" id="empty">No endpoints match your filter.</p>
+</main>
+
+<footer>
+  <div class="wrap">
+    Machine-readable source of truth: <a href="/api/docs/openapi.yaml">/api/docs/openapi.yaml</a>
+    (OpenAPI 3.0.3) · Human reference: <a href="/api/docs/openapi.yaml" download>download spec</a> ·
+    Live service status: <a href="/health">/health</a> · <a href="/ready">/ready</a>
+  </div>
+</footer>
+
+<script>
+'use strict';
+// Static, hand-curated quick reference. The OpenAPI YAML at /api/docs/openapi.yaml
+// is the authoritative machine-readable spec; this page is a fast human summary.
+var GROUPS = [
+  {
+    name: 'Auth', endpoints: [
+      { m: 'POST', p: '/api/v1/auth/register', auth: true, d: 'Register: { name, email, password, confirmPassword } → { token, user }. Rate-limited 10/15 min.' },
+      { m: 'POST', p: '/api/v1/auth/login', auth: true, d: 'Log in: { email, password } → { token, user }. Rate-limited 10/15 min.' },
+      { m: 'POST', p: '/api/v1/auth/logout', auth: true, d: 'Stateless logout — client discards the token locally.' },
+      { m: 'GET', p: '/api/v1/auth/me', auth: true, d: 'Current user profile.' },
+      { m: 'PUT', p: '/api/v1/auth/change-password', auth: true, d: 'Change password: { currentPassword, newPassword, confirmNewPassword }. Rate-limited.' }
+    ]
+  },
+  {
+    name: 'Products', endpoints: [
+      { m: 'GET', p: '/api/v1/products', auth: true, d: 'List (paginated). Query: page, limit (≤100), sortBy (createdAt|updatedAt|productName|warrantyExpiryDate), order (asc|desc).' },
+      { m: 'POST', p: '/api/v1/products', auth: true, d: 'Create. Serial numbers are unique per user among active products (409 on duplicate).' },
+      { m: 'GET', p: '/api/v1/products/search?q=', auth: true, d: 'Full-text search over name, brand, model.' },
+      { m: 'GET', p: '/api/v1/products/expiring-soon', auth: true, d: 'Products expiring within 30 days.' },
+      { m: 'GET', p: '/api/v1/products/{id}', auth: true, d: 'Get one product (owner only).' },
+      { m: 'PUT', p: '/api/v1/products/{id}', auth: true, d: 'Update a product. Expiry must be after purchase date.' },
+      { m: 'DELETE', p: '/api/v1/products/{id}', auth: true, d: 'Soft-delete (keeps history).' }
+    ]
+  },
+  {
+    name: 'Documents & OCR', endpoints: [
+      { m: 'GET', p: '/api/v1/documents', auth: true, d: 'List all of the user’s documents (paginated, newest first).' },
+      { m: 'POST', p: '/api/v1/documents', auth: true, d: 'Upload standalone (multipart: documentType + file ≤5 MB: JPEG/PNG/WEBP/PDF). OCR runs async for receipt/warranty_card. Rate-limited 10/min.' },
+      { m: 'GET', p: '/api/v1/documents/{documentId}', auth: true, d: 'Get one document incl. ocrStatus, parsedData.' },
+      { m: 'GET', p: '/api/v1/documents/{documentId}/view', auth: true, d: 'Stream the original file bytes (works with restricted Cloudinary delivery).' },
+      { m: 'POST', p: '/api/v1/documents/{documentId}/ocr', auth: true, d: 'Retry OCR. Rate-limited 15/10 min.' },
+      { m: 'POST', p: '/api/v1/documents/{documentId}/confirm-product', auth: true, d: 'Create (or reuse by serial) a product from the reviewed OCR fields and link this document.' },
+      { m: 'DELETE', p: '/api/v1/documents/{documentId}', auth: true, d: 'Delete document + Cloudinary asset.' },
+      { m: 'GET', p: '/api/v1/products/{productId}/documents', auth: true, d: 'List documents for a product (paginated).' },
+      { m: 'POST', p: '/api/v1/products/{productId}/documents', auth: true, d: 'Upload a document attached to a product (same rules as standalone).' },
+      { m: 'GET', p: '/api/v1/products/{productId}/documents/{documentId}', auth: true, d: 'Get a product-scoped document.' },
+      { m: 'GET', p: '/api/v1/products/{productId}/documents/{documentId}/view', auth: true, d: 'Stream file bytes (product-scoped).' },
+      { m: 'POST', p: '/api/v1/products/{productId}/documents/{documentId}/ocr', auth: true, d: 'Retry OCR (product-scoped).' },
+      { m: 'POST', p: '/api/v1/products/{productId}/documents/{documentId}/confirm-product', auth: true, d: 'Confirm product from OCR (product-scoped).' },
+      { m: 'DELETE', p: '/api/v1/products/{productId}/documents/{documentId}', auth: true, d: 'Delete a product-scoped document.' }
+    ]
+  },
+  {
+    name: 'Service History', endpoints: [
+      { m: 'GET', p: '/api/v1/products/{productId}/service-history', auth: true, d: 'List records (newest first, capped at 200).' },
+      { m: 'POST', p: '/api/v1/products/{productId}/service-history', auth: true, d: 'Add: { serviceDate, serviceType, serviceProvider?, cost?, currency?, description?, nextServiceDate? }.' },
+      { m: 'GET', p: '/api/v1/products/{productId}/service-history/{recordId}', auth: true, d: 'Get one record.' },
+      { m: 'PUT', p: '/api/v1/products/{productId}/service-history/{recordId}', auth: true, d: 'Update a record.' },
+      { m: 'DELETE', p: '/api/v1/products/{productId}/service-history/{recordId}', auth: true, d: 'Delete a record.' }
+    ]
+  },
+  {
+    name: 'Notifications', endpoints: [
+      { m: 'GET', p: '/api/v1/notifications', auth: true, d: 'List (paginated). Query: unreadOnly=true, page, limit.' },
+      { m: 'PUT', p: '/api/v1/notifications/read-all', auth: true, d: 'Mark all as read.' },
+      { m: 'PUT', p: '/api/v1/notifications/{id}/read', auth: true, d: 'Mark one as read.' },
+      { m: 'DELETE', p: '/api/v1/notifications/{id}', auth: true, d: 'Delete a notification.' }
+    ]
+  },
+  {
+    name: 'Dashboard', endpoints: [
+      { m: 'GET', p: '/api/v1/dashboard', auth: true, d: 'Totals + recent products + expiring-soon list.' }
+    ]
+  },
+  {
+    name: 'Places (repair centres)', endpoints: [
+      { m: 'GET', p: '/api/v1/places/nearby', auth: false, d: 'lat, lng, radius (1–50000 m), type, keyword. Rate-limited 120/15 min. 503 when GOOGLE_PLACES_API_KEY is unset.' },
+      { m: 'GET', p: '/api/v1/places/geocode', auth: false, d: 'Reverse-geocode lat/lng → address. Google, with Nominatim fallback (works keyless).' },
+      { m: 'GET', p: '/api/v1/places/details', auth: false, d: 'place_id → phone, hours, rating.' },
+      { m: 'GET', p: '/api/v1/places/photo', auth: false, d: 'reference + maxwidth → 302 redirect to the Google-hosted image.' }
+    ]
+  },
+  {
+    name: 'System', endpoints: [
+      { m: 'GET', p: '/health', auth: false, d: 'Liveness — always 200 while running. Includes uptime + OCR job metrics.' },
+      { m: 'GET', p: '/ready', auth: false, d: 'Readiness — 200 when MongoDB responds, 503 otherwise.' },
+      { m: 'GET', p: '/api/docs', auth: false, d: 'This page.' },
+      { m: 'GET', p: '/api/docs/openapi.yaml', auth: false, d: 'The machine-readable OpenAPI 3.0.3 document.' }
+    ]
+  }
+];
+
+var groupsEl = document.getElementById('groups');
+var emptyEl = document.getElementById('empty');
+var qEl = document.getElementById('q');
+
+function render(filter) {
+  groupsEl.innerHTML = '';
+  var any = false;
+  var f = (filter || '').toLowerCase().trim();
+  GROUPS.forEach(function (group) {
+    var eps = group.endpoints.filter(function (ep) {
+      if (!f) return true;
+      return (ep.m + ' ' + ep.p + ' ' + ep.d).toLowerCase().indexOf(f) !== -1;
+    });
+    if (!eps.length) return;
+    any = true;
+    var html = '<section><h2>' + group.name + '</h2>';
+    eps.forEach(function (ep) {
+      html += '<div class="ep"><div class="ep-row">' +
+        '<span class="method m-' + ep.m + '">' + ep.m + '</span>' +
+        '<span class="path">' + ep.p + '</span>' +
+        (ep.auth ? '<span class="auth-badge secured">🔒 auth</span>' : '<span class="auth-badge">public</span>') +
+        '</div><p class="desc">' + ep.d + '</p></div>';
+    });
+    html += '</section>';
+    groupsEl.insertAdjacentHTML('beforeend', html);
+  });
+  emptyEl.style.display = any ? 'none' : 'block';
+}
+
+qEl.addEventListener('input', function () { render(qEl.value); });
+render('');
+</script>
+</body>
+</html>

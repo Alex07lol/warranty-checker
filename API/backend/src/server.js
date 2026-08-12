@@ -1,3 +1,4 @@
+const path = require("node:path");
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -94,7 +95,8 @@ app.get("/", (req, res) => {
     message: "WarrantyVault API",
     data: {
       health: "/health",
-      docs: "/api/v1",
+      docs: "/api/docs",
+      openapi: "/api/docs/openapi.yaml",
       endpoints: [
         "/api/v1/auth",
         "/api/v1/products",
@@ -102,10 +104,23 @@ app.get("/", (req, res) => {
         "/api/v1/products/:productId/service-history",
         "/api/v1/documents",
         "/api/v1/notifications",
-        "/api/v1/dashboard"
+        "/api/v1/dashboard",
+        "/api/v1/places"
       ]
     }
   });
+});
+
+// Developer documentation: a rendered quick-reference page and the raw
+// OpenAPI 3.0.3 document (the machine-readable source of truth).
+// 302 (not 301): a permanent redirect would be cached forever by browsers,
+// so moving the docs page later would strand users on a stale target.
+app.get("/api/docs", (req, res) => {
+  res.redirect(302, "/docs.html");
+});
+
+app.get("/api/docs/openapi.yaml", (req, res) => {
+  res.type("application/yaml").sendFile(path.join(__dirname, "..", "docs", "openapi.yaml"));
 });
 
 // Liveness: the process is up. Always 200 while the process runs — this is

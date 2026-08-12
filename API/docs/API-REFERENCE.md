@@ -1,16 +1,20 @@
 # WarrantyVault API Reference & Usage Guide
 
-Companion to the Day 2 code package. This document is the single source of
-truth for **using** the WarrantyVault API — from curl, from the Flutter app, or
-from Postman — and is verified against the actual backend routes in
-`backend/src/routes`.
+Companion usage guide for the WarrantyVault API — from curl or from Postman —
+verified against the actual backend routes in `backend/src/routes`.
+
+> **Machine-readable spec:** the OpenAPI 3.0.3 document is the canonical
+> contract — `API/backend/docs/openapi.yaml`, served live at
+> `GET /api/docs/openapi.yaml`. A rendered quick-reference page is available
+> at `GET /api/docs`.
 
 - Base URL (API): `http://localhost:5000/api/v1`
 - Base URL (health): `http://localhost:5000/health`
-- Android emulator host: `http://10.0.2.2:5000/api/v1`
-- Physical device: replace `localhost` with the dev machine's LAN IP.
-- Every endpoint except `/health`, `POST /auth/register` and `POST /auth/login`
-  requires `Authorization: Bearer <token>`.
+- Every endpoint except `/health`, `/ready`, `/api/docs`, `/api/docs/openapi.yaml`,
+  `POST /auth/register` and `POST /auth/login` requires
+  `Authorization: Bearer <token>`.
+- Every response carries an `X-Request-ID` header — include it when reporting
+  an error (it matches `error.requestId` on failure payloads).
 
 ---
 

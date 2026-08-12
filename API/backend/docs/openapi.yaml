@@ -1,0 +1,1239 @@
+openapi: 3.0.3
+info:
+  title: WarrantyVault API
+  version: 1.0.0
+  description: |
+    WarrantyVault — a web platform for storing receipts, warranty cards,
+    manuals and service history for every product you own, with automatic
+    warranty-expiry tracking and in-app notifications.
+
+    * Every authenticated endpoint requires a JWT bearer token
+      (`Authorization: Bearer <token>`) obtained from `POST /api/v1/auth/login`
+      or `POST /api/v1/auth/register`.
+    * All responses use a consistent envelope: `{ success, message, data }`
+      for 2xx and `{ success, message, errors, error }` for failures.
+      `error` carries a stable `type` (validation / authentication /
+      authorization / conflict / not_found / rate_limited / external /
+      internal / bad_request) and the `requestId` for server-log tracing.
+    * Every response includes an `X-Request-ID` header — quote it when
+      reporting an error.
+    * Collection endpoints are paginated with `page` / `limit` query params
+      and return `{ …, pagination: { page, limit, total, totalPages } }`.
+
+    Source: `API/backend/docs/openapi.yaml` · Human reference:
+    `API/backend/docs/API-REFERENCE.md` · Interactive list: `GET /api/docs`.
+tags:
+  - name: Auth
+    description: Registration, login, session and password management.
+  - name: Products
+    description: Owned products with warranty metadata.
+  - name: Documents
+    description: Uploads (receipts, warranty cards, photos, manuals, PDFs) with OCR.
+  - name: Service History
+    description: Repairs/maintenance records per product.
+  - name: Notifications
+    description: Warranty-expiry notifications.
+  - name: Dashboard
+    description: Aggregated user statistics.
+  - name: Places
+    description: Google Places proxy (repair-centre search, geocoding, photos).
+  - name: System
+    description: Health, readiness and API documentation.
+
+servers:
+  - url: http://localhost:5000
+    description: Local development
+  - url: https://warrantyvault.onrender.com
+    description: Production (Render)
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new account
+      description: Rate-limited (10 per 15 min per IP). Returns a JWT + user profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, confirmPassword]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 100 }
+                email: { type: string, format: email }
+                password: { type: string, format: password, minLength: 8 }
+                confirmPassword: { type: string }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: Registration successful }
+                  data:
+                    type: object
+                    properties:
+                      token: { type: string, description: JWT bearer token }
+                      user: { $ref: "#/components/schemas/User" }
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in
+      description: Rate-limited (10 per 15 min per IP). Returns a JWT + user profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: Login successful }
+                  data:
+                    type: object
+                    properties:
+                      token: { type: string }
+                      user: { $ref: "#/components/schemas/User" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out
+      description: |
+        Stateless JWT logout — the client discards its token locally. There is
+        no server-side revocation; the endpoint exists to keep clients honest.
+      responses:
+        "200":
+          $ref: "#/components/responses/Success"
+
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the current user profile
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/User" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/change-password:
+    put:
+      tags: [Auth]
+      summary: Change password
+      description: Rate-limited (10 per 15 min per IP), authenticated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword, confirmNewPassword]
+              properties:
+                currentPassword: { type: string, format: password }
+                newPassword: { type: string, format: password, minLength: 8 }
+                confirmNewPassword: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/Success"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/products:
+    get:
+      tags: [Products]
+      summary: List products (paginated, sortable)
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: sortBy, in: query, schema: { type: string, enum: [createdAt, updatedAt, productName, warrantyExpiryDate], default: createdAt } }
+        - { name: order, in: query, schema: { type: string, enum: [asc, desc], default: desc } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/ProductList" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Products]
+      summary: Create a product
+      description: |
+        Serial numbers are unique per user among active products
+        (DB-enforced); a duplicate returns 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Product" }
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/products/search:
+    get:
+      tags: [Products]
+      summary: Full-text search over name, brand and model
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Product" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/products/expiring-soon:
+    get:
+      tags: [Products]
+      summary: Products expiring within the next 30 days
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Product" }
+
+  /api/v1/products/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, description: Mongo ObjectId } }
+    get:
+      tags: [Products]
+      summary: Get one product (owner only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Product" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Products]
+      summary: Update a product (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Product" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      tags: [Products]
+      summary: Soft-delete a product (owner only)
+      responses:
+        "200":
+          $ref: "#/components/responses/Success"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/products/{productId}/documents:
+    parameters:
+      - { name: productId, in: path, required: true, schema: { type: string, description: Mongo ObjectId } }
+    get:
+      tags: [Documents]
+      summary: List documents for a product (paginated)
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/DocumentList" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Documents]
+      summary: Upload a document for a product
+      description: |
+        Rate-limited (10 per minute per user). Eligible types (receipt,
+        warranty_card) are OCR'd asynchronously; PDFs get their text layer
+        read (scanned pages are rasterized, max 3 pages).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [documentType, file]
+              properties:
+                documentType:
+                  type: string
+                  enum: [receipt, warranty_card, product_photo, manual, other]
+                notes: { type: string, maxLength: 2000 }
+                file:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG, WEBP or PDF, max 5 MB (magic bytes verified)
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Document" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/products/{productId}/documents/{documentId}:
+    parameters:
+      - { name: productId, in: path, required: true, schema: { type: string } }
+      - { name: documentId, in: path, required: true, schema: { type: string, description: Mongo ObjectId } }
+    get:
+      tags: [Documents]
+      summary: Get one document (owner only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Document" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Documents]
+      summary: Delete a document (Cloudinary asset + DB row)
+      responses:
+        "200":
+          $ref: "#/components/responses/Success"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/products/{productId}/documents/{documentId}/view:
+    get:
+      tags: [Documents]
+      summary: Stream the original file bytes (owner only)
+      description: |
+        Streams the stored file through the server (Cloudinary Admin API),
+        so it works even when the account's media-delivery ACL blocks direct
+        URLs. Returns the raw file with an inline Content-Disposition.
+      parameters:
+        - { name: productId, in: path, required: true, schema: { type: string } }
+        - { name: documentId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: File bytes (application/pdf, image/jpeg, …)
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/products/{productId}/documents/{documentId}/ocr:
+    post:
+      tags: [Documents]
+      summary: Retry OCR on a document
+      description: Rate-limited (15 per 10 min per user).
+      parameters:
+        - { name: productId, in: path, required: true, schema: { type: string } }
+        - { name: documentId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Document" }
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/products/{productId}/documents/{documentId}/confirm-product:
+    post:
+      tags: [Documents]
+      summary: Link a document to a newly created product from OCR data
+      description: |
+        End of the review-and-confirm flow: creates (or reuses, by serial
+        number) a product from the user-confirmed OCR fields and links the
+        document to it. Only valid once OCR is `done` and the document is not
+        already linked.
+      parameters:
+        - { name: productId, in: path, required: true, schema: { type: string } }
+        - { name: documentId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConfirmProductInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      product: { $ref: "#/components/schemas/Product" }
+                      document: { $ref: "#/components/schemas/Document" }
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  # ── Standalone documents (no product required) ────────────────────────────
+  /api/v1/documents:
+    get:
+      tags: [Documents]
+      summary: List all of the user's documents (paginated)
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/DocumentList" }
+    post:
+      tags: [Documents]
+      summary: Upload a standalone document (no product yet)
+      description: Same rules as the product-scoped upload; OCR runs the same way.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [documentType, file]
+              properties:
+                documentType:
+                  type: string
+                  enum: [receipt, warranty_card, product_photo, manual, other]
+                notes: { type: string, maxLength: 2000 }
+                file: { type: string, format: binary, description: JPEG, PNG, WEBP or PDF, max 5 MB }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Document" }
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/documents/{documentId}:
+    parameters:
+      - { name: documentId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Documents]
+      summary: Get one standalone document
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Document" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [Documents]
+      summary: Delete a standalone document
+      responses:
+        "200":
+          $ref: "#/components/responses/Success"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/documents/{documentId}/view:
+    get:
+      tags: [Documents]
+      summary: Stream the original file bytes
+      responses:
+        "200":
+          description: File bytes
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/documents/{documentId}/ocr:
+    post:
+      tags: [Documents]
+      summary: Retry OCR on a standalone document
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Document" }
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/v1/documents/{documentId}/confirm-product:
+    post:
+      tags: [Documents]
+      summary: Create a product from a standalone document's OCR data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConfirmProductInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      product: { $ref: "#/components/schemas/Product" }
+                      document: { $ref: "#/components/schemas/Document" }
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/products/{productId}/service-history:
+    parameters:
+      - { name: productId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Service History]
+      summary: List service records for a product (capped at 200, newest first)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ServiceRecord" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Service History]
+      summary: Add a service record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ServiceRecordInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/ServiceRecord" }
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/products/{productId}/service-history/{recordId}:
+    parameters:
+      - { name: productId, in: path, required: true, schema: { type: string } }
+      - { name: recordId, in: path, required: true, schema: { type: string, description: Mongo ObjectId } }
+    get:
+      tags: [Service History]
+      summary: Get one service record
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/ServiceRecord" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Service History]
+      summary: Update a service record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ServiceRecordInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/ServiceRecord" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Service History]
+      summary: Delete a service record
+      responses:
+        "200":
+          $ref: "#/components/responses/Success"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications (paginated)
+      parameters:
+        - { name: unreadOnly, in: query, schema: { type: boolean, default: false } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/NotificationList" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notifications/read-all:
+    put:
+      tags: [Notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          $ref: "#/components/responses/Success"
+
+  /api/v1/notifications/{id}/read:
+    put:
+      tags: [Notifications]
+      summary: Mark one notification as read
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, description: Mongo ObjectId } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Notification" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/notifications/{id}:
+    delete:
+      tags: [Notifications]
+      summary: Delete a notification
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          $ref: "#/components/responses/Success"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Aggregated dashboard statistics
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Dashboard" }
+
+  /api/v1/places/nearby:
+    get:
+      tags: [Places]
+      summary: Nearby repair centres (Google Places proxy)
+      description: |
+        Rate-limited (120 per 15 min per IP). Lat/lng and radius are strictly
+        validated; radius is capped at 50,000 m. Returns the raw Google Places
+        Nearby Search payload. Requires GOOGLE_PLACES_API_KEY (503 otherwise).
+      parameters:
+        - { name: lat, in: query, required: true, schema: { type: number, minimum: -90, maximum: 90 } }
+        - { name: lng, in: query, required: true, schema: { type: number, minimum: -180, maximum: 180 } }
+        - { name: radius, in: query, required: true, schema: { type: integer, minimum: 1, maximum: 50000, default: 20000 } }
+        - { name: type, in: query, schema: { type: string, enum: [electronics_store, repair, store, shopping_mall, home_goods_store] } }
+        - name: keyword
+          in: query
+          schema:
+            type: string
+            maxLength: 80
+            description: "Allowed characters: letters, digits, spaces, dots, ampersands, plus and minus"
+      responses:
+        "200":
+          description: Google Places Nearby Search payload ({ results, status, … })
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      security: []
+
+  /api/v1/places/geocode:
+    get:
+      tags: [Places]
+      summary: Reverse-geocode lat/lng to a readable address
+      description: |
+        Tries Google first, falls back to OpenStreetMap Nominatim (which works
+        even without a Google key).
+      parameters:
+        - { name: lat, in: query, required: true, schema: { type: number, minimum: -90, maximum: 90 } }
+        - { name: lng, in: query, required: true, schema: { type: number, minimum: -180, maximum: 180 } }
+      responses:
+        "200":
+          description: Geocoding payload ({ results, status, … } or Nominatim shape)
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      security: []
+
+  /api/v1/places/details:
+    get:
+      tags: [Places]
+      summary: Google Place Details (phone, hours, rating)
+      parameters:
+        - { name: place_id, in: query, required: true, schema: { type: string, maxLength: 200, pattern: "^[A-Za-z0-9_-]+$" } }
+      responses:
+        "200":
+          description: Google Place Details payload ({ result, status, … })
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+      security: []
+
+  /api/v1/places/photo:
+    get:
+      tags: [Places]
+      summary: Redirect to a Google Places photo
+      parameters:
+        - { name: reference, in: query, required: true, schema: { type: string, maxLength: 200 } }
+        - { name: maxwidth, in: query, schema: { type: integer, minimum: 1, maximum: 1600, default: 400 } }
+      responses:
+        "302":
+          description: Redirect to the Google-hosted image
+        "400":
+          $ref: "#/components/responses/BadRequest"
+      security: []
+
+  /health:
+    get:
+      tags: [System]
+      summary: Liveness probe (Render health check)
+      description: Always 200 while the process runs. Includes uptime, request id and OCR job metrics.
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      uptime: { type: integer, example: 42 }
+                      requestId: { type: string }
+                      ocr:
+                        type: object
+                        properties:
+                          started: { type: integer }
+                          completed: { type: integer }
+                          failed: { type: integer }
+                          active: { type: integer }
+                          queued: { type: integer }
+                          maxConcurrent: { type: integer }
+
+  /ready:
+    get:
+      tags: [System]
+      summary: Readiness probe (MongoDB reachability)
+      description: 200 when MongoDB answers a ping, 503 otherwise. Leaks no connection details.
+      security: []
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      db: { type: string, enum: [up, down] }
+        "503":
+          description: Not ready
+
+  /api/docs:
+    get:
+      tags: [System]
+      summary: Developer documentation page
+      security: []
+      responses:
+        "302":
+          description: Redirects to the rendered documentation page
+
+  /api/docs/openapi.yaml:
+    get:
+      tags: [System]
+      summary: This OpenAPI specification (raw YAML)
+      security: []
+      responses:
+        "200":
+          description: The OpenAPI document
+          content:
+            application/yaml: { schema: { type: string } }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token from POST /api/v1/auth/login or /register.
+
+  responses:
+    Success:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success: { type: boolean, example: true }
+              message: { type: string }
+              data: { nullable: true }
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Authenticated but not the owner of the resource
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Duplicate resource (e.g. serial number already used)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ValidationError:
+      description: Validation failed (422)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Too many requests (429)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ServiceUnavailable:
+      description: Optional integration not configured or upstream unavailable (503)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string, example: Validation failed }
+        errors:
+          type: array
+          items: { type: string }
+        error:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [validation, authentication, authorization, conflict, not_found, rate_limited, external, internal, bad_request, operational]
+            requestId: { type: string, description: Matches the X-Request-ID response header }
+
+    Pagination:
+      type: object
+      properties:
+        page: { type: integer, example: 1 }
+        limit: { type: integer, example: 20 }
+        total: { type: integer, example: 137 }
+        totalPages: { type: integer, example: 7 }
+
+    User:
+      type: object
+      properties:
+        _id: { type: string, description: Mongo ObjectId }
+        name: { type: string }
+        email: { type: string, format: email }
+        isActive: { type: boolean }
+        profilePicture: { type: string, nullable: true }
+        notificationPreferences:
+          type: object
+          properties:
+            expiryAlerts: { type: boolean }
+            reminderDays:
+              type: array
+              items: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Product:
+      type: object
+      properties:
+        _id: { type: string }
+        userId: { type: string, description: Owner ObjectId }
+        productName: { type: string }
+        brand: { type: string }
+        model: { type: string }
+        category: { type: string }
+        purchaseDate: { type: string, format: date, nullable: true }
+        purchasePrice: { type: number, minimum: 0, nullable: true }
+        currency: { type: string, nullable: true }
+        purchaseStore: { type: string, nullable: true }
+        serialNumber: { type: string, nullable: true }
+        warrantyExpiryDate: { type: string, format: date, nullable: true }
+        warrantyPeriodMonths: { type: integer, nullable: true }
+        notes: { type: string, nullable: true }
+        isDeleted: { type: boolean }
+        thumbnailUrl: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ProductInput:
+      type: object
+      properties:
+        productName: { type: string, minLength: 1 }
+        brand: { type: string, maxLength: 100 }
+        model: { type: string, maxLength: 100 }
+        category: { type: string, maxLength: 100 }
+        purchaseDate: { type: string, format: date }
+        purchasePrice: { type: number, minimum: 0 }
+        currency: { type: string, maxLength: 10 }
+        purchaseStore: { type: string, maxLength: 200 }
+        serialNumber: { type: string, maxLength: 200 }
+        warrantyExpiryDate: { type: string, format: date }
+        warrantyPeriodMonths: { type: integer, minimum: 1 }
+        notes: { type: string, maxLength: 2000 }
+        thumbnailUrl: { type: string, format: uri }
+      description: productName is required on create; warrantyExpiryDate must be after purchaseDate.
+
+    ProductList:
+      type: object
+      properties:
+        products:
+          type: array
+          items: { $ref: "#/components/schemas/Product" }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    Document:
+      type: object
+      properties:
+        _id: { type: string }
+        productId: { type: string, nullable: true, description: null for standalone uploads }
+        userId: { type: string }
+        documentType: { type: string, enum: [receipt, warranty_card, product_photo, manual, other] }
+        fileName: { type: string }
+        fileUrl: { type: string }
+        publicId: { type: string, description: Cloudinary public id }
+        fileSize: { type: integer }
+        mimeType: { type: string }
+        uploadedAt: { type: string, format: date-time }
+        notes: { type: string, nullable: true }
+        ocrStatus: { type: string, enum: [pending, processing, done, failed, skipped] }
+        ocrText: { type: string, nullable: true }
+        parsedData:
+          type: object
+          nullable: true
+          properties:
+            warrantyExpiryDate: { type: string, format: date, nullable: true }
+            purchasePrice: { type: number, nullable: true }
+            serialNumber: { type: string, nullable: true }
+            purchaseStore: { type: string, nullable: true }
+            purchaseDate: { type: string, format: date, nullable: true }
+            productName: { type: string, nullable: true }
+            brand: { type: string, nullable: true }
+            model: { type: string, nullable: true }
+        ocrError: { type: string, nullable: true }
+
+    DocumentList:
+      type: object
+      properties:
+        documents:
+          type: array
+          items: { $ref: "#/components/schemas/Document" }
+        pagination: { $ref: "#/components/schemas/Pagination" }
+
+    ConfirmProductInput:
+      type: object
+      required: [productName]
+      properties:
+        productName: { type: string, minLength: 1, maxLength: 120 }
+        brand: { type: string, maxLength: 80 }
+        model: { type: string, maxLength: 120 }
+        serialNumber: { type: string, maxLength: 120 }
+        purchasePrice: { type: number, minimum: 0, nullable: true }
+        purchaseStore: { type: string, maxLength: 200 }
+        purchaseDate: { type: string, format: date, nullable: true }
+        warrantyExpiryDate: { type: string, format: date, nullable: true }
+
+    ServiceRecord:
+      type: object
+      properties:
+        _id: { type: string }
+        productId: { type: string }
+        userId: { type: string }
+        serviceDate: { type: string, format: date }
+        serviceType: { type: string, enum: [repair, maintenance, inspection, replacement, other] }
+        serviceProvider: { type: string, nullable: true }
+        cost: { type: number, minimum: 0, nullable: true }
+        currency: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        documentIds:
+          type: array
+          items: { type: string }
+        nextServiceDate: { type: string, format: date, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ServiceRecordInput:
+      type: object
+      required: [serviceDate, serviceType]
+      properties:
+        serviceDate: { type: string, format: date }
+        serviceType: { type: string, enum: [repair, maintenance, inspection, replacement, other] }
+        serviceProvider: { type: string, maxLength: 200 }
+        cost: { type: number, minimum: 0 }
+        currency: { type: string, maxLength: 10 }
+        description: { type: string, maxLength: 2000 }
+        documentIds:
+          type: array
+          items: { type: string }
+        nextServiceDate: { type: string, format: date }
+
+    Notification:
+      type: object
+      properties:
+        _id: { type: string }
+        userId: { type: string }
+        productId:
+          oneOf:
+            - type: object
+              properties:
+                _id: { type: string }
+                productName: { type: string }
+                warrantyExpiryDate: { type: string, format: date, nullable: true }
+            - type: string
+              nullable: true
+        notificationType: { type: string, enum: [warranty_expiry, service_reminder] }
+        title: { type: string }
+        message: { type: string }
+        isRead: { type: boolean }
+        isSent: { type: boolean }
+        scheduledAt: { type: string, format: date-time, nullable: true }
+        sentAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    NotificationList:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items: { $ref: "#/components/schemas/Notification" }
+        pagination: { $ref: "#/components/schemas/Pagination" }
+
+    Dashboard:
+      type: object
+      properties:
+        totalProducts: { type: integer }
+        expiringSoonCount: { type: integer }
+        totalDocuments: { type: integer }
+        unreadNotificationsCount: { type: integer }
+        recentProducts:
+          type: array
+          items: { $ref: "#/components/schemas/Product" }
+        expiringSoon:
+          type: array
+          items: { $ref: "#/components/schemas/Product" }
