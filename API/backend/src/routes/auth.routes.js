@@ -22,9 +22,13 @@ router.post("/register", authLimiter, validate(registerSchema), controller.regis
 router.post("/login", authLimiter, validate(loginSchema), controller.login);
 router.post("/logout", auth, controller.logout);
 router.get("/me", auth, controller.getMe);
+// change-password is a credential-sensitive endpoint: same per-IP limiter as
+// login/register so a leaked session can't be used to brute-force a new
+// password either.
 router.put(
   "/change-password",
   auth,
+  authLimiter,
   validate(changePasswordSchema),
   controller.changePassword
 );

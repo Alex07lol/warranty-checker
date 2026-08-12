@@ -3,10 +3,14 @@ const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const compression = require("compression");
+const mongoose = require("mongoose");
 const { PORT, NODE_ENV, CLIENT_URL } = require("./config/env");
 const connectDatabase = require("./config/database");
 const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
+const requestId = require("./middleware/requestId");
+const logger = require("./utils/logger");
+const { getOcrMetrics } = require("./services/ocr.service");
 
 const authRoutes = require("./routes/auth.routes");
 const productRoutes = require("./routes/product.routes");
@@ -40,7 +44,36 @@ app.use(cors({
   origin: CLIENT_URL === "*" ? true : CLIENT_URL,
   credentials: true
 }));
-app.use(morgan("combined"));
+// Request tracing: generate/echo X-Request-ID before anything logs.
+app.use(requestId);
+// Structured request log (one JSON line per request with the request id,
+// route, status and duration). Static assets and the root page are skipped —
+// they add noise, not signal.
+app.use(
+  morgan((tokens, req, res) =>
+    JSON.stringify({
+      level: "info",
+      ts: new Date().toISOString(),
+      msg: "http",
+      requestId: req.id,
+      method: tokens.method(req, res),
+      url: tokens.url(req, res),
+      status: Number(tokens.status(req, res)) || 0,
+      responseTimeMs:
+        tokens["response-time"](req, res) != null
+          ? Math.round(Number(tokens["response-time"](req, res)) * 10) / 10
+          : null,
+      remoteAddr: tokens["remote-addr"](req, res)
+    })
+  , {
+    skip: (req) =>
+      req.path === "/" ||
+      req.path.startsWith("/js/") ||
+      req.path.startsWith("/css/") ||
+      req.path.startsWith("/vendor/") ||
+      req.path === "/favicon.ico"
+  })
+);
 // gzip all text/json responses (HTML shell, API payloads, vendored JS).
 // 182 KB index.html ~> ~30 KB over the wire; skip tiny bodies where the
 // gzip overhead isn't worth it.
@@ -75,12 +108,42 @@ app.get("/", (req, res) => {
   });
 });
 
+// Liveness: the process is up. Always 200 while the process runs — this is
+// what Render's health check polls to decide the instance is alive.
 app.get("/health", (req, res) => {
   res.status(200).json({
     success: true,
     message: "WarrantyVault API is running",
-    data: null
+    data: {
+      uptime: Math.round(process.uptime()),
+      requestId: req.id,
+      ocr: getOcrMetrics()
+    }
   });
+});
+
+// Readiness: the process is up AND can do useful work (MongoDB reachable).
+// Returns 503 (not 500) when the database is unavailable so orchestrators
+// route traffic away while dependencies recover. Never leaks connection
+// details or credentials.
+app.get("/ready", async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error("not connected");
+    }
+    await mongoose.connection.db.admin().ping({ maxTimeMS: 3000 });
+    res.status(200).json({
+      success: true,
+      message: "Ready",
+      data: { db: "up" }
+    });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: "Not ready — database unavailable",
+      data: { db: "down" }
+    });
+  }
 });
 
 app.use("/api/v1/auth", authRoutes);
@@ -98,29 +161,68 @@ app.use(notFound);
 app.use(errorHandler);
 
 if (NODE_ENV !== "test") {
+  let server;
+  let expiryCron;
+
   connectDatabase()
     .then(() => {
-      process.stdout.write("MongoDB connected successfully.\n");
+      logger.info("MongoDB connected");
     })
     .catch((error) => {
-      process.stderr.write(`MongoDB connection failed: ${error.message}\nContinuing server startup (API calls requiring database will fail, but static frontend is available).\n`);
+      logger.warn("MongoDB connection failed — continuing (static frontend available)", {
+        error: error.message
+      });
     })
     .finally(() => {
-      app.listen(PORT, () => {
-        process.stdout.write(`WarrantyVault API listening on port ${PORT}\n`);
+      server = app.listen(PORT, () => {
+        logger.info("WarrantyVault API listening", { port: PORT });
       });
 
       // Daily at midnight: scan for warranties expiring on the configured
       // reminder days and create notifications for each user.
-      cron.schedule("0 0 * * *", async () => {
+      expiryCron = cron.schedule("0 0 * * *", async () => {
         try {
           const count = await createExpiryNotifications();
-          process.stdout.write(`Expiry notifications created: ${count}\n`);
+          logger.info("Expiry notifications created", { count });
         } catch (err) {
-          process.stderr.write(`Notification cron error: ${err.message}\n`);
+          logger.error("Notification cron error", { error: err.message });
         }
       });
     });
+
+  // Graceful shutdown: stop accepting new connections, stop scheduled jobs,
+  // close MongoDB, drain in-flight requests, then exit cleanly. A hard
+  // timeout force-exits if something refuses to drain.
+  let shuttingDown = false;
+  async function shutdown(signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info("Shutting down", { signal });
+
+    const forceExit = setTimeout(() => {
+      logger.error("Shutdown timed out — forcing exit");
+      process.exit(1);
+    }, 10000);
+    forceExit.unref();
+
+    if (server) {
+      server.close(async () => {
+        if (expiryCron) expiryCron.stop();
+        try {
+          await mongoose.disconnect();
+        } catch (error) {
+          logger.warn("Error disconnecting MongoDB", { error: error.message });
+        }
+        logger.info("Shutdown complete");
+        process.exit(0);
+      });
+    } else {
+      process.exit(0);
+    }
+  }
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
 module.exports = app;
