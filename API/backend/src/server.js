@@ -14,6 +14,7 @@ const documentRoutes = require("./routes/document.routes");
 const serviceHistoryRoutes = require("./routes/serviceHistory.routes");
 const notificationRoutes = require("./routes/notification.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
+const placesRoutes = require("./routes/places.routes");
 const cron = require("node-cron");
 const { createExpiryNotifications } = require("./services/notification.service");
 
@@ -90,122 +91,8 @@ app.use("/api/v1/documents", documentRoutes);
 app.use("/api/v1/products/:productId/service-history", serviceHistoryRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
-
-async function fetchJsonWithTimeout(url, headers = {}) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: { "Accept": "application/json", ...headers }
-    });
-    return await response.json();
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-// Google Places API proxy to avoid CORS issues
-app.get("/api/v1/places/nearby", async (req, res) => {
-  const { lat, lng, radius = 10000, type = "electronics_store", keyword = "repair" } = req.query;
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-
-  if (!lat || !lng) {
-    return res.status(400).json({ error: "lat and lng are required" });
-  }
-
-  try {
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&key=${apiKey}&type=${type}&keyword=${encodeURIComponent(keyword)}`;
-    const data = await fetchJsonWithTimeout(url);
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch from Google Places API", details: error.message });
-  }
-});
-
-// Reverse-geocode a lat/lng into a human-readable place name/address so the
-// app can show "Near Connaught Place, New Delhi" instead of raw coordinates.
-// Tries Google first; if the Geocoding API is disabled/empty for this key it
-// falls back to OpenStreetMap's free Nominatim reverse geocoder so the UI
-// always has a place name to display.
-app.get("/api/v1/places/geocode", async (req, res) => {
-  const { lat, lng } = req.query;
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-
-  if (!lat || !lng) {
-    return res.status(400).json({ error: "lat and lng are required" });
-  }
-
-  try {
-    let googleData = null;
-    try {
-      const googleUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${encodeURIComponent(lat)},${encodeURIComponent(lng)}&key=${apiKey}`;
-      googleData = await fetchJsonWithTimeout(googleUrl);
-    } catch (err) {
-      console.warn("Google Geocoding failed:", err.message);
-      googleData = null;
-    }
-
-    if (googleData?.status === "OK" && googleData?.results?.length) {
-      return res.json(googleData);
-    }
-
-    // Nominatim's public instance allows ~1 req/sec — fine for one lookup per
-    // repair-tab open, but keep it a fallback only (Google is the primary).
-    try {
-      const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=jsonv2&accept-language=en`;
-      const nomData = await fetchJsonWithTimeout(nominatimUrl, {
-        "User-Agent": "WarrantyVault/1.0 (warranty-tracker demo)"
-      });
-      if (nomData?.display_name) {
-        return res.json({ status: "OK", results: [{ formatted_address: nomData.display_name }] });
-      }
-    } catch (err) {
-      // Nominatim unavailable too — fall through to Google's original answer.
-      console.warn("Nominatim Geocoding failed:", err.message);
-    }
-
-    res.json(googleData || { status: "ERROR", results: [], error_message: "No reverse geocoding result" });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to reverse geocode location", details: error.message });
-  }
-});
-
-// Google Places Details proxy — enriches repair centres with real phone
-// numbers, full opening hours, review counts and the canonical Maps URL.
-app.get("/api/v1/places/details", async (req, res) => {
-  const placeId = req.query.place_id;
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-
-  if (!placeId) {
-    return res.status(400).json({ error: "place_id is required" });
-  }
-
-  try {
-    const fields = "formatted_phone_number,international_phone_number,website,opening_hours,user_ratings_total,rating";
-    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=${encodeURIComponent(fields)}&key=${apiKey}`;
-    const data = await fetchJsonWithTimeout(url);
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch place details", details: error.message });
-  }
-});
-
-// Serve Google Places store photos without exposing the API key to the
-// browser. Redirects to the signed photo URL so <img> tags can load it
-// cross-origin without any CORS concerns.
-app.get("/api/v1/places/photo", (req, res) => {
-  const { reference, maxwidth = 400 } = req.query;
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-
-  if (!reference) {
-    return res.status(400).json({ error: "reference is required" });
-  }
-
-  const width = Math.min(800, Math.max(100, Number(maxwidth) || 400));
-  const url = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${width}&photo_reference=${encodeURIComponent(reference)}&key=${apiKey}`;
-  res.redirect(url);
-});
+// Google Places proxy (rate-limited + fully validated — see places.routes.js).
+app.use("/api/v1/places", placesRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
