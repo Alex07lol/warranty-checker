@@ -48,7 +48,10 @@ function animateCountUp(el, target, duration = 500) {
   const prev = statAnimations.get(el);
   if (prev) cancelAnimationFrame(prev);
   el.classList.remove('count-up');
-  el.offsetWidth; // restart the CSS pop animation
+  // Force a reflow so the CSS pop animation restarts on repeat calls.
+  // getBoundingClientRect() is a function call (satisfies S905) that reads
+  // layout metrics; its return value is intentionally unused.
+  el.getBoundingClientRect();
   el.classList.add('count-up');
   const start = performance.now();
   const frame = (now) => {
@@ -284,5 +287,5 @@ async function copyToClipboard(text) {
   document.body.appendChild(ta);
   ta.select();
   document.execCommand('copy');
-  document.body.removeChild(ta);
+  ta.remove();
 }

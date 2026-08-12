@@ -284,8 +284,8 @@ function matchClientSide(p, filters) {
         !(filters.warrantyStatus === 'active' && status === 'safe')) return false;
   }
   if (filters.tags && filters.tags.length) {
-    const ptags = (p.tags || []).map(t => t.toLowerCase());
-    if (!filters.tags.every(t => ptags.includes(t))) return false;
+    const ptags = new Set((p.tags || []).map(t => t.toLowerCase()));
+    if (!filters.tags.every(t => ptags.has(t))) return false;
   }
   // Parity with the server: a price-range query excludes products with no
   // recorded price, so guest mode must too.
@@ -627,7 +627,7 @@ function renderDetailHeader(p) {
     if (p.purchaseDate && p.warrantyExpiryDate) {
       const pD = new Date(p.purchaseDate).getTime();
       const eD = new Date(p.warrantyExpiryDate).getTime();
-      const nD = new Date().getTime();
+      const nD = Date.now();
       if (!Number.isNaN(pD) && !Number.isNaN(eD) && eD > pD) {
         progCont.style.display = '';
         const total = eD - pD;
