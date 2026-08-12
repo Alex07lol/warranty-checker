@@ -21,7 +21,10 @@ const notificationRoutes = require("./routes/notification.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const placesRoutes = require("./routes/places.routes");
 const cron = require("node-cron");
-const { createExpiryNotifications } = require("./services/notification.service");
+const {
+  createExpiryNotifications,
+  createMaintenanceNotifications
+} = require("./services/notification.service");
 
 const app = express();
 
@@ -194,13 +197,21 @@ if (NODE_ENV !== "test") {
       });
 
       // Daily at midnight: scan for warranties expiring on the configured
-      // reminder days and create notifications for each user.
+      // reminder days AND service records due for maintenance, creating
+      // notifications for each user (Phase 4 §6/§7). Both run independently
+      // so a failure in one never blocks the other.
       expiryCron = cron.schedule("0 0 * * *", async () => {
         try {
           const count = await createExpiryNotifications();
           logger.info("Expiry notifications created", { count });
         } catch (err) {
-          logger.error("Notification cron error", { error: err.message });
+          logger.error("Expiry notification cron error", { error: err.message });
+        }
+        try {
+          const count = await createMaintenanceNotifications();
+          logger.info("Maintenance notifications created", { count });
+        } catch (err) {
+          logger.error("Maintenance notification cron error", { error: err.message });
         }
       });
     });

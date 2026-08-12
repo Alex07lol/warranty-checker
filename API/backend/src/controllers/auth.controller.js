@@ -45,10 +45,23 @@ async function changePassword(req, res, next) {
   }
 }
 
+async function updatePreferences(req, res, next) {
+  try {
+    const data = await authService.updateNotificationPreferences(
+      req.user.userId,
+      req.body
+    );
+    return sendSuccess(res, data, "Notification preferences updated");
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   register,
   login,
   logout,
   getMe,
-  changePassword
+  changePassword,
+  updatePreferences
 };

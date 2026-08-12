@@ -6,7 +6,8 @@ const controller = require("../controllers/auth.controller");
 const {
   registerSchema,
   loginSchema,
-  changePasswordSchema
+  changePasswordSchema,
+  updatePreferencesSchema
 } = require("../validators/auth.validator");
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.post("/register", authLimiter, validate(registerSchema), controller.regis
 router.post("/login", authLimiter, validate(loginSchema), controller.login);
 router.post("/logout", auth, controller.logout);
 router.get("/me", auth, controller.getMe);
+router.put("/preferences", auth, validate(updatePreferencesSchema), controller.updatePreferences);
 // change-password is a credential-sensitive endpoint: same per-IP limiter as
 // login/register so a leaked session can't be used to brute-force a new
 // password either.

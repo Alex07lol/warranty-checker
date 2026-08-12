@@ -18,8 +18,17 @@ const changePasswordSchema = Joi.object({
   confirmNewPassword: Joi.any().valid(Joi.ref("newPassword")).required()
 });
 
+// Phase 4 §6/§23: user-configurable reminder preferences. At least one field
+// must be present; unknown fields are rejected by Joi's default behavior.
+const updatePreferencesSchema = Joi.object({
+  expiryAlerts: Joi.boolean(),
+  maintenanceAlerts: Joi.boolean(),
+  reminderDays: Joi.array().items(Joi.number().integer().min(1).max(365)).max(10)
+}).min(1);
+
 module.exports = {
   registerSchema,
   loginSchema,
-  changePasswordSchema
+  changePasswordSchema,
+  updatePreferencesSchema
 };

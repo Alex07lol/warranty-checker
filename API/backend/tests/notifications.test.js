@@ -1,6 +1,9 @@
 const Notification = require("../src/models/Notification");
 const Product = require("../src/models/Product");
-const { createExpiryNotifications } = require("../src/services/notification.service");
+const {
+  createExpiryNotifications,
+  createMaintenanceNotifications
+} = require("../src/services/notification.service");
 const { app, request, startDb, stopDb, registerUser } = require("./helpers/setup");
 
 describe("Notifications API", () => {
@@ -153,5 +156,115 @@ describe("Notifications API", () => {
     expect(notification).not.toBeNull();
     expect(notification.title).toBe("Warranty expires in 30 days");
     expect(notification.message).toContain("Expiry Test Laptop");
+  });
+
+  test("creates maintenance reminders from nextServiceDate", async () => {
+    const product = await Product.create({
+      userId,
+      productName: "AC Unit",
+      purchaseDate: new Date("2024-01-01")
+    });
+    // Next service 30 days out at noon — lands in the day-30 reminder window.
+    const next = new Date();
+    next.setHours(12, 0, 0, 0);
+    next.setDate(next.getDate() + 30);
+
+    await request(app)
+      .post(`/api/v1/products/${product._id}/service-history`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        serviceDate: "2025-05-01",
+        serviceType: "maintenance",
+        nextServiceDate: next.toISOString().slice(0, 10)
+      });
+
+    const count = await createMaintenanceNotifications();
+    expect(count).toBeGreaterThanOrEqual(1);
+
+    const notification = await Notification.findOne({
+      userId,
+      productId: product._id,
+      notificationType: "service_reminder"
+    });
+    expect(notification).not.toBeNull();
+    expect(notification.title).toBe("Service due in 30 days");
+    expect(notification.message).toContain("AC Unit");
+
+    // Second run must not duplicate the reminder.
+    const again = await createMaintenanceNotifications();
+    const total = await Notification.countDocuments({
+      userId,
+      productId: product._id,
+      notificationType: "service_reminder"
+    });
+    expect(total).toBe(1);
+  });
+
+  test("respects disabled maintenance alerts", async () => {
+    await request(app)
+      .put("/api/v1/auth/preferences")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ maintenanceAlerts: false });
+
+    const next = new Date();
+    next.setHours(12, 0, 0, 0);
+    next.setDate(next.getDate() + 30);
+    const product = await Product.create({
+      userId,
+      productName: "Purifier",
+      purchaseDate: new Date("2024-01-01")
+    });
+    await request(app)
+      .post(`/api/v1/products/${product._id}/service-history`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        serviceDate: "2025-05-01",
+        serviceType: "maintenance",
+        nextServiceDate: next.toISOString().slice(0, 10)
+      });
+
+    const count = await createMaintenanceNotifications();
+    const total = await Notification.countDocuments({
+      userId,
+      productId: product._id,
+      notificationType: "service_reminder"
+    });
+    expect(total).toBe(0);
+
+    // Re-enable so later tests (and the user's account) behave normally.
+    await request(app)
+      .put("/api/v1/auth/preferences")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ maintenanceAlerts: true });
+  });
+
+  test("updates notification preferences via the API", async () => {
+    const response = await request(app)
+      .put("/api/v1/auth/preferences")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ expiryAlerts: false, reminderDays: [14, 7, 1] });
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.notificationPreferences.expiryAlerts).toBe(false);
+    expect(response.body.data.notificationPreferences.reminderDays).toEqual([14, 7, 1]);
+
+    // Restore defaults for the account.
+    await request(app)
+      .put("/api/v1/auth/preferences")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ expiryAlerts: true, reminderDays: [30, 7, 1] });
+  });
+
+  test("validates preference payloads", async () => {
+    const bad = await request(app)
+      .put("/api/v1/auth/preferences")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ reminderDays: [0, -5] });
+    expect(bad.statusCode).toBe(422);
+
+    const empty = await request(app)
+      .put("/api/v1/auth/preferences")
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+    expect(empty.statusCode).toBe(422);
   });
 });

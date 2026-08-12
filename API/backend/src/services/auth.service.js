@@ -68,9 +68,33 @@ async function changePassword(userId, currentPassword, newPassword) {
   await user.save();
 }
 
+// Phase 4 §6: update reminder preferences (expiry/maintenance alert toggles
+// and the reminder-day schedule). Only the provided keys are touched, so a
+// partial update never wipes the user's other settings.
+async function updateNotificationPreferences(userId, prefs) {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (typeof prefs.expiryAlerts === "boolean") {
+    user.notificationPreferences.expiryAlerts = prefs.expiryAlerts;
+  }
+  if (typeof prefs.maintenanceAlerts === "boolean") {
+    user.notificationPreferences.maintenanceAlerts = prefs.maintenanceAlerts;
+  }
+  if (Array.isArray(prefs.reminderDays)) {
+    user.notificationPreferences.reminderDays = prefs.reminderDays;
+  }
+
+  await user.save();
+  return user;
+}
+
 module.exports = {
   registerUser,
   loginUser,
   getUserById,
-  changePassword
+  changePassword,
+  updateNotificationPreferences
 };

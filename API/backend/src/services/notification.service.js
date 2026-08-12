@@ -1,5 +1,6 @@
 const Notification = require("../models/Notification");
 const Product = require("../models/Product");
+const ServiceHistory = require("../models/ServiceHistory");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const mongoose = require("mongoose");
@@ -63,14 +64,20 @@ async function deleteNotification(notificationId, userId) {
   }
 }
 
-async function createExpiryNotifications() {
-  const users = await User.find({
-    isActive: true,
-    "notificationPreferences.expiryAlerts": true
-  }).select("_id notificationPreferences.reminderDays");
+// Each user's configured reminder days (schema default [30, 7, 1] when unset;
+// an explicit empty array means no reminders). `prefPath` optionally gates
+// which users are included, e.g. "notificationPreferences.expiryAlerts".
+// Returns { userDays: Map<userId, Set<day>>, maxDay }.
+async function loadReminderDays(prefPath = null) {
+  const filter = { isActive: true };
+  if (prefPath) {
+    // Default-true semantics: include users who explicitly enabled the alert
+    // OR whose stored preferences predate the field (missing field => on).
+    // An explicit `false` matches neither branch and is correctly excluded.
+    filter.$or = [{ [prefPath]: true }, { [prefPath]: { $exists: false } }];
+  }
+  const users = await User.find(filter).select("_id notificationPreferences.reminderDays");
 
-  // Each user's own reminder days (schema default is [30, 7, 1] when the
-  // preference is unset; an explicit empty array means no reminders).
   const userDays = new Map();
   let maxDay = 0;
   for (const user of users) {
@@ -82,6 +89,11 @@ async function createExpiryNotifications() {
     if (days.size > 0) maxDay = Math.max(maxDay, ...days);
     userDays.set(String(user._id), days);
   }
+  return { userDays, maxDay };
+}
+
+async function createExpiryNotifications() {
+  const { userDays, maxDay } = await loadReminderDays("notificationPreferences.expiryAlerts");
   if (maxDay === 0) return 0;
 
   const today = new Date();
@@ -167,10 +179,108 @@ async function createExpiryNotifications() {
   return toCreate.length;
 }
 
+// Maintenance reminders (Phase 4 §7): service records with a nextServiceDate
+// landing on a configured reminder day become `service_reminder`
+// notifications. Reuses the same per-user reminderDays preference and the
+// same dedup discipline as expiry notifications, but is a distinct type so
+// the two never mix internally.
+async function createMaintenanceNotifications() {
+  const { userDays, maxDay } = await loadReminderDays("notificationPreferences.maintenanceAlerts");
+  if (maxDay === 0) return 0;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const windowEnd = new Date(today);
+  windowEnd.setDate(windowEnd.getDate() + maxDay);
+  windowEnd.setHours(23, 59, 59, 999);
+
+  // Records whose next service lands inside the reminder window. The
+  // { productId, userId, nextServiceDate } compound index serves this query.
+  const records = await ServiceHistory.find({
+    nextServiceDate: { $gte: today, $lte: windowEnd }
+  })
+    .select("_id userId productId nextServiceDate")
+    .lean();
+
+  if (records.length === 0) return 0;
+
+  // Resolve product names for the message text (one query, then map).
+  const productIds = [...new Set(records.map((r) => String(r.productId)))];
+  // Only live (non-deleted) products get reminders — a record attached to a
+  // soft-deleted product is skipped entirely.
+  const products = await Product.find({ _id: { $in: productIds }, isDeleted: false })
+    .select("_id productName")
+    .lean();
+  const productName = new Map(products.map((p) => [String(p._id), p.productName]));
+  const liveRecords = records.filter((r) => productName.has(String(r.productId)));
+
+  const candidates = [];
+  const userIds = new Set();
+  const productIdsInvolved = new Set();
+  for (const record of liveRecords) {
+    const ownerDays = userDays.get(String(record.userId));
+    if (!ownerDays) continue;
+    const next = record.nextServiceDate;
+    for (const day of ownerDays) {
+      const dayStart = new Date(today);
+      dayStart.setDate(dayStart.getDate() + day);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setHours(23, 59, 59, 999);
+      if (next >= dayStart && next <= dayEnd) {
+        candidates.push({
+          userId: record.userId,
+          productId: record.productId,
+          day,
+          title: `Service due in ${day} day${day === 1 ? "" : "s"}`,
+          message: `${productName.get(String(record.productId)) || "A product"} is due for service on ${next.toISOString().slice(0, 10)}.`,
+          scheduledAt: dayStart
+        });
+        userIds.add(String(record.userId));
+        productIdsInvolved.add(String(record.productId));
+      }
+    }
+  }
+
+  if (candidates.length === 0) return 0;
+
+  // Skip candidates that already have a service_reminder notification for the
+  // same product + reminder day (idempotent across cron runs).
+  const existing = await Notification.find({
+    userId: { $in: [...userIds] },
+    productId: { $in: [...productIdsInvolved] },
+    notificationType: "service_reminder",
+    scheduledAt: { $gte: today, $lte: windowEnd }
+  })
+    .select("userId productId scheduledAt")
+    .lean();
+
+  const seen = new Set(existing.map((n) => `${n.userId}|${n.productId}|${+n.scheduledAt}`));
+  const toCreate = candidates.filter(
+    (c) => !seen.has(`${c.userId}|${c.productId}|${+c.scheduledAt}`)
+  );
+
+  if (toCreate.length === 0) return 0;
+
+  await Notification.insertMany(
+    toCreate.map(({ userId, productId, title, message, scheduledAt }) => ({
+      userId,
+      productId,
+      notificationType: "service_reminder",
+      title,
+      message,
+      scheduledAt
+    }))
+  );
+
+  return toCreate.length;
+}
+
 module.exports = {
   getNotifications,
   markAsRead,
   markAllAsRead,
   deleteNotification,
-  createExpiryNotifications
+  createExpiryNotifications,
+  createMaintenanceNotifications
 };

@@ -7,6 +7,10 @@ const notificationPreferencesSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    maintenanceAlerts: {
+      type: Boolean,
+      default: true
+    },
     reminderDays: {
       type: [Number],
       default: [30, 7, 1],
