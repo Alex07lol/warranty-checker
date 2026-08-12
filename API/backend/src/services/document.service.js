@@ -6,6 +6,45 @@ const cloudinary = require("../config/cloudinary");
 const { isOcrEligible, processDocument } = require("./ocr.service");
 const { createProductFromOcr } = require("./product.service");
 
+// If the server dies mid-OCR, a document would sit in "processing" forever
+// (the frontend polls it and never gets an answer). Anything still
+// "processing" long after its upload is treated as failed so the user sees a
+// Retry button instead of an infinite spinner.
+//
+// Note: the Document model has no timestamps/updatedAt — uploadedAt (set at
+// creation) is the anchor. A doc uploaded > 10 min ago that is still
+// "processing" is, by definition, stuck.
+const OCR_STUCK_AFTER_MS = 10 * 60 * 1000;
+const OCR_STUCK_MESSAGE = "OCR timed out — press Retry to scan again";
+
+function isStuckProcessing(document) {
+  const anchored = new Date(document.uploadedAt || Date.now()).getTime();
+  return (
+    document.ocrStatus === "processing" &&
+    Date.now() - anchored > OCR_STUCK_AFTER_MS
+  );
+}
+
+async function recoverStuckOcr(document) {
+  if (isStuckProcessing(document)) {
+    document.ocrStatus = "failed";
+    document.ocrError = OCR_STUCK_MESSAGE;
+    await document.save();
+  }
+  return document;
+}
+
+// Bulk recovery for list reads: flip stale "processing" docs to "failed" in
+// one query (indexed on userId), so the read itself is cheap.
+async function recoverStuckOcrForUser(userId, productId) {
+  const cutoff = new Date(Date.now() - OCR_STUCK_AFTER_MS);
+  const filter = { userId, ocrStatus: "processing", uploadedAt: { $lt: cutoff } };
+  if (productId) filter.productId = productId;
+  await Document.updateMany(filter, {
+    $set: { ocrStatus: "failed", ocrError: OCR_STUCK_MESSAGE }
+  });
+}
+
 async function assertProductOwner(productId, userId) {
   if (!mongoose.isValidObjectId(productId)) {
     throw new AppError("Invalid product ID", 400);
@@ -26,6 +65,7 @@ async function assertProductOwner(productId, userId) {
 
 async function getDocumentsByProduct(productId, userId) {
   await assertProductOwner(productId, userId);
+  await recoverStuckOcrForUser(userId, productId);
   return Document.find({ productId, userId }).sort({ uploadedAt: -1 });
 }
 
@@ -117,6 +157,7 @@ async function uploadDocument(productId, userId, fileData, documentType, notes) 
 }
 
 async function getAllDocuments(userId) {
+  await recoverStuckOcrForUser(userId);
   return Document.find({ userId }).sort({ uploadedAt: -1 });
 }
 
@@ -135,7 +176,7 @@ async function getDocumentById(documentId, userId) {
     throw new AppError("Forbidden", 403);
   }
 
-  return document;
+  return recoverStuckOcr(document);
 }
 
 // Stream the original file bytes for a document. Ownership is verified first;
