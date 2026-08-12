@@ -17,7 +17,7 @@ function errorHandler(err, req, res, next) {
   }
 
   if (err.name === "MulterError" && err.code === "LIMIT_FILE_SIZE") {
-    return sendError(res, "File exceeds maximum size of 10MB", 400, []);
+    return sendError(res, "File exceeds maximum size of 5MB", 400, []);
   }
 
   if (err.name === "MulterError" && err.code === "LIMIT_UNEXPECTED_FILE") {
