@@ -136,6 +136,7 @@ var GROUPS = [
       { m: 'POST', p: '/api/v1/auth/login', auth: true, d: 'Log in: { email, password } → { token, user }. Rate-limited 10/15 min.' },
       { m: 'POST', p: '/api/v1/auth/logout', auth: true, d: 'Stateless logout — client discards the token locally.' },
       { m: 'GET', p: '/api/v1/auth/me', auth: true, d: 'Current user profile.' },
+      { m: 'PUT', p: '/api/v1/auth/preferences', auth: true, d: 'Reminder preferences: { expiryAlerts?, maintenanceAlerts?, reminderDays? } (partial update). Drives the nightly notification cron.' },
       { m: 'PUT', p: '/api/v1/auth/change-password', auth: true, d: 'Change password: { currentPassword, newPassword, confirmNewPassword }. Rate-limited.' }
     ]
   },

@@ -723,6 +723,25 @@
     .notification-title { font-size: 13px; font-weight: 600; color: #111; }
     .notification-message { font-size: 13px; color: #666; margin-top: 3px; }
     .notification-meta { font-size: 11px; color: #666; margin-top: 6px; }
+    /* Phase 4 §6: reminder preferences panel (top of the notifications view) */
+    .settings-card { background: #fff; border-radius: 16px; padding: 14px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(17,17,17,0.04), 0 6px 18px rgba(17,17,17,0.05); }
+    .settings-title { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; }
+    .settings-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .settings-row:last-child { margin-bottom: 0; }
+    .settings-toggle { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13px; color: #333; }
+    .settings-toggle input { width: 16px; height: 16px; accent-color: #3949ab; }
+    .settings-hint { font-size: 12px; color: #777; }
+    .reminder-days { display: flex; flex-wrap: wrap; gap: 6px; }
+    .reminder-day-chip { border: 1px solid #d5d5e0; background: #fbfbfd; color: #444; border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; transition: all .15s ease; }
+    .reminder-day-chip:hover { border-color: #3949ab; }
+    .reminder-day-chip.active { background: #3949ab; border-color: #3949ab; color: #fff; font-weight: 600; }
+    .settings-status { font-size: 12px; color: #2e7d32; }
+    body.dark-mode .settings-card { background: #1c1c21; }
+    body.dark-mode .settings-title { color: #eef; }
+    body.dark-mode .settings-toggle { color: #ccc; }
+    body.dark-mode .settings-hint { color: #999; }
+    body.dark-mode .reminder-day-chip { background: #23232a; border-color: #33335a; color: #bbb; }
+    body.dark-mode .reminder-day-chip.active { background: #3949ab; border-color: #3949ab; color: #fff; }
 
     /* ---- FORM OVERLAY (add/edit product) ---- */
     .form-overlay {

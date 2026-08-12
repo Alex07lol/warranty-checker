@@ -94,9 +94,10 @@ const DEMO_PRODUCTS = [
 ];
 
 const DEMO_NOTIFICATIONS = [
-  { _id: 'demo-n1', title: 'Warranty expiring soon', message: 'Samsung Galaxy S23 warranty expires in 4 days.', isRead: false, createdAt: daysFromNow(0), productId: 'demo-2' },
-  { _id: 'demo-n2', title: 'Warranty expired', message: 'The warranty on your Dell XPS 15 Laptop has expired.', isRead: false, createdAt: daysFromNow(-2), productId: 'demo-1' },
-  { _id: 'demo-n3', title: 'Welcome to WarrantyVault', message: 'This is guest mode — sign in to save products, receipts and service records.', isRead: true, createdAt: daysFromNow(-7) }
+  { _id: 'demo-n1', title: 'Warranty expiring soon', message: 'Samsung Galaxy S23 warranty expires in 4 days.', isRead: false, createdAt: daysFromNow(0), productId: 'demo-2', notificationType: 'warranty_expiry' },
+  { _id: 'demo-n2', title: 'Warranty expired', message: 'The warranty on your Dell XPS 15 Laptop has expired.', isRead: false, createdAt: daysFromNow(-2), productId: 'demo-1', notificationType: 'warranty_expiry' },
+  { _id: 'demo-n4', title: 'Service due in 7 days', message: 'LG 4K OLED TV is due for service on ' + fmtDate(daysFromNow(7)) + '.', isRead: false, createdAt: daysFromNow(0), productId: 'demo-3', notificationType: 'service_reminder' },
+  { _id: 'demo-n3', title: 'Welcome to WarrantyVault', message: 'This is guest mode — sign in to save products, receipts and service records.', isRead: true, createdAt: daysFromNow(-7), notificationType: 'system' }
 ];
 
 function demoProducts() { return DEMO_PRODUCTS.slice(); }
@@ -1361,6 +1362,72 @@ async function applyCameraToProduct() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Notifications
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Reminder preferences (Phase 4 §6): expiry/maintenance toggles + day chips.
+// Loaded from /auth/me; saved via PUT /auth/preferences. The available day
+// chips are declared once in index.html (data-day attributes).
+// ─────────────────────────────────────────────────────────────────────────────
+function showReminderSettings(show) {
+  const box = document.getElementById('reminder-settings');
+  if (box) box.style.display = show ? '' : 'none';
+}
+
+async function loadReminderSettings() {
+  if (isGuest()) { showReminderSettings(false); return; }
+  try {
+    const user = await api('/auth/me');
+    const prefs = (user && user.notificationPreferences) || {};
+    const expiryEl = document.getElementById('pref-expiry');
+    const maintEl = document.getElementById('pref-maintenance');
+    if (expiryEl) expiryEl.checked = prefs.expiryAlerts !== false;
+    if (maintEl) maintEl.checked = prefs.maintenanceAlerts !== false;
+    renderReminderDayChips(prefs.reminderDays || [30, 7, 1]);
+    showReminderSettings(true);
+  } catch (e) {
+    // Non-fatal — preferences are optional.
+    showReminderSettings(false);
+  }
+}
+
+function renderReminderDayChips(days) {
+  const box = document.getElementById('pref-reminder-days');
+  if (!box) return;
+  const set = new Set(days.map(Number).filter(n => Number.isInteger(n) && n > 0));
+  box.querySelectorAll('.reminder-day-chip').forEach(btn => {
+    const active = set.has(Number(btn.dataset.day));
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+function collectReminderDays() {
+  const box = document.getElementById('pref-reminder-days');
+  if (!box) return [];
+  return Array.from(box.querySelectorAll('.reminder-day-chip.active'))
+    .map(btn => Number(btn.dataset.day))
+    .sort((a, b) => b - a);
+}
+
+async function saveReminderSettings() {
+  if (!requireAuth('update reminder preferences')) return;
+  const status = document.getElementById('pref-status');
+  if (status) status.textContent = '';
+  const payload = {
+    expiryAlerts: document.getElementById('pref-expiry').checked,
+    maintenanceAlerts: document.getElementById('pref-maintenance').checked,
+    reminderDays: collectReminderDays()
+  };
+  try {
+    await api('/auth/preferences', { method: 'PUT', body: JSON.stringify(payload) });
+    if (status) status.textContent = '✓ Saved';
+    toast('Reminder preferences saved', 'success');
+    setTimeout(() => { if (status) status.textContent = ''; }, 2500);
+  } catch (e) {
+    if (status) status.textContent = e.message;
+    toast(e.message, 'error');
+  }
+}
+
 async function loadNotifications() {
   const list = document.getElementById('notification-list');
   list.innerHTML = '';
@@ -1409,8 +1476,9 @@ function renderNotifications(notifs) {
       }
     }
     
+    const typeIcon = n.notificationType === 'service_reminder' ? '🛠️ ' : (n.notificationType === 'warranty_expiry' ? '⏳ ' : '🔔 ');
     el.innerHTML =
-      '<div class="notification-title">' + escapeHtml(n.title || n.notificationType || 'Alert') + '</div>' +
+      '<div class="notification-title">' + typeIcon + escapeHtml(n.title || n.notificationType || 'Alert') + '</div>' +
       (message ? '<div class="notification-message">' + escapeHtml(message) + '</div>' : '') +
       '<div class="notification-meta">' + fmtDate(n.createdAt) + '</div>' +
       actions;
@@ -1958,7 +2026,10 @@ function wireEvents() {
       if (v === 'home') loadDashboard();
       if (v === 'products') loadProducts();
       if (v === 'camera') { populateCameraProducts(); resetCamera(); loadScanDocs(); }
-      if (v === 'notifications') loadNotifications();
+      if (v === 'notifications') {
+        loadNotifications();
+        loadReminderSettings();
+      }
       if (v === 'repair') openRepair();
       showView(v);
     });
@@ -2052,6 +2123,21 @@ function wireEvents() {
   document.getElementById('confirm-skip-btn').addEventListener('click', dismissCameraConfirm);
 
   document.getElementById('read-all-btn').addEventListener('click', markAllNotifsRead);
+
+  // Reminder preferences (Phase 4 §6): day chips toggle on click; save
+  // pushes the current state. The panel stays hidden for guests.
+  const reminderBox = document.getElementById('pref-reminder-days');
+  if (reminderBox) {
+    reminderBox.addEventListener('click', (e) => {
+      const chip = e.target.closest('.reminder-day-chip');
+      if (!chip) return;
+      chip.classList.toggle('active');
+      const nowActive = chip.classList.contains('active');
+      chip.setAttribute('aria-pressed', nowActive ? 'true' : 'false');
+    });
+  }
+  const prefSave = document.getElementById('pref-save-btn');
+  if (prefSave) prefSave.addEventListener('click', saveReminderSettings);
 
   ['login-email', 'login-password'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });

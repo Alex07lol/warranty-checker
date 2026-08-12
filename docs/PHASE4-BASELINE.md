@@ -1,6 +1,6 @@
 # Phase 4 — Advanced Product Features: Baseline
 
-Status: **IN PROGRESS** — Tranches 1–3 shipped (data model, status engine, warranty intelligence).
+Status: **IN PROGRESS** — Tranches 1–4 shipped (data model, status engine, warranty intelligence, reminders & maintenance).
 
 ## Tranche 1 — Data model foundation (shipped)
 
@@ -75,11 +75,33 @@ Nothing is ever written or merged; everything is advisory.
 - **Tests** — `tests/intelligence.test.js`: unit coverage for every finding
   rule + API auth / cross-user denial / owner findings.
 
+## Tranche 4 — Custom reminder schedules + maintenance reminders (shipped)
+
+Spec §6/§7 — the notification system already had a per-user reminder-day
+schedule and a `service_reminder` notification type; this tranche made them
+user-configurable and added the maintenance half:
+
+- **`User.notificationPreferences`** gains `maintenanceAlerts` (default `true`)
+  alongside the existing `expiryAlerts` and `reminderDays`.
+- **`PUT /api/v1/auth/preferences`** — partial update of expiry/maintenance
+  alert toggles and the reminder-day schedule (`[90, 30, 14, 7, 1]`-style
+  custom days, validated 1–365, max 10). An empty `reminderDays` array
+  disables date-based reminders.
+- **`createMaintenanceNotifications()`** — the nightly cron now also scans
+  service records whose `nextServiceDate` lands on a configured reminder day
+  and creates `service_reminder` notifications (distinct type, never mixed
+  with `warranty_expiry` internally). Idempotent across runs; respects
+  `maintenanceAlerts`. Both schedulers share `loadReminderDays()` and each
+  failure is logged independently so one can't block the other.
+- **UI** — the Notifications view gains a **Reminder settings** card
+  (authenticated only): expiry + maintenance toggles and clickable day chips
+  with a Save button. Service reminders render with a 🛠️ icon.
+- **Tests** — scheduler creates one maintenance reminder per product+day and
+  never duplicates on re-run; disabled alerts suppress reminders; preferences
+  endpoint round-trips and validates bad payloads.
+
 ## Open tranches (mapped to the spec)
 
-1. **Custom reminder schedules + maintenance reminders** (§6, §7) — user
-   preferences, duplicate-safe notification generation, maintenance
-   next-service dates.
 4. **Product lifecycle UI + filters** (§8, §9) — distinguish current vs
    archived/sold products, advanced filtering.
 5. **Categories + tags** (§11, §12) — normalized categories, user-scoped tags.

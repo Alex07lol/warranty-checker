@@ -151,6 +151,46 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/auth/preferences:
+    put:
+      tags: [Auth]
+      summary: Update notification preferences (Phase 4 §6/§23)
+      description: |
+        Partial update — only provided keys change. Controls warranty-expiry
+        alerts, maintenance/service alerts and the reminder-day schedule used
+        by the nightly notification cron. An empty reminderDays array
+        disables all date-based reminders.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                expiryAlerts: { type: boolean, description: Warranty expiry reminders on/off (default true) }
+                maintenanceAlerts: { type: boolean, description: Maintenance/service reminders on/off (default true) }
+                reminderDays:
+                  type: array
+                  description: Remind N days before expiry / next service (default [30, 7, 1])
+                  maxItems: 10
+                  items: { type: integer, minimum: 1, maximum: 365 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/User" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
   /api/v1/auth/change-password:
     put:
       tags: [Auth]
@@ -1091,9 +1131,11 @@ components:
         notificationPreferences:
           type: object
           properties:
-            expiryAlerts: { type: boolean }
+            expiryAlerts: { type: boolean, description: Warranty expiry reminders (default true) }
+            maintenanceAlerts: { type: boolean, description: Maintenance/service reminders (default true) }
             reminderDays:
               type: array
+              description: Remind N days before expiry / next service
               items: { type: integer }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
