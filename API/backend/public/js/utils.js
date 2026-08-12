@@ -10,6 +10,7 @@
 let toastTimer = null;
 function toast(msg, type) {
   const el = document.getElementById('toast');
+  el.textContent = ''; // reset so repeated identical messages re-announce (aria-live)
   el.textContent = msg;
   el.className = 'toast show' + (type ? ' ' + type : '');
   clearTimeout(toastTimer);
@@ -144,6 +145,68 @@ function setStatsSkeleton(show) {
   const grid = document.getElementById('stat-grid');
   if (!grid) return;
   grid.innerHTML = show ? STAT_SKELETON_HTML : STAT_GRID_HTML;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Modal dialog helpers: focus trap, Escape-to-close, focus restore
+// ─────────────────────────────────────────────────────────────────────────────
+const DIALOG_FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+let activeDialog = null; // { overlay, lastFocused, onKeydown }
+
+function dialogFocusables(overlay) {
+  return Array.prototype.filter.call(
+    overlay.querySelectorAll(DIALOG_FOCUSABLE),
+    (el) => el.offsetParent !== null || el === document.activeElement
+  );
+}
+
+// Open an overlay as a modal dialog: remember the previously focused element,
+// show the overlay, move focus inside it, and trap Tab/Shift+Tab. Escape
+// triggers opts.onClose (which should call closeDialog).
+function openDialog(overlay, opts) {
+  if (!overlay) return;
+  closeDialog(); // only one dialog open at a time
+  const lastFocused = document.activeElement || null;
+  overlay.classList.add('open');
+  const onKeydown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (opts && typeof opts.onClose === 'function') opts.onClose();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    const focusables = dialogFocusables(overlay);
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === overlay)) {
+      e.preventDefault();
+      if (typeof last.focus === 'function') last.focus();
+    } else if (!e.shiftKey && (active === last || active === overlay)) {
+      e.preventDefault();
+      if (typeof first.focus === 'function') first.focus();
+    }
+  };
+  overlay.addEventListener('keydown', onKeydown);
+  activeDialog = { overlay, lastFocused, onKeydown };
+  const initial = (opts && opts.initialFocus)
+    ? overlay.querySelector(opts.initialFocus)
+    : dialogFocusables(overlay)[0];
+  if (initial && typeof initial.focus === 'function') initial.focus();
+}
+
+// Close a modal dialog: release the focus trap and return focus to the element
+// that opened it (if it still exists). Safe to call with no dialog open.
+function closeDialog(overlay) {
+  if (!activeDialog) return;
+  if (overlay && activeDialog.overlay !== overlay) return;
+  const { overlay: el, lastFocused, onKeydown } = activeDialog;
+  activeDialog = null;
+  el.classList.remove('open');
+  if (typeof el.removeEventListener === 'function') el.removeEventListener('keydown', onKeydown);
+  if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

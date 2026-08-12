@@ -329,7 +329,8 @@
       will-change: transform;
     }
     .btn:focus-visible, .icon-btn:focus-visible, .login-btn:focus-visible,
-    .nav-item:focus-visible, .detail-back:focus-visible, .login-tab:focus-visible {
+    .nav-item:focus-visible, .detail-back:focus-visible, .login-tab:focus-visible,
+    .camera-upload-area:focus-visible {
       outline: 2px solid #3949ab;
       outline-offset: 2px;
     }
@@ -384,6 +385,7 @@
     .camera-upload-area svg { transition: transform 0.25s ease; }
     .camera-upload-area:hover svg { transform: translateY(-3px) scale(1.06); }
     .camera-upload-area input[type="file"] { display: none; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
     .camera-progress-bar { width: 100%; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
     .camera-progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #3949ab, #5c6bc0); border-radius: 3px; transition: width 0.3s ease; }
     .camera-apply-btn { flex: 1; padding: 12px; border-radius: 12px; border: none; background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.2s ease; box-shadow: 0 2px 8px rgba(22,33,62,0.2); }

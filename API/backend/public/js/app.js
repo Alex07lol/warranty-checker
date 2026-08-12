@@ -103,10 +103,16 @@ function showView(target) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   const viewEl = document.getElementById('view-' + target);
   if (viewEl) viewEl.classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => {
+    b.classList.remove('active');
+    if (typeof b.removeAttribute === 'function') b.removeAttribute('aria-current');
+  });
   const navBtn = document.querySelector('.nav-item[data-view="' + target + '"]');
-  if (navBtn) navBtn.classList.add('active');
-  document.getElementById('detail-overlay').classList.remove('open');
+  if (navBtn) {
+    navBtn.classList.add('active');
+    if (typeof navBtn.setAttribute === 'function') navBtn.setAttribute('aria-current', 'page');
+  }
+  closeDialog(document.getElementById('detail-overlay'));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -297,11 +303,14 @@ function openProductForm(product) {
   document.getElementById('product-form-title').textContent = product ? 'Edit Product' : 'Add Product';
   populateProductForm(product);
   document.getElementById('pf-err').textContent = '';
-  document.getElementById('product-form-overlay').classList.add('open');
+  openDialog(document.getElementById('product-form-overlay'), {
+    initialFocus: '#pf-name',
+    onClose: closeProductForm
+  });
 }
 
 function closeProductForm() {
-  document.getElementById('product-form-overlay').classList.remove('open');
+  closeDialog(document.getElementById('product-form-overlay'));
   editingProductId = null;
 }
 
@@ -373,20 +382,24 @@ let cameraDoc = null;
 
 function closeDetail() {
   clearTimeout(detailOcrTimer);
-  document.getElementById('detail-overlay').classList.remove('open');
+  closeDialog(document.getElementById('detail-overlay'));
   currentProductId = null;
   currentProduct = null;
 }
 
 async function openDetail(id) {
   currentProductId = id;
+  const openDetailDialog = () => openDialog(document.getElementById('detail-overlay'), {
+    initialFocus: '#detail-back-btn',
+    onClose: closeDetail
+  });
   if (isGuest()) {
     const p = demoProducts().find(x => x._id === id);
     if (!p) { toast('Product not found', 'error'); return; }
     currentProduct = p;
     renderDetailHeader(p);
     renderDetailSpecs(p);
-    document.getElementById('detail-overlay').classList.add('open');
+    openDetailDialog();
     await Promise.all([loadDetailDocs(), loadServiceHistory()]);
     return;
   }
@@ -395,7 +408,7 @@ async function openDetail(id) {
     currentProduct = p;
     renderDetailHeader(p);
     renderDetailSpecs(p);
-    document.getElementById('detail-overlay').classList.add('open');
+    openDetailDialog();
     await Promise.all([loadDetailDocs(), loadServiceHistory()]);
   } catch (e) {
     toast(e.message, 'error');
@@ -1851,6 +1864,13 @@ function wireEvents() {
   const cameraArea = document.getElementById('camera-upload-area');
   const cameraInput = document.getElementById('camera-file-input');
   cameraArea.addEventListener('click', () => cameraInput.click());
+  // Native button semantics: Enter activates on keydown, Space on keyup.
+  cameraArea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); cameraInput.click(); }
+  });
+  cameraArea.addEventListener('keyup', (e) => {
+    if (e.key === ' ') { e.preventDefault(); cameraInput.click(); }
+  });
   cameraInput.addEventListener('change', (e) => handleCameraFile(e.target.files[0] || null));
   document.getElementById('camera-apply-btn').addEventListener('click', applyCameraToProduct);
   document.getElementById('camera-retry-btn').addEventListener('click', resetCamera);

@@ -120,6 +120,8 @@ describe("Frontend module split", () => {
       "toast", "escapeHtml", "fmtMoney", "fmtDate", "animateCountUp", "warrantyInfo",
       "productImage", "emptyState", "skeletonProductCards", "skeletonLineCards",
       "setStatsSkeleton", "daysFromNow", "copyToClipboard",
+      // dialog helpers (a11y pass)
+      "openDialog", "closeDialog",
       // api.js
       "getToken", "setToken", "getUser", "setUser", "api",
       // auth.js
