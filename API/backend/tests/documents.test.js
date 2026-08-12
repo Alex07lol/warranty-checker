@@ -153,6 +153,20 @@ describe("Document API", () => {
     expect(response.body.data.documents[0].productId).toBeNull();
   });
 
+  test("document lists omit heavy/private fields (ocrText, fileUrl, publicId)", async () => {
+    const response = await request(app)
+      .get("/api/v1/documents")
+      .set("Authorization", `Bearer ${token}`);
+    const doc = response.body.data.documents[0];
+    expect(doc.ocrText).toBeUndefined();
+    expect(doc.ocrError).toBeUndefined();
+    expect(doc.fileUrl).toBeUndefined();
+    expect(doc.publicId).toBeUndefined();
+    // Card metadata stays available.
+    expect(doc.documentType).toBe("manual");
+    expect(typeof doc.fileName).toBe("string");
+  });
+
   test("product-scoped list excludes standalone documents", async () => {
     const response = await request(app)
       .get(`/api/v1/products/${productId}/documents`)

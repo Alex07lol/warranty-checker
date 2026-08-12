@@ -42,8 +42,9 @@ async function getDocumentById(req, res, next) {
     // On the product-scoped routes, a document must belong to that product
     // (a standalone doc accessed through a product URL is a mismatch).
     // The standalone /api/v1/documents route skips this check (no productId).
+    // AppError so the mismatch surfaces as 403, not a 500 internal error.
     if (req.params.productId && (!data.productId || data.productId.toString() !== req.params.productId)) {
-      return next(new Error("Forbidden"));
+      return next(new AppError("Forbidden", 403));
     }
     return sendSuccess(res, data, "Document retrieved");
   } catch (error) {
@@ -77,7 +78,7 @@ async function deleteDocument(req, res, next) {
     const data = await documentService.getDocumentById(req.params.documentId, req.user.userId);
     // Same conditional product-scope check as getDocumentById.
     if (req.params.productId && (!data.productId || data.productId.toString() !== req.params.productId)) {
-      return next(new Error("Forbidden"));
+      return next(new AppError("Forbidden", 403));
     }
     await documentService.deleteDocument(req.params.documentId, req.user.userId);
     return sendSuccess(res, null, "Document deleted");

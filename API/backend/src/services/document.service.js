@@ -72,7 +72,14 @@ async function getDocumentsByProduct(productId, userId, page, limit) {
   });
   const filter = { productId, userId };
   const [documents, total] = await Promise.all([
-    Document.find(filter).sort({ uploadedAt: -1 }).skip(skip).limit(safeLimit).lean(),
+    // List cards only render metadata + parsedData — exclude the heavy OCR
+    // transcript and storage internals (full text stays on the single GET).
+    Document.find(filter)
+      .select("-ocrText -ocrError -fileUrl -publicId")
+      .sort({ uploadedAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean(),
     Document.countDocuments(filter)
   ]);
   return { documents, pagination: paginationMeta(total, safePage, safeLimit) };
@@ -188,7 +195,13 @@ async function getAllDocuments(userId, page, limit) {
   });
   const filter = { userId };
   const [documents, total] = await Promise.all([
-    Document.find(filter).sort({ uploadedAt: -1 }).skip(skip).limit(safeLimit).lean(),
+    // Same trimmed projection as the product-scoped list.
+    Document.find(filter)
+      .select("-ocrText -ocrError -fileUrl -publicId")
+      .sort({ uploadedAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean(),
     Document.countDocuments(filter)
   ]);
   return { documents, pagination: paginationMeta(total, safePage, safeLimit) };
