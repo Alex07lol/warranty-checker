@@ -2,14 +2,13 @@
 
 WarrantyVault is a **web-based digital ownership and warranty management platform**. It gives you one secure place to store receipts, warranty cards, manuals, serial numbers, and service history for every product you own — then automatically tracks warranty expiry, notifies you before coverage lapses, and helps you find repair centres when something breaks. Built for anyone who wants to stop losing warranty paperwork and start managing their products like a grown-up asset register.
 
-> **Note (August 2026):** the project is **web-only**. The earlier Flutter/Android app was removed; the frontend is a static HTML/CSS/JS app served directly by the Express API. The old mobile code remains recoverable from git history.
+The frontend is a static HTML/CSS/JS app served directly by the Express API.
 
 ---
 
 ## Table of Contents
 
 - [Demo](#demo)
-- [Screenshots](#screenshots)
 - [What WarrantyVault Does](#what-warrantyvault-does)
 - [Features](#features)
 - [Security](#security)
@@ -32,24 +31,6 @@ WarrantyVault is a **web-based digital ownership and warranty management platfor
 The demo runs on Render's free tier (MongoDB Atlas + Cloudinary). You can explore the entire application **without creating an account** — guest mode gives you a read-only tour of the dashboard, products, scan/OCR flow, notifications, service history, and repair-centre finder. Sign up for free to unlock writing (products, documents, OCR, service records, sharing).
 
 Note that the free tier sleeps after ~15 minutes of inactivity, so the first page load may take up to a minute to wake up.
-
----
-
-## Screenshots
-
-Screenshots are not yet committed to the repository. Representative views to capture (then add to `assets/images/` and reference here):
-
-| View | What it shows |
-|---|---|
-| Dashboard | Stats (active/expiring/expired warranties, documents), expiring-soon list, recent products |
-| Products | Product cards with warranty-status badges, advanced filters, tag chips |
-| Scan / OCR | Upload area, extraction summary with copy buttons, edit-and-confirm step |
-| Product detail | Warranty overview, coverage periods, documents, service timeline, claim prep |
-| Repair Centres | Nearby repair shops with photos, ratings, phone/call actions |
-| Notifications | Notification center with type-aware icons and settings toggles |
-| Shared page | The public read-only `shared.html` snapshot of a shared product |
-
-Until the images exist, this section is intentionally a placeholder — no fake screenshots.
 
 ---
 
@@ -223,7 +204,7 @@ warranty-checker/
 ├── LICENSE
 ├── render.yaml                     # Render blueprint (free tier)
 ├── .github/workflows/ci.yml
-├── assets/                         # project images/icons/fonts (screenshots TBD)
+├── assets/                         # project images/icons/fonts
 ├── docs/                           # architecture, API design, production ops, phase baselines
 └── API/
     ├── backend/
