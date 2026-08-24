@@ -10,13 +10,13 @@
       --aurora-indigo: #8a95f2;      /* dominant mid color */
       --aurora-lavender: #b6bcf7;    /* bright highlight color */
       --aurora-speed: 1;             /* 0.5 = half speed, 2 = double */
-      --aurora-opacity: 1;           /* canvas opacity (0..1) */
+      --aurora-opacity: 0.7;           /* canvas opacity (0..1) — atmospheric backdrop */
 
       /* ── Interactive WebGL particles ── */
       --particles-color-a: #7c88ea;  /* indigo end of the tint range (deep enough to read on the light bg) */
       --particles-color-b: #b9bff5;  /* lavender end of the tint range */
       --particles-speed: 1;          /* drift + twinkle speed multiplier */
-      --particles-opacity: 0.9;      /* canvas opacity (0..1) */
+      --particles-opacity: 0.55;     /* canvas opacity (0..1) — atmospheric, not primary */
     }
 
     html {
@@ -180,8 +180,8 @@
     .stat-card {
       position: relative;
       background: linear-gradient(160deg, #ffffff 0%, #f7f8fa 100%);
-      border-radius: 18px;
-      padding: 18px;
+      border-radius: 20px;
+      padding: 20px;
       border: 1px solid rgba(17,17,17,0.04);
       box-shadow: 0 1px 2px rgba(17,17,17,0.04), 0 6px 18px rgba(17,17,17,0.05);
       transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease;
@@ -194,14 +194,14 @@
       pointer-events: none;
     }
     .stat-card:hover { transform: translateY(-4px); box-shadow: 0 2px 4px rgba(17,17,17,0.04), 0 14px 30px rgba(17,17,17,0.09); }
-    .stat-card .stat-value { font-size: 32px; font-weight: 800; color: #111; letter-spacing: -0.6px; position: relative; }
+    .stat-card .stat-value { font-size: 34px; font-weight: 800; color: #111; letter-spacing: -1px; position: relative; }
     .stat-card .stat-value.count-up { animation: statCountPop 0.5s ease-out; }
     @keyframes statCountPop {
       0%   { opacity: 0.35; transform: scale(0.9); }
       60%  { opacity: 1; transform: scale(1.05); }
       100% { opacity: 1; transform: scale(1); }
     }
-    .stat-card .stat-label { font-size: 11px; color: #8a8a8e; font-weight: 500; letter-spacing: 0.2px; margin-top: 3px; position: relative; }
+    .stat-card .stat-label { font-size: 12px; color: #8a8a8e; font-weight: 600; letter-spacing: 0.2px; margin-top: 4px; position: relative; }
     .stat-card.accent {
       background: linear-gradient(150deg, #1a1a2e 0%, #16213e 60%, #1e2a4a 100%);
       color: #fff;
@@ -221,12 +221,12 @@
     .product-card {
       position: relative;
       background: linear-gradient(160deg, #ffffff 0%, #fafbfc 100%);
-      border-radius: 18px;
-      padding: 18px;
+      border-radius: 20px;
+      padding: 18px 20px;
       margin-bottom: 14px;
       display: flex;
-      align-items: center;
-      gap: 18px;
+      align-items: flex-start;
+      gap: 16px;
       cursor: pointer;
       transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease, border-color 0.22s ease;
       box-shadow: 0 1px 2px rgba(17,17,17,0.04), 0 6px 18px rgba(17,17,17,0.05);
@@ -248,24 +248,38 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
+    /* Card image — slightly larger, flex-shrink locked */
     .product-img {
-      width: 80px; height: 80px; border-radius: 14px; object-fit: cover;
+      width: 72px; height: 72px; border-radius: 14px; object-fit: cover;
       background: #eee; flex-shrink: 0;
       box-shadow: 0 1px 3px rgba(17,17,17,0.08);
+      align-self: flex-start;
     }
     .product-img-placeholder {
-      width: 80px; height: 80px; border-radius: 14px;
+      width: 72px; height: 72px; border-radius: 14px;
       background: linear-gradient(135deg, #e8eaf6, #f5f5f5);
       flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-      color: #444; font-size: 22px;
+      color: #444; font-size: 22px; align-self: flex-start;
     }
-    .product-info { flex: 1; overflow: hidden; }
-    .product-info-name { font-size: 15px; font-weight: 600; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .product-info-brand { font-size: 12px; color: #5f6368; margin-top: 2px; }
+    /* Main info column — flex-1, no overflow hidden so text can wrap */
+    .product-info { flex: 1; min-width: 0; }
+    /* Name: allow up to 2 lines before truncating */
+    .product-info-name {
+      font-size: 15px; font-weight: 700; color: #111;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden; line-height: 1.35; margin-bottom: 3px;
+    }
+    .product-info-brand { font-size: 12px; color: #6b6b6b; font-weight: 500; margin-top: 2px; }
+
+    /* Badge + arrow column — right side, flexed column */
+    .product-card-right {
+      display: flex; flex-direction: column; align-items: flex-end;
+      gap: 8px; flex-shrink: 0; align-self: flex-start; padding-top: 2px;
+    }
 
     .product-warranty-badge {
-      font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 20px;
-      white-space: nowrap; flex-shrink: 0;
+      font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px;
+      white-space: nowrap; flex-shrink: 0; letter-spacing: 0.1px;
     }
     .badge-expired { background: #ffebee; color: #c62828; }
     .badge-critical { background: #fff3e0; color: #bf360c; }
@@ -322,8 +336,8 @@
       font-size: 13px; font-family: 'Inter', sans-serif; color: #111; background: #fff; outline: none;
     }
     .filter-actions { display: flex; gap: 8px; margin-top: 12px; }
-    .product-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
-    .product-tag { font-size: 10px; font-weight: 600; color: #3949ab; background: #eef0fb; border-radius: 999px; padding: 2px 8px; }
+    .product-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+    .product-tag { font-size: 11px; font-weight: 600; color: #3949ab; background: #eef0fb; border-radius: 999px; padding: 3px 9px; letter-spacing: 0.1px; }
     body.dark-mode .filter-panel { background: #1c1c21; border-color: #33335a; }
     body.dark-mode .filter-panel input, body.dark-mode .filter-panel select { background: #23232a; border-color: #33335a; color: #eef; }
     body.dark-mode .filter-panel .form-field label { color: #999; }
@@ -454,8 +468,8 @@
     .repair-card {
       position: relative;
       background: linear-gradient(160deg, #ffffff 0%, #fafbfc 100%);
-      border-radius: 18px; margin-bottom: 12px;
-      border: 1px solid rgba(17,17,17,0.04);
+      border-radius: 20px; margin-bottom: 12px;
+      border: 1px solid rgba(17,17,17,0.05);
       box-shadow: 0 1px 2px rgba(17,17,17,0.04), 0 6px 18px rgba(17,17,17,0.05);
       overflow: hidden;
       transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, border-color 0.2s ease;
@@ -465,29 +479,26 @@
       box-shadow: 0 2px 6px rgba(17,17,17,0.05), 0 14px 30px rgba(17,17,17,0.09);
       border-color: rgba(57,73,171,0.16);
     }
-    /* Google Places cover photo on top of each repair card */
-    .repair-card-cover {
-      display: block; position: relative; height: 132px; overflow: hidden;
-      background: linear-gradient(150deg, #eef0f6 0%, #dfe4f0 100%);
-    }
-    .repair-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .repair-card-body { padding: 14px 16px 16px; }
-    .repair-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
-    .repair-card-name { font-size: 15px; font-weight: 600; color: #111; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .repair-open-chip { font-size: 10px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
+    /* No tall cover photo — compact card body only */
+    .repair-card-cover { display: none; }
+    .repair-card-body { padding: 16px 18px; }
+    .repair-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .repair-card-name { font-size: 15px; font-weight: 700; color: #111; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .repair-open-chip { font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 20px; flex-shrink: 0; }
     .repair-open-chip.open { background: #e8f5e9; color: #2e7d32; }
     .repair-open-chip.closed { background: #f0f0f0; color: #555555; }
-    .repair-card-city { font-size: 12.5px; font-weight: 600; color: #3949ab; margin-bottom: 2px; }
-    .repair-card-address { font-size: 12.5px; color: #666; margin-bottom: 8px; }
-    .repair-card-details { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-right: 36px; }
-    .repair-card-phone { font-size: 12px; color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .repair-card-city { font-size: 12px; font-weight: 600; color: #3949ab; margin-bottom: 1px; }
+    .repair-card-address { font-size: 12px; color: #666; margin-bottom: 0; overflow-wrap: break-word; min-width: 0; }
+    /* Single info line: rating + phone inline */
+    .repair-card-details { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+    .repair-card-phone { font-size: 12px; color: #444; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
     .repair-card-rating { font-size: 12px; font-weight: 600; color: #8f5500; background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 2px 7px; flex-shrink: 0; }
+    /* Locate button — inline, not absolute positioned */
     .repair-card-locate {
-      position: absolute; right: 14px; bottom: 14px;
       width: 32px; height: 32px; border-radius: 50%;
       display: inline-flex; align-items: center; justify-content: center;
       background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%); color: #fff;
-      text-decoration: none; cursor: pointer; z-index: 1;
+      text-decoration: none; cursor: pointer; flex-shrink: 0;
       box-shadow: 0 2px 6px rgba(22,33,62,0.28);
       transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
@@ -501,7 +512,7 @@
     /* Contact actions — WhatsApp + website on each repair card */
     .repair-card-contact {
       display: flex; gap: 8px; flex-wrap: wrap;
-      margin: 10px 36px 0 0; /* right margin keeps clear of the locate circle */
+      margin: 10px 0 0 0; /* no right margin needed — locate is inline now */
     }
     .repair-card-contact a {
       display: inline-flex; align-items: center; gap: 6px;
@@ -545,14 +556,15 @@
       50% { opacity: 0.45; transform: scale(0.82); }
     }
     .repair-card-distance {
-      margin-top: 8px; margin-right: 36px; font-size: 12px; font-weight: 600; color: #2e7d32;
+      margin-top: 8px; font-size: 12px; font-weight: 600; color: #2e7d32;
       display: inline-flex; align-items: center; gap: 5px;
     }
     .repair-card-distance.unknown { color: #9a9a9a; font-weight: 500; }
     .repair-card-reviews { color: #8a8a8e; font-size: 11px; font-weight: 500; margin-left: 2px; }
     .repair-card-phone a { color: inherit; text-decoration: none; }
     .repair-card-phone a:hover { text-decoration: underline; }
-    .repair-card-hours { margin-top: 8px; border-top: 1px dashed #e5e5ea; padding-top: 8px; }
+    /* Hours toggler — compact, borderless treatment */
+    .repair-card-hours { margin-top: 8px; border-top: 1px dashed rgba(17,17,17,0.08); padding-top: 8px; }
     .repair-hours-btn {
       display: inline-flex; align-items: center; gap: 6px;
       background: #f5f5f7; border: 1px solid #e8e8ec; color: #555;
@@ -617,25 +629,26 @@
     .detail-body { flex: 1; overflow-y: auto; padding: 20px 20px 120px; scrollbar-width: none; }
     .detail-body::-webkit-scrollbar { display: none; }
 
-    .detail-product-name { font-size: 22px; font-weight: 700; color: #111; letter-spacing: -0.4px; }
-    .detail-product-brand { font-size: 14px; color: #666; margin-top: 4px; }
+    .detail-product-name { font-size: 24px; font-weight: 800; color: #111; letter-spacing: -0.5px; line-height: 1.2; }
+    .detail-product-brand { font-size: 14px; color: #666; margin-top: 6px; font-weight: 500; }
 
-    .detail-warranty-block { margin-top: 20px; border-radius: 18px; padding: 18px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(17,17,17,0.04), 0 6px 16px rgba(17,17,17,0.05); border: 1px solid rgba(17,17,17,0.04); }
+    .detail-warranty-block { margin-top: 20px; border-radius: 20px; padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 2px rgba(17,17,17,0.04), 0 6px 16px rgba(17,17,17,0.05); border: 1px solid rgba(17,17,17,0.04); }
     .detail-warranty-block.expired { background: linear-gradient(160deg, #ffebee 0%, #fff0f1 100%); }
     .detail-warranty-block.critical { background: linear-gradient(160deg, #fff3e0 0%, #fff7ea 100%); }
     .detail-warranty-block.safe { background: linear-gradient(160deg, #e8f5e9 0%, #edf7ed 100%); }
-    .detail-warranty-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #666; }
+    .detail-warranty-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #666; }
     .detail-warranty-value { font-size: 18px; font-weight: 700; margin-top: 4px; }
     .detail-warranty-value.expired { color: #c62828; }
     .detail-warranty-value.critical { color: #e65100; }
     .detail-warranty-value.safe { color: #2e7d32; }
 
-    .detail-section-title { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #6b6b6b; margin: 26px 0 12px; }
+    /* Detail specs — 2-column grid on wide screens */
+    .detail-section-title { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #6b6b6b; margin: 28px 0 12px; }
     .detail-section-title::before { content: ''; width: 4px; height: 12px; border-radius: 3px; background: linear-gradient(180deg, #3949ab, #5c6bc0); }
-    .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+    .detail-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 11px 0; border-bottom: 1px solid #f2f2f2; gap: 16px; }
     .detail-row:last-child { border-bottom: none; }
-    .detail-row-label { font-size: 13px; color: #666; }
-    .detail-row-value { font-size: 13px; font-weight: 500; color: #111; text-align: right; max-width: 200px; overflow-wrap: anywhere; }
+    .detail-row-label { font-size: 13px; color: #888; flex-shrink: 0; }
+    .detail-row-value { font-size: 13px; font-weight: 600; color: #111; text-align: right; max-width: 200px; overflow-wrap: anywhere; }
     /* Phase 4: additional coverage period cards in the product detail */
     .coverage-card { border: 1px solid #ececf1; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; background: #fafbfe; }
     .coverage-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -791,24 +804,54 @@
     .notification-message { font-size: 13px; color: #666; margin-top: 3px; }
     .notification-meta { font-size: 11px; color: #666; margin-top: 6px; }
     /* Phase 4 §6: reminder preferences panel (top of the notifications view) */
-    .settings-card { background: #fff; border-radius: 16px; padding: 14px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(17,17,17,0.04), 0 6px 18px rgba(17,17,17,0.05); }
-    .settings-title { font-size: 13px; font-weight: 700; color: #1a1a2e; margin-bottom: 10px; }
-    .settings-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .settings-card {
+      background: #fff; border-radius: 20px; padding: 20px; margin-bottom: 16px;
+      box-shadow: 0 1px 2px rgba(17,17,17,0.04), 0 6px 18px rgba(17,17,17,0.05);
+      border: 1px solid rgba(17,17,17,0.04);
+    }
+    .settings-title { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 16px; }
+    /* Section headers inside settings card */
+    .settings-section-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+      color: #8a8a8e; margin: 0 0 10px; display: flex; align-items: center; gap: 7px;
+    }
+    .settings-section-label::before {
+      content: ''; width: 3px; height: 10px; border-radius: 2px;
+      background: linear-gradient(180deg, #3949ab, #5c6bc0);
+    }
+    /* Triggers — vertical stack of toggles */
+    .settings-triggers { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+    .settings-toggle {
+      display: flex; align-items: center; gap: 10px; cursor: pointer;
+      font-size: 14px; font-weight: 500; color: #333;
+      padding: 10px 12px; border-radius: 12px;
+      background: #f8f8fb; border: 1px solid rgba(17,17,17,0.04);
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .settings-toggle:hover { background: #f0f0f8; border-color: rgba(57,73,171,0.12); }
+    .settings-toggle input { width: 16px; height: 16px; accent-color: #3949ab; flex-shrink: 0; }
+    /* Timing chips */
+    .settings-row { margin-bottom: 16px; }
     .settings-row:last-child { margin-bottom: 0; }
-    .settings-toggle { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13px; color: #333; }
-    .settings-toggle input { width: 16px; height: 16px; accent-color: #3949ab; }
-    .settings-hint { font-size: 12px; color: #777; }
-    .reminder-days { display: flex; flex-wrap: wrap; gap: 6px; }
-    .reminder-day-chip { border: 1px solid #d5d5e0; background: #fbfbfd; color: #444; border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; transition: all .15s ease; }
-    .reminder-day-chip:hover { border-color: #3949ab; }
-    .reminder-day-chip.active { background: #3949ab; border-color: #3949ab; color: #fff; font-weight: 600; }
+    .settings-hint { font-size: 12px; color: #777; margin-bottom: 10px; display: block; }
+    .reminder-days { display: flex; flex-wrap: wrap; gap: 8px; }
+    .reminder-day-chip {
+      border: 1.5px solid #d5d5e0; background: #fbfbfd; color: #444;
+      border-radius: 999px; padding: 7px 16px; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: all .15s ease; font-family: 'Inter', sans-serif;
+    }
+    .reminder-day-chip:hover { border-color: #3949ab; color: #3949ab; background: #f0f1ff; }
+    .reminder-day-chip.active { background: #3949ab; border-color: #3949ab; color: #fff; font-weight: 700; }
     .settings-status { font-size: 12px; color: #2e7d32; }
-    body.dark-mode .settings-card { background: #1c1c21; }
+    body.dark-mode .settings-card { background: #1c1c21; border-color: rgba(255,255,255,0.05); }
     body.dark-mode .settings-title { color: #eef; }
-    body.dark-mode .settings-toggle { color: #ccc; }
+    body.dark-mode .settings-section-label { color: #71717a; }
+    body.dark-mode .settings-toggle { background: #23232a; border-color: rgba(255,255,255,0.06); color: #ccc; }
+    body.dark-mode .settings-toggle:hover { background: #2a2a33; border-color: rgba(239,83,80,0.2); }
     body.dark-mode .settings-hint { color: #999; }
     body.dark-mode .reminder-day-chip { background: #23232a; border-color: #33335a; color: #bbb; }
-    body.dark-mode .reminder-day-chip.active { background: #3949ab; border-color: #3949ab; color: #fff; }
+    body.dark-mode .reminder-day-chip:hover { border-color: #ef5350; color: #ef5350; background: rgba(239,83,80,0.08); }
+    body.dark-mode .reminder-day-chip.active { background: #ef5350; border-color: #ef5350; color: #fff; }
 
     /* ---- FORM OVERLAY (add/edit product) ---- */
     .form-overlay {
@@ -1098,13 +1141,29 @@
       .nav-item.active .nav-label::after { display: none; }
       .view { padding-top: 60px; }
       /* Align each view's header with the centered content column below it */
-      .home-header { max-width: 1000px; margin: 0 auto; width: 100%; padding: 28px 24px 0; }
-      .view-scroll { max-width: 1000px; margin: 0 auto; width: 100%; padding: 28px 24px 64px; }
+      .home-header { max-width: 1100px; margin: 0 auto; width: 100%; padding: 32px 40px 0; }
+      .view-scroll { max-width: 1100px; margin: 0 auto; width: 100%; padding: 28px 40px 80px; }
       /* Keep the detail sheet readable on wide screens */
-      .detail-body { max-width: 720px; margin: 0 auto; width: 100%; }
+      .detail-body { max-width: 780px; margin: 0 auto; width: 100%; }
 
+      /* ── Desktop nav — taller, more readable ── */
+      .bottom-nav {
+        height: 68px;
+        padding: 0 max(32px, calc((100vw - 1100px) / 2));
+      }
+      .nav-item { gap: 8px; padding: 8px 18px; border-radius: 12px; font-size: 14px; }
+      .nav-item svg { width: 20px; height: 20px; }
+      .nav-label { font-size: 13px; font-weight: 600; letter-spacing: -0.1px; }
+      .view { padding-top: 68px; }
+      .brand-desktop {
+        font-size: 19px; font-weight: 800; letter-spacing: -0.5px;
+      }
+
+      /* ── Product card grid — 3 columns on wide viewports ── */
       #attention-list, #recent-list, #products-list, #notification-list {
-        display: flex; flex-wrap: wrap; justify-content: center; gap: 14px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
       }
       #attention-list > .product-card,
       #attention-list > .skeleton-card,
@@ -1114,17 +1173,19 @@
       #products-list > .skeleton-card,
       #notification-list > .notification-item,
       #notification-list > .skeleton-card {
-        flex: 1 1 300px; min-width: 300px; max-width: 340px; margin-bottom: 0;
+        flex: unset; min-width: unset; max-width: unset; margin-bottom: 0;
       }
       #attention-list > .empty-state,
       #recent-list > .empty-state,
       #products-list > .empty-state,
       #notification-list > .empty-state {
-        flex: 1 1 100%; max-width: 100%;
+        grid-column: 1 / -1;
       }
-      #attention-list .all-good, #recent-list .all-good, #products-list .all-good { flex-basis: 100%; max-width: 100%; }
+      #attention-list .all-good, #recent-list .all-good, #products-list .all-good {
+        grid-column: 1 / -1;
+      }
 
-      .stat-grid { grid-template-columns: repeat(4, 1fr); }
+      .stat-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
       .form-overlay { align-items: center; }
       .form-sheet { border-radius: 20px; }
       .login-screen { max-width: none; width: 100%; }
@@ -1460,6 +1521,17 @@
     body.dark-mode .detail-specs-value {
       color: #ffffff;
     }
+    body.dark-mode .detail-row {
+      border-bottom-color: rgba(255,255,255,0.05);
+    }
+    body.dark-mode .detail-row-label { color: #71717a; }
+    body.dark-mode .detail-row-value { color: #ffffff; }
+
+    /* Dark mode for scan extracted data card */
+    body.dark-mode #camera-result > div[style*="linear-gradient"] {
+      background: linear-gradient(160deg, #1d1d22 0%, #121216 100%) !important;
+      border-color: rgba(255,255,255,0.05) !important;
+    }
 
     body.dark-mode .btn-ghost {
       background: rgba(30, 30, 36, 0.85);
@@ -1632,6 +1704,27 @@
     body.dark-mode .repair-action-btn.directions:hover { background: rgba(21, 101, 192, 0.25); }
     body.dark-mode .repair-action-btn.website { background: #27272f; color: #a1a1aa; border-color: rgba(255,255,255,0.08); }
     body.dark-mode .repair-action-btn.website:hover { background: #3f3f46; color: #fff; }
+
+    /* Dark mode repair card surfaces */
+    body.dark-mode .repair-card {
+      background: linear-gradient(160deg, #1d1d22 0%, #121216 100%);
+      border-color: rgba(255,255,255,0.05);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+    body.dark-mode .repair-card:hover {
+      border-color: rgba(239, 83, 80, 0.3);
+      box-shadow: 0 4px 30px rgba(239, 83, 80, 0.12);
+    }
+    body.dark-mode .repair-card-name { color: #ffffff; }
+    body.dark-mode .repair-card-city { color: #8c9eff; }
+    body.dark-mode .repair-card-address { color: #a1a1aa; }
+    body.dark-mode .repair-card-phone { color: #d4d4d8; }
+    body.dark-mode .repair-card-hours { border-top-color: rgba(255,255,255,0.06); }
+    body.dark-mode .repair-hours-btn { background: #27272f; border-color: #3f3f46; color: #a1a1aa; }
+    body.dark-mode .repair-hours-btn:hover { background: #2d2d3a; color: #8c9eff; border-color: #5c6bc0; }
+    body.dark-mode .repair-card-distance { color: #81c784; }
+    body.dark-mode .repair-open-chip.closed { background: #27272f; color: #a1a1aa; }
+    body.dark-mode .repair-brand-tag { background: rgba(57,73,171,0.2); border-color: rgba(57,73,171,0.3); color: #8c9eff; }
 
     /* ─── PHASE 3 — MOBILE UX AUDIT FIXES (2026-08-12) ───
        Findings from the 360–1440 px breakpoint audit. These are additive

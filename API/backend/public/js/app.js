@@ -25,15 +25,15 @@ function makeProductCard(p, index) {
     '<img class="product-img" src="' + escapeHtml(productImage(p)) + '" alt="" ' +
     'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" />' +
     '<div class="product-img-placeholder" style="display:none;"></div>' +
-    '<div class="product-info" style="flex:1;">' +
+    '<div class="product-info">' +
       '<div class="product-info-name">' + escapeHtml(p.productName) + '</div>' +
       '<div class="product-info-brand">' + escapeHtml([p.brand, p.model].filter(Boolean).join(' · ') || '—') + '</div>' +
-      '<div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Expires: ' + escapeHtml(expiryStr) + '</div>' +
+      '<div style="font-size: 12px; color: #8a8a8e; margin-top: 5px;">' + escapeHtml(expiryStr) + '</div>' +
       tagChips +
     '</div>' +
-    '<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">' +
+    '<div class="product-card-right">' +
       '<span class="product-warranty-badge ' + info.badgeClass + '">' + info.label + '</span>' +
-      '<span style="font-size: 20px; color: var(--text-muted);">›</span>' +
+      '<span style="font-size: 18px; color: #bbb; line-height: 1;">›</span>' +
     '</div>';
   return card;
 }
@@ -632,10 +632,26 @@ function renderDetailHeader(p) {
         progCont.style.display = '';
         const total = eD - pD;
         const elapsed = Math.max(0, nD - pD);
-        const percent = Math.min(100, (elapsed / total) * 100);
-        document.getElementById('progress-bar-fill').style.width = percent + '%';
-        document.getElementById('progress-percent-label').textContent = Math.round(percent) + '%';
-        document.getElementById('progress-remaining-days').textContent = info.days > 0 ? info.days + ' days remaining' : 'Expired';
+        const isExpired = nD >= eD;
+        const fill = document.getElementById('progress-bar-fill');
+
+        if (isExpired) {
+          // Expired: show elapsed = 100%, red bar, "100% elapsed"
+          fill.style.width = '100%';
+          fill.style.background = 'linear-gradient(90deg, #c62828, #e57373)';
+          document.getElementById('progress-percent-label').textContent = '100% elapsed';
+          document.getElementById('progress-remaining-days').textContent = 'Coverage ended';
+          document.getElementById('progress-remaining-days').style.color = '#c62828';
+        } else {
+          // Active: show remaining percentage
+          const remaining = Math.max(0, 100 - (elapsed / total) * 100);
+          fill.style.width = Math.round(100 - remaining) + '%';
+          fill.style.background = '';  // revert to CSS class color
+          const pct = Math.round(remaining);
+          document.getElementById('progress-percent-label').textContent = pct + '% remaining';
+          document.getElementById('progress-remaining-days').textContent = info.days > 0 ? info.days + ' days remaining' : 'Expiring today';
+          document.getElementById('progress-remaining-days').style.color = info.days <= 14 ? '#e65100' : '#2e7d32';
+        }
         document.getElementById('progress-expiry-date').textContent = fmtDate(p.warrantyExpiryDate);
       } else {
         progCont.style.display = 'none';
