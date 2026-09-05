@@ -62,10 +62,30 @@
             </div>
             <div class="login-field">
               <label for="reg-password">Password</label>
-              <input type="password" id="reg-password" placeholder="Min. 6 characters" />
+              <input type="password" id="reg-password" placeholder="Min. 8 characters" />
             </div>
             <button class="login-btn" onclick="doRegister()">Create Account</button>
             <div class="login-err" id="reg-err"></div>
+          </div>
+
+          <div id="form-verify" style="display:none;">
+            <div style="text-align:center; margin-bottom:14px;">
+              <div id="verify-badge" style="display:inline-block; font-size:12px; font-weight:600; padding:3px 12px; border-radius:12px; background:rgba(37,99,235,0.12); color:var(--primary, #2563eb); margin-bottom:6px;">Verification Required</div>
+              <div id="verify-instruction" style="font-size:13px; color:var(--text-muted, #64748b); line-height:1.4;">
+                Enter the 6-digit verification code sent to your email.
+              </div>
+            </div>
+            <div class="login-field">
+              <label for="verify-code">Verification Code</label>
+              <input type="text" id="verify-code" placeholder="••••••" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="letter-spacing:6px; font-size:22px; font-weight:700; text-align:center;" />
+            </div>
+            <button class="login-btn" id="verify-btn" onclick="doVerify()">Verify &amp; Continue</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+              <button type="button" class="btn-text" id="resend-code-btn" style="background:none; border:none; color:var(--primary, #2563eb); cursor:pointer; font-size:13px; padding:4px 0;" onclick="resendCode()">Resend Code</button>
+              <button type="button" class="btn-text" style="background:none; border:none; color:var(--text-muted, #64748b); cursor:pointer; font-size:13px; padding:4px 0;" onclick="cancelVerification()">Back to Sign In</button>
+            </div>
+            <div class="login-err" id="verify-err"></div>
+            <div class="login-success" id="verify-msg" style="color:var(--success, #10b981); font-size:13px; text-align:center; margin-top:8px;"></div>
           </div>
 
           <button class="login-back-btn" id="login-back-btn">← Continue browsing as guest</button>
