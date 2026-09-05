@@ -6,6 +6,9 @@ const controller = require("../controllers/auth.controller");
 const {
   registerSchema,
   loginSchema,
+  verifyEmailSchema,
+  verifyLoginSchema,
+  resendVerificationSchema,
   changePasswordSchema,
   updatePreferencesSchema
 } = require("../validators/auth.validator");
@@ -20,13 +23,13 @@ const authLimiter = rateLimit({
 });
 
 router.post("/register", authLimiter, validate(registerSchema), controller.register);
+router.post("/verify-email", authLimiter, validate(verifyEmailSchema), controller.verifyEmail);
 router.post("/login", authLimiter, validate(loginSchema), controller.login);
+router.post("/verify-login", authLimiter, validate(verifyLoginSchema), controller.verifyLogin);
+router.post("/resend-verification", authLimiter, validate(resendVerificationSchema), controller.resendVerification);
 router.post("/logout", auth, controller.logout);
 router.get("/me", auth, controller.getMe);
 router.put("/preferences", auth, validate(updatePreferencesSchema), controller.updatePreferences);
-// change-password is a credential-sensitive endpoint: same per-IP limiter as
-// login/register so a leaked session can't be used to brute-force a new
-// password either.
 router.put(
   "/change-password",
   auth,

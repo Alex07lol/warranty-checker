@@ -66,6 +66,26 @@ const userSchema = new mongoose.Schema(
     notificationPreferences: {
       type: notificationPreferencesSchema,
       default: () => ({})
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false
+    },
+    emailVerificationCode: {
+      type: String,
+      default: null
+    },
+    emailVerificationExpires: {
+      type: Date,
+      default: null
+    },
+    loginVerificationCode: {
+      type: String,
+      default: null
+    },
+    loginVerificationExpires: {
+      type: Date,
+      default: null
     }
   },
   {

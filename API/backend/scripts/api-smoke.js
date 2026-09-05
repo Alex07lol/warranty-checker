@@ -162,6 +162,12 @@ async function stepAuth() {
       expected: 201
     });
     token = json?.data?.token;
+    if (!token && json?.data?.requiresVerification && json?.data?.verificationCode) {
+      const verifyRes = await jsonBody("/auth/verify-email", {
+        body: { email: EMAIL, code: json.data.verificationCode }
+      });
+      token = verifyRes?.json?.data?.token;
+    }
     expectOk("POST /auth/register", ok && !!token, ok ? `user ${json.data.user.email}` : json?.message);
   });
 
@@ -171,6 +177,12 @@ async function stepAuth() {
       body: { email: EMAIL, password: PASSWORD }
     });
     token = json?.data?.token;
+    if (!token && json?.data?.requiresVerification && json?.data?.verificationCode) {
+      const verifyRes = await jsonBody("/auth/verify-login", {
+        body: { email: EMAIL, code: json.data.verificationCode }
+      });
+      token = verifyRes?.json?.data?.token;
+    }
     expectOk("POST /auth/login", ok && !!token, ok ? `token ${String(token).slice(0, 18)}…` : json?.message);
   });
 
@@ -388,6 +400,12 @@ async function stepPassword() {
         body: { email: EMAIL, password: NEW_PASSWORD }
       });
       token = json?.data?.token;
+      if (!token && json?.data?.requiresVerification && json?.data?.verificationCode) {
+        const verifyRes = await jsonBody("/auth/verify-login", {
+          body: { email: EMAIL, code: json.data.verificationCode }
+        });
+        token = verifyRes?.json?.data?.token;
+      }
       expectOk("POST /auth/login with new password", ok && !!token, ok ? "ok" : json?.message);
     });
   }

@@ -1,10 +1,19 @@
 const authService = require("../services/auth.service");
-const { sendSuccess, sendError } = require("../utils/response");
+const { sendSuccess } = require("../utils/response");
 
 async function register(req, res, next) {
   try {
     const data = await authService.registerUser(req.body.name, req.body.email, req.body.password);
-    return sendSuccess(res, data, "Registration successful", 201);
+    return sendSuccess(res, data, data.message || "Registration initiated. Please verify your email.", 201);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function verifyEmail(req, res, next) {
+  try {
+    const data = await authService.verifyEmail(req.body.email, req.body.code);
+    return sendSuccess(res, data, "Email verified successfully");
   } catch (error) {
     return next(error);
   }
@@ -12,8 +21,29 @@ async function register(req, res, next) {
 
 async function login(req, res, next) {
   try {
-    const data = await authService.loginUser(req.body.email, req.body.password);
-    return sendSuccess(res, data, "Login successful");
+    const data = await authService.loginUser(req.body.email, req.body.password, req.body.code);
+    const msg = data.requiresVerification
+      ? data.message || "Verification code sent to your email"
+      : "Login successful";
+    return sendSuccess(res, data, msg);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function verifyLogin(req, res, next) {
+  try {
+    const data = await authService.verifyLogin(req.body.email, req.body.code);
+    return sendSuccess(res, data, "Login verified successfully");
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function resendVerification(req, res, next) {
+  try {
+    const data = await authService.resendVerification(req.body.email, req.body.type);
+    return sendSuccess(res, data, data.message || "Verification code sent");
   } catch (error) {
     return next(error);
   }
@@ -59,7 +89,10 @@ async function updatePreferences(req, res, next) {
 
 module.exports = {
   register,
+  verifyEmail,
   login,
+  verifyLogin,
+  resendVerification,
   logout,
   getMe,
   changePassword,

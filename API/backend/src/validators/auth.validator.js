@@ -9,7 +9,23 @@ const registerSchema = Joi.object({
 
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().required()
+  password: Joi.string().required(),
+  code: Joi.string().trim().length(6).optional()
+});
+
+const verifyEmailSchema = Joi.object({
+  email: Joi.string().email().required(),
+  code: Joi.string().trim().length(6).required()
+});
+
+const verifyLoginSchema = Joi.object({
+  email: Joi.string().email().required(),
+  code: Joi.string().trim().length(6).required()
+});
+
+const resendVerificationSchema = Joi.object({
+  email: Joi.string().email().required(),
+  type: Joi.string().valid("email", "login").default("email")
 });
 
 const changePasswordSchema = Joi.object({
@@ -31,6 +47,9 @@ const updatePreferencesSchema = Joi.object({
 module.exports = {
   registerSchema,
   loginSchema,
+  verifyEmailSchema,
+  verifyLoginSchema,
+  resendVerificationSchema,
   changePasswordSchema,
   updatePreferencesSchema
 };
