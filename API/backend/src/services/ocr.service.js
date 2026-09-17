@@ -2,7 +2,6 @@ const path = require("node:path");
 const os = require("node:os");
 const fs = require("node:fs");
 const { createWorker } = require("tesseract.js");
-const Document = require("../models/Document");
 const cloudinary = require("../config/cloudinary");
 const logger = require("../utils/logger");
 const { applyOcrToProduct } = require("./product.service");
@@ -28,8 +27,20 @@ const MONTH_INDEX = {
 
 // A date as it appears on a document: numeric ("06/15/2027"), day-first
 // word month ("15 March 2026") or month-first ("March 15, 2026").
-const DATE_RE =
-  /(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,9}\s*,?\s+\d{2,4}|[A-Za-z]{3,9}\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s+\d{2,4})/;
+const DATE_PATTERNS = [
+  /\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/,
+  /\b\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,9}(?:,\s*|\s+)\d{2,4}\b/,
+  /\b[A-Za-z]{3,9}\s+\d{1,2}(?:st|nd|rd|th)?(?:,\s*|\s+)\d{2,4}\b/
+];
+
+function matchDate(str) {
+  if (!str) return null;
+  for (const pat of DATE_PATTERNS) {
+    const m = str.match(pat);
+    if (m) return m[0];
+  }
+  return null;
+}
 
 // Parse a date string in any of the common document formats. Numeric dates
 // keep JS Date semantics (US order); word-month dates are built explicitly
@@ -41,12 +52,12 @@ function parseDateValue(raw) {
     const d = new Date(s);
     return Number.isNaN(d.getTime()) ? null : d;
   }
-  let m = s.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\s*,?\s+(\d{2,4})$/);
+  let m = s.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})(?:,\s*|\s+)(\d{2,4})$/);
   if (m) {
     const mo = MONTH_INDEX[m[2].slice(0, 3).toLowerCase()];
     if (mo !== undefined) return new Date(+m[3], mo, +m[1]);
   }
-  m = s.match(/^([A-Za-z]{3,9})\s+(\d{1,2})(?:st|nd|rd|th)?\s*,?\s+(\d{2,4})$/);
+  m = s.match(/^([A-Za-z]{3,9})\s+(\d{1,2})(?:st|nd|rd|th)?(?:,\s*|\s+)(\d{2,4})$/);
   if (m) {
     const mo = MONTH_INDEX[m[1].slice(0, 3).toLowerCase()];
     if (mo !== undefined) return new Date(+m[3], mo, +m[2]);
@@ -60,35 +71,44 @@ function parseDateValue(raw) {
 // never reaches a later date. Returns null when there is no follow-up date.
 function nextDate(lines, i) {
   for (let j = i + 1; j < lines.length; j++) {
-    const match = lines[j].match(DATE_RE);
-    if (match) return match[1];
+    const match = matchDate(lines[j]);
+    if (match) return match;
     if (lines[j].trim()) break;
   }
   return null;
 }
+
+const END_LABELS = [
+  /\b(?:exp(?:ir(?:y|ation|es)?)?)\b/i,
+  /\b(?:valid\s*(?:thru|through)|good\s*until)\b/i,
+  /\b(?:warranty\s*(?:end|expires?)|end\s+of\s+warranty)\b/i
+];
+const START_LABELS = [
+  /\b(?:warranty\s*start|start|begins?|valid\s*from)\b/i,
+  /\b(?:purchase\s*date|date\s*of\s*purchase|bought|sold|issued|mf[rg])\b/i
+];
+const DATE_LABEL =
+  /\b(?:expiry|expiration|expires|exp|valid|warranty|guarantee|good\s*until|start|end|purchase|mfr|mfg|date|issued|bought|sold|from)\b/i;
 
 function parseDate(text) {
   if (!text) return null;
   const lines = String(text).split(/\r?\n/);
   // Strongest expiry signals first; "Warranty End" beats a bare "Warranty"
   // line so a certificate's START date is never mistaken for the expiry.
-  const END_LABEL =
-    /\b(?:expiry|expiration|expires|valid\s*(?:thru|through)|good\s*until|warranty\s*end|warranty\s*expires?|end\s+of\s+warranty|exp)\b/i;
-  const START_LABEL =
-    /\b(?:warranty\s*start|start|begins?|valid\s*from|purchase\s*date|date\s*of\s*purchase|bought|sold|issued|mfr|mfg)\b/i;
-  const DATE_LABEL =
-    /\b(?:expiry|expiration|expires|exp|valid|warranty|guarantee|good\s*until|start|end|purchase|mfr|mfg|date|issued|bought|sold|from)\b/i;
   let fallback = null;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const inline = line.match(DATE_RE);
-    const raw = inline ? inline[1] : DATE_LABEL.test(line) ? nextDate(lines, i) : null;
+    const inline = matchDate(line);
+    let raw = inline;
+    if (!raw && DATE_LABEL.test(line)) {
+      raw = nextDate(lines, i);
+    }
     if (!raw) continue;
     const date = parseDateValue(raw);
     if (!date) continue;
     if (fallback === null) fallback = date;
-    if (START_LABEL.test(line)) continue;   // never an expiry
-    if (END_LABEL.test(line) || /\b(?:warranty|guarantee|valid)\b/i.test(line)) {
+    if (START_LABELS.some((re) => re.test(line))) continue;   // never an expiry
+    if (END_LABELS.some((re) => re.test(line)) || /\b(?:warranty|guarantee|valid)\b/i.test(line)) {
       return date;
     }
   }
@@ -106,7 +126,7 @@ function parsePrice(text) {
   // Price-like bare numbers: comma-grouped thousands ("74,999.00") or any
   // number with a decimal ("120.00"). Never a bare integer — so serials and
   // invoice numbers ("SN1234567890", "TP-2026-0315-4821") are not prices.
-  const BARE = /((?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)))/;
+  const BARE = /(?:^|[^\d,])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d+)/;
   const PRICE_LABEL =
     /\b(?:(?:grand\s*)?total|amount(?:\s*due)?|due|bal(?:ance)?|price|cost|invoice)\b/i;
 
@@ -167,6 +187,16 @@ function parseSerial(text) {
   return null;
 }
 
+const NOISE_PATTERNS = [
+  /^(total|subtotal|grand\s*total|amount|balance|due|tax|vat|item|qty|price|serial|s\/?n|exp|expiry|mfr|date)\b/i,
+  /^(www|http|thank|please|keep|store|address|phone|tel|email|receipt|warranty|guarantee|model|brand|product|invoice|bill|order|purchase)\b/i
+];
+
+function isNoise(val) {
+  if (!val) return false;
+  return NOISE_PATTERNS.some((pat) => pat.test(val));
+}
+
 // Best-effort purchase store/merchant name from OCR text. Priority: (1) a
 // line with a store-ish keyword (STORE, SUPERMARKET, MART, …), (2) a
 // "Thank you for shopping at X" footer, (3) the first plausible header line
@@ -178,8 +208,6 @@ function parseStore(text) {
     .map((l) => l.trim())
     .filter(Boolean);
 
-  const NOISE =
-    /^(total|subtotal|grand\s*total|amount|balance|due|tax|vat|item|qty|price|serial|s\/?n|exp|expiry|mfr|date|www|http|thank|please|keep|address|phone|tel|email|receipt|warranty|guarantee|model|brand|product|invoice|bill|order|purchase)\b/i;
   const STORE_KEYWORD =
     /\b(store|supermarket|superstore|mart|outlet|shop|center|centre|inc|llc|ltd|corp|co\.?|gmbh|bazaar)\b/i;
   const SELLER_LABEL = /\b(seller|sold\s*by|store\s*name|merchant|purchased\s*from|bought\s*from)\b/i;
@@ -199,7 +227,7 @@ function parseStore(text) {
     }
     if (
       value && value.length >= 3 && value.length <= 60 && /[A-Za-z]/.test(value) &&
-      !/^\$/.test(value) && !/^\d{1,2}[/-]\d/.test(value) && !NOISE.test(value)
+      !/^\$/.test(value) && !/^\d{1,2}[/-]\d/.test(value) && !isNoise(value)
     ) {
       return value;
     }
@@ -212,7 +240,7 @@ function parseStore(text) {
     if (line.length < 3 || line.length > 60) continue;
     if (!/[A-Za-z]/.test(line)) continue;
     if (!/[A-Z]/.test(line)) continue;
-    if (NOISE.test(line)) continue;
+    if (isNoise(line)) continue;
     if (!STORE_KEYWORD.test(line)) continue;
     if (/\$\s?\d/.test(line) || /\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/.test(line)) continue;
     return line;
@@ -220,7 +248,7 @@ function parseStore(text) {
 
   // (2) Footer thank-you line ("Thank you for shopping at ACME").
   const thanks = text.match(
-    /(?:thank\s*you\s*for\s*(?:shopping|your\s*(?:visit|purchase)|patronage)\s*(?:at|with)\s+)([A-Za-z0-9&.'-]+(?:\s+[A-Za-z0-9&.'-]+){0,3})/i
+    /(?:thank\s*you\s*for\s*(?:shopping|your\s*(?:visit|purchase)|patronage)\s*(?:at|with)\s+)([a-z0-9&.'-]+(?:\s+[a-z0-9&.'-]+){0,3})/i
   );
   if (thanks) return thanks[1].trim();
 
@@ -229,7 +257,7 @@ function parseStore(text) {
     if (line.length < 3 || line.length > 60) continue;
     if (!/[A-Za-z]/.test(line)) continue;
     if (!/[A-Z]/.test(line)) continue;
-    if (NOISE.test(line)) continue;
+    if (isNoise(line)) continue;
     if (/\$\s?\d/.test(line) || /\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/.test(line)) continue;
     const words = line.split(/\s+/);
     if (words.length >= 1 && words.length <= 5) return line;
@@ -256,8 +284,7 @@ function parsePurchaseDate(text) {
       const line = lines[i];
       if (EXPIRY_LABEL.test(line)) continue;
       if (!labelRe.test(line)) continue;
-      const inline = line.match(DATE_RE);
-      const raw = inline ? inline[1] : nextDate(lines, i);
+      const raw = matchDate(line) || nextDate(lines, i);
       if (raw) {
         const date = parseDateValue(raw);
         if (date) return date;
@@ -307,7 +334,7 @@ function parseBrand(text) {
   // "MANUFACTURER WARRANTY…" from being read as brand labels.
   for (const line of lines) {
     const match = line.match(
-      /\b(?:brand(?:\s*name)?|manufacturer|make|company)\b\s*[:#-]\s*([A-Za-z][A-Za-z0-9 .&'-]{1,40})/i
+      /\b(?:brand(?:\s*name)?|manufacturer|make|company)\b\s*[:#-]\s*([a-z][a-z0-9 .&'-]{1,40})/i
     );
     if (match) return match[1].trim();
   }
@@ -316,7 +343,7 @@ function parseBrand(text) {
   // ("Brand\nNexaTech"). The line must BE the label (not a sentence
   // containing the word) so footer noise is never picked up.
   for (let i = 0; i < lines.length; i++) {
-    if (!/^(?:brand(?:\s*name)?|manufacturer|make|company)\s*:?\s*$/i.test(lines[i])) {
+    if (!/^(?:brand(?:\s*name)?|manufacturer|make|company)(?:\s*:)?\s*$/i.test(lines[i])) {
       continue;
     }
     for (let j = i + 1; j < lines.length; j++) {
@@ -365,15 +392,25 @@ function parseModel(text) {
   // shapes (a trailing \b would break "Item No." — the dot kills the
   // boundary). No value capture: the value is sliced off m[0] below so a
   // label can hold its value either inline or on the next line.
-  const MODEL_LABEL =
-    /(?:model(?:\s*(?:no\.?|number|#))?|item\s*(?:no\.?|#)|product\s*(?:no\.?|#)|part\s*(?:no\.?|#)|article\s*(?:no\.?|#)|\bsku\b|\bp\/?n\b|\btype\s*(?:no\.?|#)?\b)/i;
+  const MODEL_LABELS = [
+    /model(?:\s*(?:no\.?|number|#))?/i,
+    /(?:item|product|part|article)\s*(?:no\.?|#)/i,
+    /\b(?:sku|p\/?n|type(?:\s*(?:no\.?|#))?)\b/i
+  ];
+  const findModelMatch = (str) => {
+    for (const pat of MODEL_LABELS) {
+      const m = str.match(pat);
+      if (m) return m;
+    }
+    return null;
+  };
   const SERIAL_LABEL = /\b(s\/?n|serial|mfr|mfg|exp|expiry|warranty|valid)\b/i;
 
   // (1) Explicit labels — value inline ("Model No: WH-1000XM5") or on the
   // next line ("Model Number\nNBP-1402").
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const m = line.match(MODEL_LABEL);
+    const m = findModelMatch(line);
     if (!m || SERIAL_LABEL.test(line)) continue;
     const after = line.slice(m.index + m[0].length).replace(/^[.:#-]+\s*/, "").trim();
     let value = after;
@@ -455,9 +492,6 @@ function parseProductName(text, fileName, documentType) {
     .map((l) => l.trim())
     .filter(Boolean);
 
-  const NOISE =
-    /^(total|subtotal|grand\s*total|amount|balance|due|tax|vat|item|qty|price|serial|s\/?n|exp|expiry|mfr|date|www|http|thank|please|keep|store|address|phone|tel|email|receipt|warranty|guarantee|model|brand|product|invoice|bill|order|purchase)\b/i;
-
   // (0) A labeled product name ("Product Name\nApexBook Pro 14").
   for (let i = 0; i < lines.length; i++) {
     if (!/\bproduct\s*name\b|\bitem\s*name\b/i.test(lines[i])) continue;
@@ -477,10 +511,10 @@ function parseProductName(text, fileName, documentType) {
 
   // (1) Item line: name followed by a price (two+ spaces before the $).
   for (const line of lines) {
-    const match = line.match(/^(.+?)\s{2,}\$\s?\d/);
+    const match = line.match(/^(.+?\S)\s{2,}\$\s?\d/);
     if (!match) continue;
     const name = match[1].trim();
-    if (name.length >= 3 && name.length <= 60 && !NOISE.test(name)) {
+    if (name.length >= 3 && name.length <= 60 && !isNoise(name)) {
       return name;
     }
   }
@@ -488,7 +522,7 @@ function parseProductName(text, fileName, documentType) {
   // (2) A line mixing letters and digits (model numbers, e.g. "Sony WH-1000XM5").
   for (const line of lines) {
     if (line.length < 3 || line.length > 60) continue;
-    if (/[A-Za-z].*\d/.test(line) && !NOISE.test(line) && !/\$\s?\d/.test(line)) {
+    if (/[a-z]/i.test(line) && /\d/.test(line) && !isNoise(line) && !/\$\s?\d/.test(line)) {
       return line;
     }
   }
@@ -497,7 +531,7 @@ function parseProductName(text, fileName, documentType) {
   for (const line of lines) {
     if (line.length < 3 || line.length > 60) continue;
     if (!/[A-Za-z]/.test(line)) continue;
-    if (NOISE.test(line)) continue;
+    if (isNoise(line)) continue;
     if (/\$\s?\d/.test(line) || /\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/.test(line)) continue;
     const words = line.split(/\s+/);
     if (words.length >= 1 && words.length <= 5) return line;
@@ -510,7 +544,7 @@ function parseProductName(text, fileName, documentType) {
     .replace(/[-_]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (stem && stem.length >= 2 && !NOISE.test(stem)) return stem.slice(0, 60);
+  if (stem && stem.length >= 2 && !isNoise(stem)) return stem.slice(0, 60);
 
   // (5) Generic fallback.
   return documentType === "warranty_card" ? "Warranty card product" : "Receipt product";
@@ -601,7 +635,6 @@ async function rasterizePdfPages(pdfBuffer, options = {}) {
       const page = doc.loadPage(i);
       const bounds = page.getBounds();
       const pageWidth = bounds.x1 - bounds.x0;
-      const pageHeight = bounds.y1 - bounds.y0;
       const scale = Math.min(2, PDF_RENDER_MAX_WIDTH / Math.max(pageWidth, 1));
       const pixmap = page.toPixmap(
         mupdf.Matrix.scale(scale, scale),
