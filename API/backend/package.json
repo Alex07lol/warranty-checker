@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "demo": "node scripts/run-demo-server.js",
     "test": "jest --runInBand",
+    "lint": "eslint src/ public/js/",
     "smoke": "node scripts/api-smoke.js",
     "ocr:sim": "node scripts/ocr-simulate.cjs",
     "check:cloudinary": "node scripts/check-cloudinary.js"
@@ -31,10 +32,12 @@
     "multer": "^2.0.2",
     "mupdf": "^1.28.0",
     "node-cron": "^4.6.0",
-    "nodemailer": "^10.0.0",
+    "resend": "^6.28.1",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "eslint": "^10.10.0",
+    "eslint-plugin-sonarjs": "^4.2.1",
     "jest": "^30.0.5",
     "js-yaml": "^5.2.3",
     "mongodb-memory-server": "^10.1.4",

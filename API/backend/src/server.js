@@ -165,6 +165,7 @@ app.get("/ready", async (req, res) => {
       data: { db: "up" }
     });
   } catch (error) {
+    logger.warn(`Readiness check failed: ${error.message}`);
     res.status(503).json({
       success: false,
       message: "Not ready — database unavailable",
