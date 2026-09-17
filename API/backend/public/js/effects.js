@@ -165,13 +165,8 @@
         gl = null;
       }
       if (!gl) return false;
-      const vs = compileShader(gl, gl.VERTEX_SHADER, VS);
-      const fs = compileShader(gl, gl.FRAGMENT_SHADER, FS);
-      if (!vs || !fs) return false;
-      prog = gl.createProgram();
-      gl.attachShader(prog, vs); gl.attachShader(prog, fs);
-      gl.linkProgram(prog);
-      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return false;
+      prog = linkProgram(gl, VS, FS);
+      if (!prog) return false;
       const buf = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -286,13 +281,8 @@
         gl = null;
       }
       if (!gl) return false;
-      const vs = compileShader(gl, gl.VERTEX_SHADER, VS);
-      const fs = compileShader(gl, gl.FRAGMENT_SHADER, FS);
-      if (!vs || !fs) return false;
-      prog = gl.createProgram();
-      gl.attachShader(prog, vs); gl.attachShader(prog, fs);
-      gl.linkProgram(prog);
-      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return false;
+      prog = linkProgram(gl, VS, FS);
+      if (!prog) return false;
       const buf = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -327,20 +317,19 @@
     canvas.addEventListener('webglcontextlost', (e) => e.preventDefault(), false);
     canvas.addEventListener('webglcontextrestored', () => { setup(); ensureGlSize(canvas, gl, dpr, uRes, sizeState); }, false);
 
-    let rafId = null;
     function loop() {
       if (mainVisible()) {
         ensureGlSize(canvas, gl, dpr, uRes, sizeState);
         paint(performance.now() / 1000);
       }
-      rafId = requestAnimationFrame(loop);
+      requestAnimationFrame(loop);
     }
 
     // The app boots onto the dashboard, so kick off immediately; reduced-motion
     // users get one calm static frame instead of a live animation.
     ensureGlSize(canvas, gl, dpr, uRes, sizeState);
     if (reduceMotion) { paint(0); }
-    else { rafId = requestAnimationFrame(loop); }
+    else { requestAnimationFrame(loop); }
   }
   startAppAurora();
 
