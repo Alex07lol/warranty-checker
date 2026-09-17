@@ -267,10 +267,20 @@ function show(name, rows, allPass) {
   console.log("\n" + name);
   console.log("-".repeat(name.length));
   for (const [field, got, want, pass] of rows) {
-    const mark = pass === null ? " - " : pass ? " ✓ " : " ✗ ";
+    // Flat ternaries (SonarCloud S3358: no nested conditionals).
+    let mark = " ✓ ";
+    if (pass === null) {
+      mark = " - ";
+    } else if (!pass) {
+      mark = " ✗ ";
+    }
     const gotS = got === null ? "null" : JSON.stringify(got);
     const wantS = want === undefined || want === null ? "null" : JSON.stringify(want);
-    const note = pass === null ? "" : pass ? "" : ` (want ${wantS})`;
+    // Ternary kept flat (SonarCloud S3358: no nested conditionals).
+    let note = "";
+    if (pass === false) {
+      note = ` (want ${wantS})`;
+    }
     console.log(` ${mark} ${field.padEnd(20)} ${gotS}${note}`);
   }
 }
@@ -291,7 +301,7 @@ for (const v of VARIANTS) {
   };
   const rows = [];
   let allPass = true;
-  for (const [field, want] of Object.entries(got)) {
+  for (const [field] of Object.entries(got)) {
     const asserted = field in v.expect;
     const pass = asserted ? got[field] === v.expect[field] : null;
     if (asserted) {
