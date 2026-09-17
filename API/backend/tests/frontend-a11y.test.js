@@ -87,6 +87,17 @@ describe("Frontend accessibility scaffolding", () => {
     expect(INDEX).toContain('aria-level="2"');
   });
 
+  test("the app shell cannot be scrolled sideways", () => {
+    // The closed detail/form overlays rest at translateX(100%), which extends
+    // the scrollable overflow of .screen. With `overflow: hidden` a focus()
+    // inside an off-screen overlay scrolls the whole shell off-centre, so the
+    // shell must use `clip` (scrolling stays in `.view-scroll`).
+    const screen = APP_CSS.match(/\.screen\s*{[^}]*}/)[0];
+    expect(screen).toMatch(/overflow:\s*clip/);
+    const scroll = APP_CSS.match(/\.view-scroll\s*{[^}]*}/)[0];
+    expect(scroll).toMatch(/overflow-y:\s*auto/);
+  });
+
   test("camera upload area is keyboard-operable (inline onkeydown/onkeyup -> cameraUploadKey)", () => {
     // Keyboard activation moved to inline attributes on the element (the
     // SonarQube Web analyzer requires the handler on the element itself);

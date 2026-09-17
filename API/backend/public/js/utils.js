@@ -82,39 +82,58 @@ function animateCountUp(el, target, duration = 500) {
 
 // Warranty status for UI presentation. The STATUS itself comes from the
 // canonical engine (warranty.js mirror of src/services/warranty.service.js);
-// this wrapper only maps engine state onto the existing badge/block classes
-// and keeps the legacy return shape (status, label, badgeClass, blockClass,
-// valueClass, days) that cards and the dashboard depend on.
+// this wrapper only maps engine state onto the badge/block classes and keeps
+// the return shape (status, label, badgeClass, blockClass, valueClass, days)
+// that cards and the dashboard depend on.
+//
+// Labels are intentionally short — they render inside a pill next to the card
+// title — while `title` carries the full sentence for tooltips/screen readers.
 function warrantyInfo(p) {
   const engine = warrantyStatusOf({ startDate: p.purchaseDate, expiryDate: p.warrantyExpiryDate });
   const days = engine.daysRemaining;
+  const dayWord = days === 1 ? 'day' : 'days';
   switch (engine.status) {
     case 'not_started':
-      return { status: 'not_started', label: 'Not started', badgeClass: 'badge-soon', blockClass: 'critical', valueClass: 'critical', days };
+      return { status: 'not_started', label: 'Not started', title: 'Coverage has not started yet', badgeClass: 'badge-neutral', blockClass: 'critical', valueClass: 'critical', days };
     case 'expired':
-      return { status: 'expired', label: 'Expired', badgeClass: 'badge-expired', blockClass: 'expired', valueClass: 'expired', days };
+      return { status: 'expired', label: 'Expired', title: 'Warranty expired', badgeClass: 'badge-expired', blockClass: 'expired', valueClass: 'expired', days };
     case 'expiring_soon':
-      if (days <= 7) return { status: 'critical', label: days + ' days remaining', badgeClass: 'badge-critical', blockClass: 'critical', valueClass: 'critical', days };
-      return { status: 'soon', label: days + ' days remaining', badgeClass: 'badge-soon', blockClass: 'critical', valueClass: 'critical', days };
+      if (days <= 7) {
+        return { status: 'critical', label: days + ' ' + dayWord, title: days + ' ' + dayWord + ' of cover left — expiring soon', badgeClass: 'badge-critical', blockClass: 'critical', valueClass: 'critical', days };
+      }
+      return { status: 'soon', label: days + ' ' + dayWord, title: days + ' ' + dayWord + ' of cover left', badgeClass: 'badge-soon', blockClass: 'critical', valueClass: 'critical', days };
     case 'active':
-      return { status: 'safe', label: days + ' days remaining', badgeClass: 'badge-safe', blockClass: 'safe', valueClass: 'safe', days };
+      return { status: 'safe', label: days + ' ' + dayWord, title: days + ' ' + dayWord + ' of cover left', badgeClass: 'badge-safe', blockClass: 'safe', valueClass: 'safe', days };
     default:
-      return { status: 'none', label: 'No expiry set', badgeClass: 'badge-safe', blockClass: 'safe', valueClass: 'safe', days: Infinity };
+      // Grey, not green: an unknown expiry is missing information, not safety.
+      return { status: 'none', label: 'No expiry', title: 'No warranty expiry date on file', badgeClass: 'badge-neutral', blockClass: 'safe', valueClass: 'safe', days: Infinity };
   }
 }
 
-function productImage(p) {
-  if (p && p.thumbnailUrl) return p.thumbnailUrl;
-  const q = encodeURIComponent((p && (p.brand + ' ' + p.category)) || 'product');
-  return 'https://source.unsplash.com/160x160/?' + q;
+// Short monogram for a product tile / detail hero (max 2 characters).
+function productMonogram(p) {
+  const source = (p && (p.brand || p.productName)) || '';
+  const words = String(source).trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return '◈';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
 }
 
-function emptyState(icon, title, sub) {
+// Product thumbnail. Only real uploaded images are used — there is no remote
+// placeholder service (the previous third-party endpoint was both blocked by
+// the CSP and discontinued), so callers fall back to the monogram tile.
+function productImage(p) {
+  return (p && p.thumbnailUrl) || '';
+}
+
+// Empty state card. `action` is optional markup for a call-to-action button.
+function emptyState(icon, title, sub, action) {
   const el = document.createElement('div');
   el.className = 'empty-state';
   el.innerHTML = (icon ? '<div class="empty-icon">' + icon + '</div>' : '') +
     '<div class="empty-title">' + escapeHtml(title) + '</div>' +
-    (sub ? '<div class="empty-sub">' + escapeHtml(sub) + '</div>' : '');
+    (sub ? '<div class="empty-sub">' + escapeHtml(sub) + '</div>' : '') +
+    (action ? '<div class="empty-action">' + action + '</div>' : '');
   return el;
 }
 

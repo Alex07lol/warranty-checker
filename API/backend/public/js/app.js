@@ -16,24 +16,41 @@ function makeProductCard(p, index) {
   card.setAttribute('tabindex', '0');
   card.addEventListener('keydown', e => { if(e.key === 'Enter') openDetail(p._id); });
   
-  const expiryStr = p.warrantyExpiryDate ? fmtDate(p.warrantyExpiryDate) : 'No expiry set';
+  // Expiry line: always labelled, so the date never floats unlabelled under
+  // the brand row.
+  let expiryStr;
+  if (!p.warrantyExpiryDate) {
+    expiryStr = 'No expiry date on file';
+  } else if (info.status === 'expired') {
+    expiryStr = 'Expired <strong>' + escapeHtml(fmtDate(p.warrantyExpiryDate)) + '</strong>';
+  } else if (info.status === 'not_started') {
+    expiryStr = 'Cover starts <strong>' + escapeHtml(fmtDate(p.warrantyExpiryDate)) + '</strong>';
+  } else {
+    expiryStr = 'Expires <strong>' + escapeHtml(fmtDate(p.warrantyExpiryDate)) + '</strong>';
+  }
+
   const tagChips = (Array.isArray(p.tags) && p.tags.length)
     ? '<div class="product-tags">' + p.tags.slice(0, 4).map(t => '<span class="product-tag">#' + escapeHtml(t) + '</span>').join('') + '</div>'
     : '';
-  
+
+  const imageUrl = productImage(p);
+  const tile = imageUrl
+    ? '<img class="product-img" src="' + escapeHtml(imageUrl) + '" alt="" ' +
+      'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" />' +
+      '<div class="product-img-placeholder" style="display:none;">' + escapeHtml(productMonogram(p)) + '</div>'
+    : '<div class="product-img-placeholder">' + escapeHtml(productMonogram(p)) + '</div>';
+
   card.innerHTML =
-    '<img class="product-img" src="' + escapeHtml(productImage(p)) + '" alt="" ' +
-    'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" />' +
-    '<div class="product-img-placeholder" style="display:none;"></div>' +
-    '<div class="product-info" style="flex:1;">' +
+    '<div class="product-tile">' + tile + '</div>' +
+    '<div class="product-info">' +
       '<div class="product-info-name">' + escapeHtml(p.productName) + '</div>' +
       '<div class="product-info-brand">' + escapeHtml([p.brand, p.model].filter(Boolean).join(' · ') || '—') + '</div>' +
-      '<div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Expires: ' + escapeHtml(expiryStr) + '</div>' +
+      '<div class="product-expiry">' + expiryStr + '</div>' +
       tagChips +
     '</div>' +
-    '<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">' +
-      '<span class="product-warranty-badge ' + info.badgeClass + '">' + info.label + '</span>' +
-      '<span style="font-size: 20px; color: var(--text-muted);">›</span>' +
+    '<div class="product-card-right">' +
+      '<span class="product-warranty-badge ' + info.badgeClass + '" title="' + escapeHtml(info.title) + '">' + escapeHtml(info.label) + '</span>' +
+      '<span class="product-card-arrow" aria-hidden="true">›</span>' +
     '</div>';
   return card;
 }
@@ -350,7 +367,16 @@ function renderProducts(items) {
   const list = document.getElementById('products-list');
   list.innerHTML = '';
   if (!items.length) {
-    list.appendChild(emptyState('', 'No products yet', 'Tap “+ Add” to register your first product.'));
+    list.appendChild(emptyState(
+      '📦',
+      'No products yet',
+      isGuest()
+        ? 'Sign in to start your warranty register — it takes a few seconds.'
+        : 'Add your first product and WarrantyVault will track its coverage for you.',
+      isGuest()
+        ? '<button class="btn btn-primary btn-small" onclick="openLogin(\'\')">Sign in</button>'
+        : '<button class="btn btn-primary btn-small" onclick="openProductForm(null)">+ Add product</button>'
+    ));
     return;
   }
   items.forEach((p, i) => list.appendChild(makeProductCard(p, i)));
@@ -600,6 +626,13 @@ async function openDetail(id) {
 function renderDetailHeader(p) {
   document.getElementById('detail-name').textContent = p.productName || '—';
   document.getElementById('detail-brand').textContent = [p.brand, p.model].filter(Boolean).join(' · ');
+  // Hero: the uploaded photo when there is one, otherwise a branded monogram
+  // rendered by the stylesheet via `content: attr(data-mono)`.
+  const area = document.getElementById('detail-image-area');
+  if (area) {
+    area.dataset.mono = productMonogram(p);
+    area.classList.toggle('has-image', Boolean(p.thumbnailUrl));
+  }
   const img = document.getElementById('detail-img');
   if (p.thumbnailUrl) { img.src = p.thumbnailUrl; img.style.display = ''; }
   else { img.style.display = 'none'; }
@@ -632,10 +665,27 @@ function renderDetailHeader(p) {
         progCont.style.display = '';
         const total = eD - pD;
         const elapsed = Math.max(0, nD - pD);
-        const percent = Math.min(100, (elapsed / total) * 100);
-        document.getElementById('progress-bar-fill').style.width = percent + '%';
-        document.getElementById('progress-percent-label').textContent = Math.round(percent) + '%';
-        document.getElementById('progress-remaining-days').textContent = info.days > 0 ? info.days + ' days remaining' : 'Expired';
+        const isExpired = nD >= eD;
+        const fill = document.getElementById('progress-bar-fill');
+
+        // Colours come from theme tokens so the bar stays legible in dark mode.
+        if (isExpired) {
+          // Expired: show elapsed = 100%, red bar, "100% elapsed"
+          fill.style.width = '100%';
+          fill.style.background = 'linear-gradient(90deg, var(--danger), #e5757f)';
+          document.getElementById('progress-percent-label').textContent = '100% elapsed';
+          document.getElementById('progress-remaining-days').textContent = 'Coverage ended';
+          document.getElementById('progress-remaining-days').style.color = 'var(--danger)';
+        } else {
+          // Active: show remaining percentage
+          const remaining = Math.max(0, 100 - (elapsed / total) * 100);
+          fill.style.width = Math.round(100 - remaining) + '%';
+          fill.style.background = '';  // revert to the stylesheet gradient
+          const pct = Math.round(remaining);
+          document.getElementById('progress-percent-label').textContent = pct + '% remaining';
+          document.getElementById('progress-remaining-days').textContent = info.days > 0 ? info.days + ' days remaining' : 'Expiring today';
+          document.getElementById('progress-remaining-days').style.color = info.days <= 14 ? 'var(--warn)' : 'var(--ok)';
+        }
         document.getElementById('progress-expiry-date').textContent = fmtDate(p.warrantyExpiryDate);
       } else {
         progCont.style.display = 'none';
@@ -1870,7 +1920,7 @@ function renderNotifications(notifs) {
   const list = document.getElementById('notification-list');
   list.innerHTML = '';
   if (!notifs.length) {
-    list.appendChild(emptyState('', 'You\'re all caught up.', ''));
+    list.appendChild(emptyState('🔔', 'You\'re all caught up.', 'Warranty expiry and service reminders will appear here.'));
     return;
   }
   notifs.forEach(n => {
@@ -2196,16 +2246,6 @@ function getLocateHref(c) {
   return '';
 }
 
-function getLocateHtml(c, href) {
-  if (!href) return '';
-  return '<a class="repair-card-locate" target="_blank" rel="noopener" title="Open ' + escapeHtml(c.name) + ' in Google Maps" ' +
-    'href="' + href + '">' +
-      '<svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">' +
-        '<path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>' +
-      '</svg>' +
-    '</a>';
-}
-
 function getHoursHtml(c) {
   if (!c.hours || !c.hours.length) return '';
   const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
@@ -2269,7 +2309,7 @@ function repairCentreCard(c) {
   const dirBtn = locateHref ? '<a href="' + locateHref + '" target="_blank" class="btn btn-ghost btn-small">🗺️ Directions</a>' : '';
   const webBtn = c.website ? '<a href="' + escapeHtml(c.website) + '" target="_blank" class="btn btn-ghost btn-small">🌐 Website</a>' : '';
   
-  const actionRow = '<div class="repair-card-actions" style="display:flex;gap:8px;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">' + callBtn + dirBtn + webBtn + '</div>';
+  const actionRow = '<div class="repair-card-actions">' + callBtn + dirBtn + webBtn + '</div>';
 
   return '<div class="repair-card">' +
     coverHtml +

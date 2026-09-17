@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/app.css?v=13" />
+  <link rel="stylesheet" href="/css/app.css?v=15" />
 </head>
 <body>
 
@@ -69,24 +69,22 @@
           </div>
 
           <div id="form-verify" style="display:none;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <div style="font-size: 14px; color: var(--text-muted); line-height: 1.5;">
-                We sent a 6-digit verification code to:
-              </div>
-              <div id="verify-email-display" style="font-weight: 600; color: var(--accent2); margin-top: 4px; word-break: break-all;"></div>
+            <div class="verify-intro">
+              We sent a 6-digit verification code to
+              <div class="verify-email" id="verify-email-display"></div>
             </div>
             <div class="login-field">
               <label for="verify-code">6-Digit Verification Code</label>
-              <input type="text" id="verify-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="••••••" autocomplete="one-time-code" style="text-align: center; font-size: 24px; letter-spacing: 10px; font-family: ui-monospace, monospace; font-weight: 700;" />
+              <input type="text" class="verify-code-input" id="verify-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="••••••" autocomplete="one-time-code" />
             </div>
-            <button class="login-btn" id="verify-submit-btn" onclick="doVerifyEmail()">Verify Email & Continue</button>
+            <button class="login-btn" id="verify-submit-btn" onclick="doVerifyEmail()">Verify Email &amp; Continue</button>
             <div class="login-err" id="verify-err"></div>
 
-            <div style="margin-top: 18px; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
-              <span id="resend-countdown" style="color: var(--text-muted);"></span>
-              <button type="button" id="resend-btn" onclick="doResendVerification()" style="background: none; border: none; color: var(--accent2); cursor: pointer; padding: 0; font-size: 13px; font-weight: 500; text-decoration: underline;">Resend code</button>
+            <div class="verify-resend-row">
+              <span class="verify-countdown" id="resend-countdown"></span>
+              <button type="button" class="verify-resend" id="resend-btn" onclick="doResendVerification()">Resend code</button>
             </div>
-            <button type="button" class="login-back-btn" onclick="switchAuthTab('login')" style="margin-top: 18px;">← Back to Sign In</button>
+            <button type="button" class="login-back-btn" onclick="switchAuthTab('login')">← Back to Sign In</button>
           </div>
 
           <button class="login-back-btn" id="login-back-btn">← Continue browsing as guest</button>
@@ -97,14 +95,14 @@
     <!-- ======================== HOME / DASHBOARD ======================== -->
     <div class="view active" id="view-home">
       <div class="home-header">
-        <div>
+        <div class="home-header-text">
           <div class="greeting" id="home-greeting">Welcome back,</div>
           <div class="greeting-name" role="heading" aria-level="1" id="greeting-name">there</div>
           <span class="guest-badge" id="guest-badge" style="display:none;">👤 Guest Mode</span>
         </div>
-        <div style="display:flex; gap:8px; margin-top:6px;">
-          <button class="icon-btn" id="theme-toggle-btn" title="Toggle theme" style="font-size:16px;">🌙</button>
-          <button class="icon-btn" id="logout-btn" title="Log out">⎋</button>
+        <div class="home-header-actions">
+          <button class="icon-btn" id="theme-toggle-btn" title="Toggle theme" aria-label="Toggle dark mode">🌙</button>
+          <button class="icon-btn" id="logout-btn" title="Log out" aria-label="Log out">⎋</button>
         </div>
       </div>
       <div class="view-scroll">
@@ -193,14 +191,14 @@
     <!-- ======================== PRODUCTS VIEW ======================== -->
     <div class="view" id="view-products">
       <div class="home-header">
-        <div>
+        <div class="home-header-text">
           <div class="greeting">Library</div>
           <div class="greeting-name" role="heading" aria-level="1">My Products</div>
         </div>
-        <div style="display:flex; gap:8px; margin-top:6px;">
-          <button class="btn btn-primary btn-small" id="add-product-btn">+ Add</button>
-          <button class="btn btn-ghost btn-small" id="export-json-btn" title="Download all products as JSON">⬇ JSON</button>
-          <button class="btn btn-ghost btn-small" id="export-csv-btn" title="Download all products as CSV">⬇ CSV</button>
+        <div class="home-header-actions">
+          <button class="btn btn-primary btn-small" id="add-product-btn">+ Add product</button>
+          <button class="btn btn-ghost btn-small" id="export-json-btn" title="Download all products as JSON" aria-label="Export all products as JSON">↓ JSON</button>
+          <button class="btn btn-ghost btn-small" id="export-csv-btn" title="Download all products as CSV" aria-label="Export all products as CSV">↓ CSV</button>
         </div>
       </div>
       <div class="view-scroll">
@@ -252,7 +250,7 @@
     <!-- ======================== CAMERA / SCAN VIEW ======================== -->
     <div class="view" id="view-camera">
       <div class="home-header">
-        <div>
+        <div class="home-header-text">
           <div class="greeting">Scan Document</div>
           <div class="greeting-name" role="heading" aria-level="1" id="camera-product-name">OCR reads receipts, warranty cards &amp; PDFs</div>
         </div>
@@ -276,26 +274,26 @@
         </div>
 
         <div class="camera-upload-area" id="camera-upload-area" role="button" tabindex="0" aria-label="Upload a receipt, warranty card or PDF" onkeydown="cameraUploadKey(event)" onkeyup="cameraUploadKey(event)">
-          <svg width="48" height="48" fill="none" stroke="#aaa" stroke-width="1.5" viewBox="0 0 24 24">
+          <svg width="44" height="44" fill="none" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
             <path d="M3 9h18M9 21V9"/>
           </svg>
-          <div style="font-size:14px;color:#888;">Tap to upload a receipt, warranty card or PDF</div>
-          <div style="font-size:12px;color:#bbb;margin-top:4px;">JPEG, PNG, WEBP, PDF — OCR reads the text</div>
+          <div class="upload-area-title">Tap to upload a receipt, warranty card or PDF</div>
+          <div class="upload-area-hint">JPEG, PNG, WEBP, PDF — OCR reads the text</div>
           <label for="camera-file-input" class="sr-only">Upload document file</label>
           <input type="file" id="camera-file-input" accept="image/*,application/pdf" />
         </div>
 
-        <div id="camera-progress" style="display:none; text-align: center; margin-bottom: 20px;">
-          <div class="ocr-progress-file-info" style="margin-bottom: 12px; font-size: 13.5px; color: #555;">
-            <strong id="ocr-progress-filename"></strong> <span id="ocr-progress-filesize" style="color: #888; margin-left: 6px;"></span>
+        <div id="camera-progress" class="camera-progress" style="display:none;">
+          <div class="progress-file-info">
+            <strong id="ocr-progress-filename"></strong> <span id="ocr-progress-filesize"></span>
           </div>
           <div class="camera-progress-bar">
             <div class="camera-progress-fill" id="camera-progress-fill"></div>
           </div>
-          <div style="font-size:13px;color:#888;text-align:center;margin-top:8px;" id="camera-status-text">Uploading…</div>
-          <div class="ocr-extracting-notice" style="margin-top:16px; font-size:12.5px; color:#666; background:rgba(57,73,171,0.06); padding:14px; border-radius:14px; border:1.5px solid rgba(57,73,171,0.12); line-height:1.45; text-align: left;">
-            <div style="font-weight:700; margin-bottom:4px; color:#3949ab; display:flex; align-items:center; gap:6px;">
+          <div class="progress-status-text" id="camera-status-text">Uploading…</div>
+          <div class="ocr-extracting-notice">
+            <div class="ocr-extracting-title">
               <span class="spinner-small"></span> Reading your document...
             </div>
             Extracting product name, brand, model, serial number, purchase date, warranty period, and price.
@@ -303,10 +301,10 @@
         </div>
 
         <div id="camera-result" style="display:none;">
-          <div id="camera-confirm-product" style="display:none;background:linear-gradient(160deg,#ffffff 0%,#f8f9ff 100%);border:1.5px solid #c5cae9;border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 4px 14px rgba(57,73,171,0.10);">
-            <div style="font-size:15px;font-weight:700;color:#1a1a2e;">Review product details</div>
-            <div style="font-size:13px;color:#666;margin:4px 0 14px;">OCR extracted these — fix any mistakes, then save as a new product.</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div id="camera-confirm-product" class="scan-card scan-card-accent" style="display:none;">
+            <div class="scan-card-title">Review product details</div>
+            <div class="scan-card-sub">OCR extracted these — fix any mistakes, then save as a new product.</div>
+            <div class="form-grid">
               <div class="form-field" style="grid-column:1 / -1;margin-bottom:0;">
                 <label for="confirm-name">Product name</label>
                 <input type="text" id="confirm-name" placeholder="e.g. Fridge" />
@@ -340,26 +338,26 @@
                 <input type="date" id="confirm-expiry" />
               </div>
             </div>
-            <div style="display:flex;gap:10px;margin-top:16px;">
+            <div class="scan-card-actions">
               <button class="camera-apply-btn" id="confirm-create-btn">Confirm Warranty</button>
               <button class="camera-retry-btn" id="confirm-skip-btn">Cancel</button>
             </div>
           </div>
 
-          <div id="camera-created-product" style="display:none;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:14px;padding:14px 18px;margin-bottom:14px;">
-            <div style="font-size:14px;font-weight:600;color:#2e7d32;">✅ Product saved</div>
-            <div style="font-size:13px;color:#555;margin-top:4px;" id="camera-created-product-name"></div>
+          <div id="camera-created-product" class="scan-created" style="display:none;">
+            <div class="scan-created-title">✅ Product saved</div>
+            <div class="scan-created-name" id="camera-created-product-name"></div>
             <button class="camera-apply-btn" style="margin-top:10px;" onclick="openDetail(document.getElementById('camera-created-product-id').value)">View Product</button>
             <input type="hidden" id="camera-created-product-id" />
           </div>
 
-          <div style="background:#fff;border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-              <div style="font-size:15px;font-weight:600;color:#111;">Extracted Data</div>
+          <div class="scan-card">
+            <div class="scan-card-head">
+              <div class="scan-card-title">Extracted Data</div>
               <button type="button" class="copy-all-btn" id="camera-copy-all" onclick="copyAllExtracted()">Copy all</button>
             </div>
             <div id="camera-extracted-fields"></div>
-            <div style="margin-top:14px;display:flex;gap:10px;">
+            <div class="scan-card-actions">
               <button class="camera-apply-btn" id="camera-apply-btn">Apply to Product</button>
               <button class="camera-retry-btn" id="camera-retry-btn">Try Another</button>
             </div>
@@ -367,13 +365,13 @@
         </div>
 
         <div id="camera-error" style="display:none;">
-          <div class="ocr-error-card" style="background:#fff0f0; border-radius:18px; padding:22px; border-left:4px solid #e53935; display:flex; flex-direction:column; gap:12px; box-shadow: 0 4px 14px rgba(229,57,53,0.12);">
-            <div style="font-size:15px; font-weight:700; color:#c62828;">We couldn't read enough information from this document.</div>
-            <div style="font-size:13px; color:#555;" id="camera-error-msg">No readable text found.</div>
-            <div style="display:flex; gap:10px; margin-top:8px; flex-wrap: wrap;">
-              <button class="btn btn-primary btn-small" style="flex:1; min-width:120px;" onclick="resetCamera()">Try Again</button>
-              <button class="btn btn-ghost btn-small" style="flex:1; min-width:180px;" onclick="document.getElementById('camera-file-input').click()">Upload Another Document</button>
-              <button class="btn btn-ghost btn-small" style="flex:1; min-width:160px;" onclick="openProductForm(null)">Add Warranty Manually</button>
+          <div class="scan-error">
+            <div class="scan-error-title">We couldn't read enough information from this document.</div>
+            <div class="scan-error-msg" id="camera-error-msg">No readable text found.</div>
+            <div class="scan-error-actions">
+              <button class="btn btn-primary btn-small" onclick="resetCamera()">Try Again</button>
+              <button class="btn btn-ghost btn-small" onclick="document.getElementById('camera-file-input').click()">Upload Another Document</button>
+              <button class="btn btn-ghost btn-small" onclick="openProductForm(null)">Add Warranty Manually</button>
             </div>
           </div>
         </div>
@@ -388,7 +386,7 @@
     <!-- ======================== REPAIR VIEW ======================== -->
     <div class="view" id="view-repair">
       <div class="home-header">
-        <div>
+        <div class="home-header-text">
           <div class="greeting">Find Repair Centres</div>
           <div class="greeting-name" role="heading" aria-level="1">Authorized service</div>
         </div>
@@ -396,9 +394,9 @@
       <div class="view-scroll">
         <div id="repair-filter"></div>
         <div id="repair-coords" class="repair-coords pending" hidden>📍 Detecting your location…</div>
-        <div id="repair-manual-search" style="display:none; margin-bottom:14px; gap:8px;">
+        <div id="repair-manual-search" style="display:none;">
           <label for="repair-search-input" class="sr-only">Search by city or zip code</label>
-          <input type="text" class="search-input" id="repair-search-input" placeholder="Enter city or zip code (e.g. New Delhi)…" style="margin-bottom:0;" />
+          <input type="text" class="search-input" id="repair-search-input" placeholder="Enter city or zip code (e.g. New Delhi)…" />
           <button class="btn btn-primary" id="repair-search-btn">Search</button>
         </div>
         <div id="repair-list">
@@ -410,35 +408,41 @@
     <!-- ======================== NOTIFICATIONS VIEW ======================== -->
     <div class="view" id="view-notifications">
       <div class="home-header">
-        <div>
+        <div class="home-header-text">
           <div class="greeting">Alerts</div>
           <div class="greeting-name" role="heading" aria-level="1">Notifications</div>
         </div>
-        <button class="btn btn-ghost btn-small" id="read-all-btn" style="margin-top:6px;">Mark all read</button>
+        <div class="home-header-actions">
+          <button class="btn btn-ghost btn-small" id="read-all-btn">Mark all read</button>
+        </div>
       </div>
       <div class="view-scroll">
         <div class="settings-card" id="reminder-settings" style="display:none;">
           <div class="settings-title">🔔 Notification settings</div>
-          <div class="settings-row">
+
+          <div class="settings-section-label">Delivery triggers</div>
+          <div class="settings-triggers">
             <label class="settings-toggle">
               <input type="checkbox" id="pref-expiry" />
-              <span class="settings-toggle-label">Warranty expiry reminders</span>
+              <span>Warranty expiry reminders</span>
             </label>
             <label class="settings-toggle">
               <input type="checkbox" id="pref-maintenance" />
-              <span class="settings-toggle-label">Maintenance / service reminders</span>
+              <span>Maintenance &amp; service reminders</span>
             </label>
             <label class="settings-toggle">
               <input type="checkbox" id="pref-document" />
-              <span class="settings-toggle-label">Document processing (OCR finished / failed)</span>
+              <span>Document processing (OCR finished / failed)</span>
             </label>
             <label class="settings-toggle">
               <input type="checkbox" id="pref-shared" />
-              <span class="settings-toggle-label">Share link activity</span>
+              <span>Share link activity</span>
             </label>
           </div>
+
+          <div class="settings-section-label">Reminder timing</div>
           <div class="settings-row">
-            <span class="settings-hint">Remind me…</span>
+            <span class="settings-hint">Remind me before expiry…</span>
             <div class="reminder-days" id="pref-reminder-days">
               <button type="button" class="reminder-day-chip" data-day="90">90 days</button>
               <button type="button" class="reminder-day-chip" data-day="30">30 days</button>
@@ -485,16 +489,16 @@
           </svg>
         </div>
 
-        <div id="detail-warranty-progress-container" style="display:none; margin-top:16px; background:#fff; border-radius:18px; padding:18px; border:1px solid rgba(17,17,17,0.04); box-shadow:0 1px 2px rgba(17,17,17,0.04), 0 6px 16px rgba(17,17,17,0.05);">
-          <div class="progress-bar-label" style="display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:#666; margin-bottom:8px;">
+        <div id="detail-warranty-progress-container" class="scan-card progress-container" style="display:none;">
+          <div class="progress-bar-label">
             <span>Warranty Coverage</span>
             <span id="progress-percent-label">0% remaining</span>
           </div>
-          <div class="progress-bar-track" style="width:100%; height:8px; background:#e0e0e0; border-radius:4px; overflow:hidden;">
-            <div class="progress-bar-fill" id="progress-bar-fill" style="width:0%; height:100%; background:linear-gradient(90deg, #2e7d32, #81c784); border-radius:4px; transition:width 0.4s ease;"></div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="progress-bar-fill"></div>
           </div>
-          <div class="progress-bar-footer" style="display:flex; justify-content:space-between; font-size:11px; color:#888; margin-top:8px;">
-            <span id="progress-remaining-days" style="font-weight:600; color:#2e7d32;">—</span>
+          <div class="progress-bar-footer">
+            <span id="progress-remaining-days">—</span>
             <span id="progress-expiry-date">—</span>
           </div>
         </div>
@@ -745,11 +749,11 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>    <!-- Classic scripts share global scope; ORDER MATTERS: utils -> api ->
     auth -> app (app.js load-time code calls utils/api/auth functions). -->
-    <script src="/js/warranty.js?v=10"></script>
-    <script src="/js/utils.js?v=10"></script>
-    <script src="/js/api.js?v=10"></script>
-    <script src="/js/auth.js?v=10"></script>
-    <script src="/js/app.js?v=13"></script>
-    <script type="module" src="/js/effects.js?v=4"></script>
+    <script src="/js/warranty.js?v=11"></script>
+    <script src="/js/utils.js?v=11"></script>
+    <script src="/js/api.js?v=11"></script>
+    <script src="/js/auth.js?v=11"></script>
+    <script src="/js/app.js?v=15"></script>
+    <script type="module" src="/js/effects.js?v=5"></script>
 </body>
 </html>
