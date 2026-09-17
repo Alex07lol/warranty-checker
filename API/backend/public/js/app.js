@@ -25,15 +25,15 @@ function makeProductCard(p, index) {
     '<img class="product-img" src="' + escapeHtml(productImage(p)) + '" alt="" ' +
     'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'" />' +
     '<div class="product-img-placeholder" style="display:none;"></div>' +
-    '<div class="product-info">' +
+    '<div class="product-info" style="flex:1;">' +
       '<div class="product-info-name">' + escapeHtml(p.productName) + '</div>' +
       '<div class="product-info-brand">' + escapeHtml([p.brand, p.model].filter(Boolean).join(' · ') || '—') + '</div>' +
-      '<div style="font-size: 12px; color: #8a8a8e; margin-top: 5px;">' + escapeHtml(expiryStr) + '</div>' +
+      '<div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Expires: ' + escapeHtml(expiryStr) + '</div>' +
       tagChips +
     '</div>' +
-    '<div class="product-card-right">' +
+    '<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">' +
       '<span class="product-warranty-badge ' + info.badgeClass + '">' + info.label + '</span>' +
-      '<span style="font-size: 18px; color: #bbb; line-height: 1;">›</span>' +
+      '<span style="font-size: 20px; color: var(--text-muted);">›</span>' +
     '</div>';
   return card;
 }
@@ -632,26 +632,10 @@ function renderDetailHeader(p) {
         progCont.style.display = '';
         const total = eD - pD;
         const elapsed = Math.max(0, nD - pD);
-        const isExpired = nD >= eD;
-        const fill = document.getElementById('progress-bar-fill');
-
-        if (isExpired) {
-          // Expired: show elapsed = 100%, red bar, "100% elapsed"
-          fill.style.width = '100%';
-          fill.style.background = 'linear-gradient(90deg, #c62828, #e57373)';
-          document.getElementById('progress-percent-label').textContent = '100% elapsed';
-          document.getElementById('progress-remaining-days').textContent = 'Coverage ended';
-          document.getElementById('progress-remaining-days').style.color = '#c62828';
-        } else {
-          // Active: show remaining percentage
-          const remaining = Math.max(0, 100 - (elapsed / total) * 100);
-          fill.style.width = Math.round(100 - remaining) + '%';
-          fill.style.background = '';  // revert to CSS class color
-          const pct = Math.round(remaining);
-          document.getElementById('progress-percent-label').textContent = pct + '% remaining';
-          document.getElementById('progress-remaining-days').textContent = info.days > 0 ? info.days + ' days remaining' : 'Expiring today';
-          document.getElementById('progress-remaining-days').style.color = info.days <= 14 ? '#e65100' : '#2e7d32';
-        }
+        const percent = Math.min(100, (elapsed / total) * 100);
+        document.getElementById('progress-bar-fill').style.width = percent + '%';
+        document.getElementById('progress-percent-label').textContent = Math.round(percent) + '%';
+        document.getElementById('progress-remaining-days').textContent = info.days > 0 ? info.days + ' days remaining' : 'Expired';
         document.getElementById('progress-expiry-date').textContent = fmtDate(p.warrantyExpiryDate);
       } else {
         progCont.style.display = 'none';
@@ -1027,13 +1011,20 @@ async function loadIntelligence() {
     findings.forEach(f => box.appendChild(intelligenceCard(f)));
   } catch (e) {
     // The health panel is advisory — a failure must not break the detail view.
+    console.debug('Advisory health panel failed:', e);
     if (heading) heading.style.display = 'none';
     box.innerHTML = '';
   }
 }
 
+function getIntelligenceIcon(type) {
+  if (type === 'conflict') return '⚠️';
+  if (type === 'duplicate') return '🔁';
+  return '💡';
+}
+
 function intelligenceCard(f) {
-  const icon = f.type === 'conflict' ? '⚠️' : (f.type === 'duplicate' ? '🔁' : '💡');
+  const icon = getIntelligenceIcon(f.type);
   const card = document.createElement('div');
   card.className = 'intel-card intel-' + escapeHtml(f.type || 'info');
   const title = document.createElement('div');
@@ -1421,7 +1412,8 @@ async function editServiceRecord(id) {
     document.getElementById('svc-cost').value = r.cost != null ? r.cost : '';
     document.getElementById('svc-next').value = r.nextServiceDate ? new Date(r.nextServiceDate).toISOString().slice(0, 10) : '';
   } catch (e) {
-    toast('Could not load record', 'error');
+    console.error('Could not load record:', e);
+    toast('Could not load record: ' + (e.message || ''), 'error');
   }
 }
 
@@ -1799,6 +1791,7 @@ async function loadReminderSettings() {
     showReminderSettings(true);
   } catch (e) {
     // Non-fatal — preferences are optional.
+    console.debug('Could not load reminder preferences:', e);
     showReminderSettings(false);
   }
 }
@@ -1863,6 +1856,16 @@ async function loadNotifications() {
   }
 }
 
+function getNotificationIcon(type) {
+  switch (type) {
+    case 'service_reminder': return '🛠️ ';
+    case 'warranty_expiry': return '⏳ ';
+    case 'document_processing': return '📄 ';
+    case 'shared_access': return '🔗 ';
+    default: return '🔔 ';
+  }
+}
+
 function renderNotifications(notifs) {
   const list = document.getElementById('notification-list');
   list.innerHTML = '';
@@ -1891,7 +1894,7 @@ function renderNotifications(notifs) {
     
     let message = n.message;
     if (n.notificationType === 'warranty_expiry' || (n.title && n.title.toLowerCase().includes('expir')) || (message && message.toLowerCase().includes('expires in'))) {
-      const daysMatch = message && message.match(/(\d+)\s+days/i);
+      const daysMatch = message && message.match(/\b(\d{1,5})\s+days\b/i);
       if (daysMatch) {
         const prodName = (n.productId && typeof n.productId === 'object') ? n.productId.productName : 
                          (productsCache.find(p => p._id === pIdStr)?.productName || 'Your product');
@@ -1899,11 +1902,7 @@ function renderNotifications(notifs) {
       }
     }
     
-    const typeIcon = n.notificationType === 'service_reminder' ? '🛠️ '
-      : n.notificationType === 'warranty_expiry' ? '⏳ '
-      : n.notificationType === 'document_processing' ? '📄 '
-      : n.notificationType === 'shared_access' ? '🔗 '
-      : '🔔 ';
+    const typeIcon = getNotificationIcon(n.notificationType);
     el.innerHTML =
       '<div class="notification-title">' + typeIcon + escapeHtml(n.title || n.notificationType || 'Alert') + '</div>' +
       (message ? '<div class="notification-message">' + escapeHtml(message) + '</div>' : '') +
@@ -2233,13 +2232,19 @@ function getContactHtml(c) {
   return '';
 }
 
+function getOpenChipHtml(openNow) {
+  if (typeof openNow !== 'boolean') return '';
+  const statusClass = openNow ? 'open' : 'closed';
+  const statusText = openNow ? 'Open now' : 'Closed';
+  return '<span class="repair-open-chip ' + statusClass + '">' + statusText + '</span>';
+}
+
 function repairCentreCard(c) {
   const distHtml = c.distKm != null
     ? '<div class="repair-card-distance">📍 ' + fmtKm(c.distKm) + ' km away</div>'
     : '<div class="repair-card-distance unknown">📍 Distance unavailable</div>';
 
   const locateHref = getLocateHref(c);
-  const locateHtml = getLocateHtml(c, locateHref);
 
   const coverHtml = c.photoRef
     ? '<span class="repair-card-cover">' +
@@ -2249,9 +2254,7 @@ function repairCentreCard(c) {
       '</span>'
     : '';
 
-  const openHtml = typeof c.openNow === 'boolean'
-    ? '<span class="repair-open-chip ' + (c.openNow ? 'open' : 'closed') + '">' + (c.openNow ? 'Open now' : 'Closed') + '</span>'
-    : '';
+  const openHtml = getOpenChipHtml(c.openNow);
   const addressHtml = (c.address && c.address !== 'Address not available' && c.address !== c.city)
     ? '<div class="repair-card-address">' + escapeHtml(c.address) + '</div>'
     : '';
@@ -2263,7 +2266,7 @@ function repairCentreCard(c) {
     : '';
 
   const callBtn = c.phone ? '<a href="tel:' + encodeURIComponent(c.phone) + '" class="btn btn-ghost btn-small">📞 Call</a>' : '';
-  const dirBtn = getLocateHref(c) ? '<a href="' + getLocateHref(c) + '" target="_blank" class="btn btn-ghost btn-small">🗺️ Directions</a>' : '';
+  const dirBtn = locateHref ? '<a href="' + locateHref + '" target="_blank" class="btn btn-ghost btn-small">🗺️ Directions</a>' : '';
   const webBtn = c.website ? '<a href="' + escapeHtml(c.website) + '" target="_blank" class="btn btn-ghost btn-small">🌐 Website</a>' : '';
   
   const actionRow = '<div class="repair-card-actions" style="display:flex;gap:8px;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">' + callBtn + dirBtn + webBtn + '</div>';
@@ -2373,6 +2376,7 @@ async function searchRepairManual() {
       renderRepairCentres(lat, lng, true, []);
     }
   } catch (err) {
+    console.error('Error searching location:', err);
     list.innerHTML = '<div style="text-align:center;color:red;padding:12px;">Error searching location.</div>';
   }
 }
@@ -2611,6 +2615,10 @@ function wireEvents() {
   ['reg-name', 'reg-email', 'reg-password'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') doRegister(); });
   });
+  const verifyInput = document.getElementById('verify-code');
+  if (verifyInput) {
+    verifyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doVerifyEmail(); });
+  }
 }
 
 async function enterApp() {

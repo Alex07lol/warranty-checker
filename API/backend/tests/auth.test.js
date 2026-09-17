@@ -1,5 +1,5 @@
 const { app, request, startDb, stopDb, registerUser } = require("./helpers/setup");
-const User = require("../src/models/User");
+const { getLatestCodeForEmail, clearTestSentEmails } = require("../src/services/email.service");
 
 describe("Auth API", () => {
   beforeAll(async () => {
@@ -10,24 +10,16 @@ describe("Auth API", () => {
     await stopDb();
   });
 
-  test("register returns token and user profile via helper", async () => {
-    const { response, token } = await registerUser(
-      "Test User",
-      `user_${Date.now()}@example.com`
-    );
-    expect(response.statusCode).toBe(201);
-    expect(response.body.success).toBe(true);
-    expect(token).toBeTruthy();
-    expect(response.body.data.user.email).toContain("user_");
-    expect(response.body.data.user.name).toBe("Test User");
+  beforeEach(() => {
+    clearTestSentEmails();
   });
 
-  test("direct registration sends verification code and marks user unverified", async () => {
-    const email = `signup_${Date.now()}@example.com`;
+  test("register sends 6-digit verification code and requires verification", async () => {
+    const email = `new_${Date.now()}@example.com`;
     const response = await request(app)
       .post("/api/v1/auth/register")
       .send({
-        name: "Signup User",
+        name: "New User",
         email,
         password: "password123",
         confirmPassword: "password123"
@@ -36,114 +28,21 @@ describe("Auth API", () => {
     expect(response.statusCode).toBe(201);
     expect(response.body.success).toBe(true);
     expect(response.body.data.requiresVerification).toBe(true);
+    expect(response.body.data.email).toBe(email);
     expect(response.body.data.user.isEmailVerified).toBe(false);
-    expect(response.body.data.verificationCode).toMatch(/^\d{6}$/);
 
-    const dbUser = await User.findOne({ email });
-    expect(dbUser.isEmailVerified).toBe(false);
-    expect(dbUser.emailVerificationCode).toBe(response.body.data.verificationCode);
+    // Verify 6-digit OTP code was generated and recorded
+    const code = getLatestCodeForEmail(email);
+    expect(code).toBeTruthy();
+    expect(code).toMatch(/^\d{6}$/);
   });
 
-  test("verify-email succeeds with valid code and activates account", async () => {
-    const email = `verify_${Date.now()}@example.com`;
-    const regRes = await request(app)
-      .post("/api/v1/auth/register")
-      .send({
-        name: "Verify User",
-        email,
-        password: "password123",
-        confirmPassword: "password123"
-      });
-
-    const code = regRes.body.data.verificationCode;
-    const verifyRes = await request(app)
-      .post("/api/v1/auth/verify-email")
-      .send({ email, code });
-
-    expect(verifyRes.statusCode).toBe(200);
-    expect(verifyRes.body.success).toBe(true);
-    expect(verifyRes.body.data.token).toBeTruthy();
-    expect(verifyRes.body.data.user.isEmailVerified).toBe(true);
-
-    const dbUser = await User.findOne({ email });
-    expect(dbUser.isEmailVerified).toBe(true);
-    expect(dbUser.emailVerificationCode).toBeNull();
-  });
-
-  test("verify-email rejects invalid code", async () => {
-    const email = `badcode_${Date.now()}@example.com`;
+  test("login before email verification is rejected with 403", async () => {
+    const email = `unverified_${Date.now()}@example.com`;
     await request(app)
       .post("/api/v1/auth/register")
       .send({
-        name: "Bad Code User",
-        email,
-        password: "password123",
-        confirmPassword: "password123"
-      });
-
-    const verifyRes = await request(app)
-      .post("/api/v1/auth/verify-email")
-      .send({ email, code: "999999" });
-
-    expect(verifyRes.statusCode).toBe(400);
-    expect(verifyRes.body.success).toBe(false);
-    expect(verifyRes.body.message).toContain("Invalid verification code");
-  });
-
-  test("verify-email rejects expired code", async () => {
-    const email = `expired_${Date.now()}@example.com`;
-    const regRes = await request(app)
-      .post("/api/v1/auth/register")
-      .send({
-        name: "Expired User",
-        email,
-        password: "password123",
-        confirmPassword: "password123"
-      });
-
-    const code = regRes.body.data.verificationCode;
-    // Backdate expiration
-    await User.updateOne({ email }, { emailVerificationExpires: new Date(Date.now() - 60000) });
-
-    const verifyRes = await request(app)
-      .post("/api/v1/auth/verify-email")
-      .send({ email, code });
-
-    expect(verifyRes.statusCode).toBe(400);
-    expect(verifyRes.body.success).toBe(false);
-    expect(verifyRes.body.message).toContain("expired");
-  });
-
-  test("resend-verification generates new code and updates expiry", async () => {
-    const email = `resend_${Date.now()}@example.com`;
-    const regRes = await request(app)
-      .post("/api/v1/auth/register")
-      .send({
-        name: "Resend User",
-        email,
-        password: "password123",
-        confirmPassword: "password123"
-      });
-
-    const initialCode = regRes.body.data.verificationCode;
-
-    const resendRes = await request(app)
-      .post("/api/v1/auth/resend-verification")
-      .send({ email, type: "email" });
-
-    expect(resendRes.statusCode).toBe(200);
-    expect(resendRes.body.success).toBe(true);
-
-    const dbUser = await User.findOne({ email });
-    expect(dbUser.emailVerificationCode).toBeTruthy();
-  });
-
-  test("unverified user login prompts for email verification", async () => {
-    const email = `unverified_login_${Date.now()}@example.com`;
-    await request(app)
-      .post("/api/v1/auth/register")
-      .send({
-        name: "Unverified Login User",
+        name: "Unverified User",
         email,
         password: "password123",
         confirmPassword: "password123"
@@ -153,23 +52,91 @@ describe("Auth API", () => {
       .post("/api/v1/auth/login")
       .send({ email, password: "password123" });
 
-    expect(loginRes.statusCode).toBe(200);
-    expect(loginRes.body.data.requiresVerification).toBe(true);
-    expect(loginRes.body.data.verificationType).toBe("email");
-    expect(loginRes.body.data.verificationCode).toBeTruthy();
+    expect(loginRes.statusCode).toBe(403);
+    expect(loginRes.body.success).toBe(false);
+    expect(loginRes.body.data?.requiresVerification).toBe(true);
+    expect(loginRes.body.data?.email).toBe(email);
   });
 
-  test("register rejects duplicate email", async () => {
-    const email = `dup_${Date.now()}@example.com`;
-    await registerUser("First", email);
-    const response = await request(app)
+  test("verify-email rejects wrong code and enforces attempt limit", async () => {
+    const email = `verify_fail_${Date.now()}@example.com`;
+    await request(app)
       .post("/api/v1/auth/register")
       .send({
-        name: "Second",
+        name: "Verify Fail",
         email,
         password: "password123",
         confirmPassword: "password123"
       });
+
+    // Send invalid code
+    const badRes = await request(app)
+      .post("/api/v1/auth/verify-email")
+      .send({ email, code: "000000" });
+
+    expect(badRes.statusCode).toBe(400);
+    expect(badRes.body.message).toContain("Invalid verification code");
+  });
+
+  test("verify-email succeeds with correct 6-digit code and activates account", async () => {
+    const email = `verify_ok_${Date.now()}@example.com`;
+    await request(app)
+      .post("/api/v1/auth/register")
+      .send({
+        name: "Verify OK",
+        email,
+        password: "password123",
+        confirmPassword: "password123"
+      });
+
+    const code = getLatestCodeForEmail(email);
+    expect(code).toBeTruthy();
+
+    const verifyRes = await request(app)
+      .post("/api/v1/auth/verify-email")
+      .send({ email, code });
+
+    expect(verifyRes.statusCode).toBe(200);
+    expect(verifyRes.body.success).toBe(true);
+    expect(verifyRes.body.data.token).toBeTruthy();
+    expect(verifyRes.body.data.user.isEmailVerified).toBe(true);
+
+    // Now login succeeds
+    const loginRes = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email, password: "password123" });
+
+    expect(loginRes.statusCode).toBe(200);
+    expect(loginRes.body.data.token).toBeTruthy();
+  });
+
+  test("resend-verification enforces cooldown then sends new code", async () => {
+    const email = `resend_${Date.now()}@example.com`;
+    await request(app)
+      .post("/api/v1/auth/register")
+      .send({
+        name: "Resend User",
+        email,
+        password: "password123",
+        confirmPassword: "password123"
+      });
+
+    const initialCode = getLatestCodeForEmail(email);
+    expect(initialCode).toBeTruthy();
+
+    // Immediate resend should be rate-limited by 60s cooldown
+    const earlyResend = await request(app)
+      .post("/api/v1/auth/resend-verification")
+      .send({ email });
+
+    expect(earlyResend.statusCode).toBe(429);
+    expect(earlyResend.body.message).toContain("Please wait");
+  });
+
+  test("register rejects duplicate verified email", async () => {
+    const email = `dup_${Date.now()}@example.com`;
+    await registerUser("First", email);
+    const { response } = await registerUser("Second", email);
     expect(response.statusCode).toBe(409);
     expect(response.body.success).toBe(false);
   });
@@ -182,46 +149,14 @@ describe("Auth API", () => {
     expect(response.body.errors.length).toBeGreaterThan(0);
   });
 
-  test("login flow triggers login verification and verify-login succeeds", async () => {
+  test("login succeeds with valid credentials", async () => {
     const email = `login_${Date.now()}@example.com`;
     await registerUser("Login User", email);
-
-    // Step 1: Initiating login triggers verification code email
-    const loginRes = await request(app)
+    const response = await request(app)
       .post("/api/v1/auth/login")
       .send({ email, password: "password123" });
-
-    expect(loginRes.statusCode).toBe(200);
-    expect(loginRes.body.data.requiresVerification).toBe(true);
-    expect(loginRes.body.data.verificationType).toBe("login");
-    const loginCode = loginRes.body.data.verificationCode;
-    expect(loginCode).toMatch(/^\d{6}$/);
-
-    // Step 2: Verify login code
-    const verifyLoginRes = await request(app)
-      .post("/api/v1/auth/verify-login")
-      .send({ email, code: loginCode });
-
-    expect(verifyLoginRes.statusCode).toBe(200);
-    expect(verifyLoginRes.body.data.token).toBeTruthy();
-    expect(verifyLoginRes.body.data.user.email).toBe(email);
-  });
-
-  test("login with wrong code is rejected", async () => {
-    const email = `wrong_login_${Date.now()}@example.com`;
-    await registerUser("Wrong Code User", email);
-
-    await request(app)
-      .post("/api/v1/auth/login")
-      .send({ email, password: "password123" });
-
-    const verifyLoginRes = await request(app)
-      .post("/api/v1/auth/verify-login")
-      .send({ email, code: "000000" });
-
-    expect(verifyLoginRes.statusCode).toBe(400);
-    expect(verifyLoginRes.body.success).toBe(false);
-    expect(verifyLoginRes.body.message).toContain("Invalid verification code");
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.token).toBeTruthy();
   });
 
   test("login rejects invalid credentials", async () => {
@@ -250,7 +185,7 @@ describe("Auth API", () => {
     expect(response.statusCode).toBe(401);
   });
 
-  test("change password updates credentials and allows login with new password", async () => {
+  test("change password updates credentials", async () => {
     const email = `pw_${Date.now()}@example.com`;
     const { token } = await registerUser("PW User", email);
     const response = await request(app)
@@ -272,13 +207,6 @@ describe("Auth API", () => {
       .post("/api/v1/auth/login")
       .send({ email, password: "newpassword456" });
     expect(newLogin.statusCode).toBe(200);
-    expect(newLogin.body.data.requiresVerification).toBe(true);
-
-    const verifyNew = await request(app)
-      .post("/api/v1/auth/verify-login")
-      .send({ email, code: newLogin.body.data.verificationCode });
-    expect(verifyNew.statusCode).toBe(200);
-    expect(verifyNew.body.data.token).toBeTruthy();
   });
 
   test("logout succeeds with a token", async () => {

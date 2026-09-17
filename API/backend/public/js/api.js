@@ -49,9 +49,12 @@ async function api(path, opts = {}) {
     throw new Error(json.message || 'Authentication required — please sign in');
   }
   if (!res.ok || json.success === false) {
-    const err = (json.errors && json.errors[0] && (json.errors[0].message || json.errors[0]))
+    const msg = (json.errors && json.errors[0] && (json.errors[0].message || json.errors[0]))
       || json.message || 'Request failed (' + res.status + ')';
-    throw new Error(err);
+    const error = new Error(msg);
+    error.status = res.status;
+    error.data = json.data;
+    throw error;
   }
   return json.data;
 }

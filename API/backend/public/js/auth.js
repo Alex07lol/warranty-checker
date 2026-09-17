@@ -1,7 +1,7 @@
 /* WarrantyVault auth flows — loaded BEFORE app.js.
-   Login/register/logout plus the guest-mode gating (openLogin/requireAuth/
-   applyGuestMode). Depends on api.js (token storage + api()) and utils.js
-   (toast); showView/enterApp are defined in app.js and called at runtime
+   Login/register/logout/email-verification plus the guest-mode gating
+   (openLogin/requireAuth/applyGuestMode). Depends on api.js (token storage + api())
+   and utils.js (toast); showView/enterApp are defined in app.js and called at runtime
    only, so load order stays: utils -> api -> auth -> app. */
 
 'use strict';
@@ -44,174 +44,84 @@ function applyGuestMode() {
   }
 
   // Greeting reflects guest state until the dashboard loads
-  if (guest) document.getElementById('greeting-name').textContent = 'Guest';
+  if (guest) {
+    const greeting = document.getElementById('greeting-name');
+    if (greeting) greeting.textContent = 'Guest';
+  }
 
   // Hide login-only actions in guest mode
-  document.getElementById('nav-camera').style.display = guest ? 'none' : '';
-  document.getElementById('read-all-btn').style.display = guest ? 'none' : '';
-  document.getElementById('detail-edit-row').style.display = guest ? 'none' : '';
-  document.getElementById('detail-scan-btn').style.display = guest ? 'none' : '';
-  document.getElementById('detail-doc-upload-row').style.display = guest ? 'none' : '';
-  document.getElementById('add-service-btn').style.display = guest ? 'none' : '';
+  const safeHide = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = guest ? 'none' : '';
+  };
+  safeHide('nav-camera');
+  safeHide('read-all-btn');
+  safeHide('detail-edit-row');
+  safeHide('detail-scan-btn');
+  safeHide('detail-doc-upload-row');
+  safeHide('add-service-btn');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Auth & Verification
+// Auth state & verification helpers
 // ─────────────────────────────────────────────────────────────────────────────
-let pendingAuth = null; // { email, type: 'email' | 'login' }
-let resendTimer = null;
+let currentPendingEmail = '';
+let resendTimerInterval = null;
+
+function startResendCountdown(seconds = 60) {
+  const countdownEl = document.getElementById('resend-countdown');
+  const resendBtn = document.getElementById('resend-btn');
+  if (!countdownEl || !resendBtn) return;
+
+  if (resendTimerInterval) clearInterval(resendTimerInterval);
+
+  let remaining = seconds;
+  resendBtn.style.display = 'none';
+  countdownEl.style.display = '';
+  countdownEl.textContent = `Resend code in ${remaining}s`;
+
+  resendTimerInterval = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      clearInterval(resendTimerInterval);
+      resendTimerInterval = null;
+      countdownEl.style.display = 'none';
+      resendBtn.style.display = '';
+    } else {
+      countdownEl.textContent = `Resend code in ${remaining}s`;
+    }
+  }, 1000);
+}
 
 function switchAuthTab(tab) {
-  pendingAuth = null;
+  const tabLogin = document.getElementById('tab-login');
+  const tabRegister = document.getElementById('tab-register');
   const tabRow = document.querySelector('.login-tab-row');
-  if (tabRow) tabRow.style.display = '';
-  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
-  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
-  document.getElementById('form-login').style.display = tab === 'login' ? '' : 'none';
-  document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
-  const verifyForm = document.getElementById('form-verify');
-  if (verifyForm) verifyForm.style.display = 'none';
-  document.getElementById('login-err').textContent = '';
-  document.getElementById('reg-err').textContent = '';
+  const formLogin = document.getElementById('form-login');
+  const formRegister = document.getElementById('form-register');
+  const formVerify = document.getElementById('form-verify');
+
+  if (tabLogin) tabLogin.classList.toggle('active', tab === 'login');
+  if (tabRegister) tabRegister.classList.toggle('active', tab === 'register');
+
+  if (tabRow) tabRow.style.display = tab === 'verify' ? 'none' : 'flex';
+  if (formLogin) formLogin.style.display = tab === 'login' ? '' : 'none';
+  if (formRegister) formRegister.style.display = tab === 'register' ? '' : 'none';
+  if (formVerify) formVerify.style.display = tab === 'verify' ? '' : 'none';
+
+  const loginErr = document.getElementById('login-err');
+  const regErr = document.getElementById('reg-err');
   const verifyErr = document.getElementById('verify-err');
+  if (loginErr) loginErr.textContent = '';
+  if (regErr) regErr.textContent = '';
   if (verifyErr) verifyErr.textContent = '';
-  const verifyMsg = document.getElementById('verify-msg');
-  if (verifyMsg) verifyMsg.textContent = '';
-}
 
-function showVerificationView(info) {
-  pendingAuth = {
-    email: info.email,
-    type: info.verificationType || (info.requiresEmailVerification ? 'email' : 'login')
-  };
-
-  const tabRow = document.querySelector('.login-tab-row');
-  if (tabRow) tabRow.style.display = 'none';
-  document.getElementById('form-login').style.display = 'none';
-  document.getElementById('form-register').style.display = 'none';
-  const verifyForm = document.getElementById('form-verify');
-  if (verifyForm) verifyForm.style.display = '';
-
-  const badge = document.getElementById('verify-badge');
-  const instruction = document.getElementById('verify-instruction');
-  const codeInput = document.getElementById('verify-code');
-  const verifyBtn = document.getElementById('verify-btn');
-  const verifyErr = document.getElementById('verify-err');
-  const verifyMsg = document.getElementById('verify-msg');
-
-  if (verifyErr) verifyErr.textContent = '';
-  if (verifyMsg) verifyMsg.textContent = '';
-  if (codeInput) {
-    codeInput.value = info.verificationCode || '';
-  }
-
-  if (pendingAuth.type === 'email') {
-    if (badge) {
-      badge.textContent = 'Email Verification';
-      badge.style.color = 'var(--primary, #2563eb)';
-      badge.style.background = 'rgba(37,99,235,0.12)';
+  if (tab === 'verify') {
+    const codeInput = document.getElementById('verify-code');
+    if (codeInput) {
+      codeInput.value = '';
+      setTimeout(() => codeInput.focus(), 50);
     }
-    if (instruction) {
-      instruction.innerHTML = 'Enter the 6-digit code sent to <strong>' + escapeHtml(pendingAuth.email) + '</strong> to verify your account.';
-    }
-    if (verifyBtn) verifyBtn.textContent = 'Verify & Continue';
-  } else {
-    if (badge) {
-      badge.textContent = 'Sign-in Verification';
-      badge.style.color = '#d97706';
-      badge.style.background = 'rgba(217,119,6,0.12)';
-    }
-    if (instruction) {
-      instruction.innerHTML = 'Enter the 6-digit code sent to <strong>' + escapeHtml(pendingAuth.email) + '</strong> to complete sign in.';
-    }
-    if (verifyBtn) verifyBtn.textContent = 'Verify & Sign In';
-  }
-
-  if (codeInput) setTimeout(() => codeInput.focus(), 50);
-}
-
-function cancelVerification() {
-  pendingAuth = null;
-  switchAuthTab('login');
-}
-
-async function doVerify() {
-  if (!pendingAuth || !pendingAuth.email) {
-    cancelVerification();
-    return;
-  }
-
-  const codeInput = document.getElementById('verify-code');
-  const code = (codeInput ? codeInput.value : '').trim();
-  const err = document.getElementById('verify-err');
-  if (err) err.textContent = '';
-
-  if (!code || code.length !== 6) {
-    if (err) err.textContent = 'Please enter a 6-digit verification code.';
-    return;
-  }
-
-  try {
-    const endpoint = pendingAuth.type === 'email' ? '/auth/verify-email' : '/auth/verify-login';
-    const data = await api(endpoint, {
-      method: 'POST',
-      body: JSON.stringify({ email: pendingAuth.email, code })
-    });
-
-    setToken(data.token);
-    setUser(data.user);
-    toast(pendingAuth.type === 'email' ? 'Email verified successfully!' : 'Signed in successfully!', 'success');
-    pendingAuth = null;
-    await enterApp();
-  } catch (e) {
-    if (err) err.textContent = e.message;
-  }
-}
-
-async function resendCode() {
-  if (!pendingAuth || !pendingAuth.email) return;
-
-  const resendBtn = document.getElementById('resend-code-btn');
-  const msg = document.getElementById('verify-msg');
-  const err = document.getElementById('verify-err');
-  if (err) err.textContent = '';
-  if (msg) msg.textContent = '';
-
-  try {
-    if (resendBtn) resendBtn.disabled = true;
-    const data = await api('/auth/resend-verification', {
-      method: 'POST',
-      body: JSON.stringify({ email: pendingAuth.email, type: pendingAuth.type })
-    });
-
-    if (data.verificationCode) {
-      const codeInput = document.getElementById('verify-code');
-      if (codeInput) codeInput.value = data.verificationCode;
-    }
-
-    if (msg) msg.textContent = data.message || 'A new verification code has been sent!';
-    toast('New code sent to ' + pendingAuth.email, 'info');
-
-    let seconds = 30;
-    if (resendBtn) resendBtn.textContent = 'Resend in ' + seconds + 's';
-    clearInterval(resendTimer);
-    resendTimer = setInterval(() => {
-      seconds--;
-      if (!resendBtn) { clearInterval(resendTimer); return; }
-      if (seconds <= 0) {
-        clearInterval(resendTimer);
-        resendBtn.disabled = false;
-        resendBtn.textContent = 'Resend Code';
-      } else {
-        resendBtn.textContent = 'Resend in ' + seconds + 's';
-      }
-    }, 1000);
-  } catch (e) {
-    if (resendBtn) {
-      resendBtn.disabled = false;
-      resendBtn.textContent = 'Resend Code';
-    }
-    if (err) err.textContent = e.message;
   }
 }
 
@@ -226,17 +136,19 @@ async function doLogin() {
       method: 'POST',
       body: JSON.stringify({ email, password })
     });
-
-    if (data.requiresVerification) {
-      showVerificationView(data);
-      if (data.message) toast(data.message, 'info');
-      return;
-    }
-
     setToken(data.token);
     setUser(data.user);
     await enterApp();
   } catch (e) {
+    if (e.status === 403 && e.data?.requiresVerification) {
+      currentPendingEmail = e.data.email || email;
+      switchAuthTab('verify');
+      const verifyDisplay = document.getElementById('verify-email-display');
+      if (verifyDisplay) verifyDisplay.textContent = currentPendingEmail;
+      startResendCountdown(60);
+      toast('Please verify your email address to continue. A 6-digit code was sent to your inbox.', 'info');
+      return;
+    }
     err.textContent = e.message;
   }
 }
@@ -255,17 +167,79 @@ async function doRegister() {
       body: JSON.stringify({ name, email, password, confirmPassword: password })
     });
 
-    if (data.requiresVerification || data.requiresEmailVerification) {
-      showVerificationView({ ...data, email: data.email || email, verificationType: 'email' });
-      if (data.message) toast(data.message, 'info');
+    if (data.requiresVerification) {
+      currentPendingEmail = data.email || email;
+      switchAuthTab('verify');
+      const verifyDisplay = document.getElementById('verify-email-display');
+      if (verifyDisplay) verifyDisplay.textContent = currentPendingEmail;
+      startResendCountdown(60);
+      toast('Verification code sent! Please check your email inbox.', 'success');
       return;
     }
 
+    // Direct login fallback if verification wasn't required
     setToken(data.token);
     setUser(data.user);
     await enterApp();
   } catch (e) {
     err.textContent = e.message;
+  }
+}
+
+async function doVerifyEmail() {
+  const codeInput = document.getElementById('verify-code');
+  const code = (codeInput ? codeInput.value : '').trim();
+  const err = document.getElementById('verify-err');
+  if (err) err.textContent = '';
+
+  if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+    if (err) err.textContent = 'Please enter the 6-digit numerical code sent to your email.';
+    return;
+  }
+
+  const submitBtn = document.getElementById('verify-submit-btn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Verifying…';
+  }
+
+  try {
+    const data = await api('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email: currentPendingEmail, code })
+    });
+
+    setToken(data.token);
+    setUser(data.user);
+    toast('Email verified successfully! Welcome to WarrantyVault.', 'success');
+    await enterApp();
+  } catch (e) {
+    if (err) err.textContent = e.message;
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Verify Email & Continue';
+    }
+  }
+}
+
+async function doResendVerification() {
+  const err = document.getElementById('verify-err');
+  if (err) err.textContent = '';
+  if (!currentPendingEmail) {
+    if (err) err.textContent = 'No pending email to verify. Please sign in or register.';
+    return;
+  }
+
+  try {
+    await api('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email: currentPendingEmail })
+    });
+    startResendCountdown(60);
+    toast('A fresh 6-digit verification code has been dispatched to your email.', 'info');
+  } catch (e) {
+    if (err) err.textContent = e.message;
   }
 }
 

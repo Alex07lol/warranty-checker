@@ -13,7 +13,9 @@ const defaults = {
   CLOUDINARY_CLOUD_NAME: "test",
   CLOUDINARY_API_KEY: "test",
   CLOUDINARY_API_SECRET: "test",
-  CLIENT_URL: "*"
+  CLIENT_URL: "*",
+  RESEND_API_KEY: "test",
+  EMAIL_FROM: "WarrantyVault <onboarding@resend.dev>"
 };
 
 if (isTest) {
@@ -79,5 +81,7 @@ module.exports = {
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
-  CLIENT_URL: process.env.CLIENT_URL
+  CLIENT_URL: process.env.CLIENT_URL,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  EMAIL_FROM: process.env.EMAIL_FROM || "WarrantyVault <onboarding@resend.dev>"
 };

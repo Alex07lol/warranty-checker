@@ -1,7 +1,6 @@
 process.env.PORT = "5000";
 process.env.NODE_ENV = "test";
-process.env.MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/warrantyvault_db";
-process.env.TEST_MONGO_URI = process.env.TEST_MONGO_URI || "mongodb://127.0.0.1:27017/warrantyvault_test_db";
+process.env.MONGO_URI = "mongodb://localhost/warrantyvault_db";
 process.env.JWT_SECRET = "test-secret";
 process.env.JWT_EXPIRES_IN = "7d";
 process.env.CLOUDINARY_CLOUD_NAME = "test";
@@ -16,17 +15,13 @@ const mongoose = require("mongoose");
 const { MongoMemoryServer } = require("mongodb-memory-server");
 const request = require("supertest");
 const app = require("../../src/server");
+const { getLatestCodeForEmail } = require("../../src/services/email.service");
 
 let mongoServer;
 
 async function startDb() {
   if (process.env.TEST_MONGO_URI) {
-    try {
-      await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "warrantyvault_db" });
-    } catch (e) {
-      mongoServer = await MongoMemoryServer.create();
-      await mongoose.connect(mongoServer.getUri(), { dbName: "warrantyvault_db" });
-    }
+    await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: "warrantyvault_db" });
   } else {
     mongoServer = await MongoMemoryServer.create();
     await mongoose.connect(mongoServer.getUri(), { dbName: "warrantyvault_db" });
@@ -38,13 +33,6 @@ async function startDb() {
 }
 
 async function stopDb() {
-  if (mongoose.connection.readyState === 1) {
-    try {
-      await mongoose.connection.dropDatabase();
-    } catch {
-      // ignore
-    }
-  }
   await mongoose.disconnect();
   if (mongoServer) {
     await mongoServer.stop();
@@ -60,15 +48,14 @@ async function registerUser(name, email, password = "password123") {
   let token = response.body.data?.token;
   let userId = response.body.data?.user?._id;
 
-  if (!token && response.body.data?.requiresVerification && response.body.data?.verificationCode) {
-    const verifyRes = await request(app)
-      .post("/api/v1/auth/verify-email")
-      .send({ email, code: response.body.data.verificationCode });
-    token = verifyRes.body.data?.token;
-    userId = verifyRes.body.data?.user?._id;
-    if (response.body.data) {
-      response.body.data.token = token;
-      response.body.data.user = verifyRes.body.data?.user;
+  if (response.body.data?.requiresVerification) {
+    const code = getLatestCodeForEmail(email);
+    if (code) {
+      const verifyRes = await request(app)
+        .post("/api/v1/auth/verify-email")
+        .send({ email, code });
+      token = verifyRes.body.data?.token;
+      userId = verifyRes.body.data?.user?._id;
     }
   }
 

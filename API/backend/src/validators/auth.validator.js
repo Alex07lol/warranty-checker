@@ -9,23 +9,7 @@ const registerSchema = Joi.object({
 
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().required(),
-  code: Joi.string().trim().length(6).optional()
-});
-
-const verifyEmailSchema = Joi.object({
-  email: Joi.string().email().required(),
-  code: Joi.string().trim().length(6).required()
-});
-
-const verifyLoginSchema = Joi.object({
-  email: Joi.string().email().required(),
-  code: Joi.string().trim().length(6).required()
-});
-
-const resendVerificationSchema = Joi.object({
-  email: Joi.string().email().required(),
-  type: Joi.string().valid("email", "login").default("email")
+  password: Joi.string().required()
 });
 
 const changePasswordSchema = Joi.object({
@@ -44,12 +28,23 @@ const updatePreferencesSchema = Joi.object({
   reminderDays: Joi.array().items(Joi.number().integer().min(1).max(365)).max(10)
 }).min(1);
 
+const verifyEmailSchema = Joi.object({
+  email: Joi.string().email().required(),
+  code: Joi.string().trim().length(6).pattern(/^\d{6}$/).required().messages({
+    "string.length": "Verification code must be exactly 6 digits",
+    "string.pattern.base": "Verification code must contain digits only"
+  })
+});
+
+const resendVerificationSchema = Joi.object({
+  email: Joi.string().email().required()
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
-  verifyEmailSchema,
-  verifyLoginSchema,
-  resendVerificationSchema,
   changePasswordSchema,
-  updatePreferencesSchema
+  updatePreferencesSchema,
+  verifyEmailSchema,
+  resendVerificationSchema
 };

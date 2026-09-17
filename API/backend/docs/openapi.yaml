@@ -90,8 +90,9 @@ paths:
   /api/v1/auth/verify-email:
     post:
       tags: [Auth]
-      summary: Verify email address
-      description: Verifies user email address with the 6-digit code sent during registration. Returns JWT + user profile.
+      summary: Verify email address with 6-digit OTP code
+      description: Rate-limited. Verifies the user's email address using the 6-digit code sent via Resend API, activates the account, and returns a JWT session.
+      security: []
       requestBody:
         required: true
         content:
@@ -100,8 +101,8 @@ paths:
               type: object
               required: [email, code]
               properties:
-                email: { type: string, format: email }
-                code: { type: string, minLength: 6, maxLength: 6 }
+                email: { type: string, format: email, example: you@example.com }
+                code: { type: string, minLength: 6, maxLength: 6, example: "123456" }
       responses:
         "200":
           description: OK
@@ -118,54 +119,16 @@ paths:
                       token: { type: string }
                       user: { $ref: "#/components/schemas/User" }
         "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-
-  /api/v1/auth/verify-login:
-    post:
-      tags: [Auth]
-      summary: Verify login code
-      description: Verifies 6-digit login verification code and completes sign in. Returns JWT + user profile.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, code]
-              properties:
-                email: { type: string, format: email }
-                code: { type: string, minLength: 6, maxLength: 6 }
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean, example: true }
-                  message: { type: string, example: Login verified successfully }
-                  data:
-                    type: object
-                    properties:
-                      token: { type: string }
-                      user: { $ref: "#/components/schemas/User" }
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
+          description: Invalid or expired verification code
         "429":
           $ref: "#/components/responses/RateLimited"
 
   /api/v1/auth/resend-verification:
     post:
       tags: [Auth]
-      summary: Resend verification code
-      description: Sends a new 6-digit verification code to the user's email address.
+      summary: Resend email verification code
+      description: Rate-limited with a 60-second cooldown. Dispatches a new 6-digit OTP code to the given email via Resend API.
+      security: []
       requestBody:
         required: true
         content:
@@ -174,8 +137,7 @@ paths:
               type: object
               required: [email]
               properties:
-                email: { type: string, format: email }
-                type: { type: string, enum: [email, login], default: email }
+                email: { type: string, format: email, example: you@example.com }
       responses:
         "200":
           description: OK
@@ -185,11 +147,11 @@ paths:
                 type: object
                 properties:
                   success: { type: boolean, example: true }
-                  message: { type: string, example: Verification code sent }
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
+                  message: { type: string, example: A new verification code has been sent to your email. }
+                  data:
+                    type: object
+                    properties:
+                      email: { type: string, format: email }
         "429":
           $ref: "#/components/responses/RateLimited"
 

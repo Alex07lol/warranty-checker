@@ -59,6 +59,28 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    verificationCodeHash: {
+      type: String,
+      select: false
+    },
+    verificationCodeExpiresAt: {
+      type: Date,
+      select: false
+    },
+    verificationAttempts: {
+      type: Number,
+      default: 0,
+      select: false
+    },
+    lastVerificationSentAt: {
+      type: Date,
+      select: false
+    },
     profilePicture: {
       type: String,
       default: null
@@ -66,26 +88,6 @@ const userSchema = new mongoose.Schema(
     notificationPreferences: {
       type: notificationPreferencesSchema,
       default: () => ({})
-    },
-    isEmailVerified: {
-      type: Boolean,
-      default: false
-    },
-    emailVerificationCode: {
-      type: String,
-      default: null
-    },
-    emailVerificationExpires: {
-      type: Date,
-      default: null
-    },
-    loginVerificationCode: {
-      type: String,
-      default: null
-    },
-    loginVerificationExpires: {
-      type: Date,
-      default: null
     }
   },
   {

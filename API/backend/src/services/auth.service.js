@@ -1,39 +1,80 @@
+"use strict";
+
+const crypto = require("node:crypto");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const { generateToken } = require("../utils/jwtHelper");
-const {
-  generateCode,
-  sendVerificationEmail,
-  sendLoginVerificationEmail
-} = require("./email.service");
+const { sendVerificationEmail } = require("./email.service");
+
+function generateVerificationCode() {
+  // Generates a cryptographically random 6-digit number between 100000 and 999999
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+function hashCode(code) {
+  return crypto.createHash("sha256").update(String(code).trim()).digest("hex");
+}
 
 async function registerUser(name, email, password) {
   const normalizedEmail = email.toLowerCase().trim();
   const existing = await User.findOne({ email: normalizedEmail });
 
   if (existing) {
-    throw new AppError("Email address is already registered", 409);
+    if (existing.isEmailVerified) {
+      throw new AppError("Email address is already registered", 409);
+    }
+
+    // Account exists but is unverified — refresh credentials and send a new OTP
+    existing.name = name;
+    existing.passwordHash = password;
+    const code = generateVerificationCode();
+    existing.verificationCodeHash = hashCode(code);
+    existing.verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    existing.verificationAttempts = 0;
+    existing.lastVerificationSentAt = new Date();
+    await existing.save();
+
+    await sendVerificationEmail({
+      to: existing.email,
+      name: existing.name,
+      code,
+      expiresMinutes: 15
+    });
+
+    return {
+      user: {
+        _id: existing._id,
+        name: existing.name,
+        email: existing.email,
+        isEmailVerified: false,
+        createdAt: existing.createdAt
+      },
+      email: existing.email,
+      requiresVerification: true,
+      message: "Verification code sent to your email"
+    };
   }
 
-  const verificationCode = generateCode();
-  const verificationExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
-
+  const code = generateVerificationCode();
   const user = await User.create({
     name,
     email: normalizedEmail,
     passwordHash: password,
     isEmailVerified: false,
-    emailVerificationCode: verificationCode,
-    emailVerificationExpires: verificationExpires
+    verificationCodeHash: hashCode(code),
+    verificationCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
+    verificationAttempts: 0,
+    lastVerificationSentAt: new Date()
   });
 
-  await sendVerificationEmail(user.email, user.name, verificationCode);
+  await sendVerificationEmail({
+    to: user.email,
+    name: user.name,
+    code,
+    expiresMinutes: 15
+  });
 
   return {
-    requiresVerification: true,
-    verificationType: "email",
-    message: "Registration initiated. Please verify your email with the code sent to your inbox.",
-    email: user.email,
     user: {
       _id: user._id,
       name: user.name,
@@ -41,13 +82,17 @@ async function registerUser(name, email, password) {
       isEmailVerified: false,
       createdAt: user.createdAt
     },
-    ...(process.env.NODE_ENV !== "production" ? { verificationCode } : {})
+    email: user.email,
+    requiresVerification: true,
+    message: "Verification code sent to your email"
   };
 }
 
 async function verifyEmail(email, code) {
-  const normalizedEmail = email.toLowerCase().trim();
-  const user = await User.findOne({ email: normalizedEmail });
+  const normalizedEmail = String(email || "").toLowerCase().trim();
+  const user = await User.findOne({ email: normalizedEmail }).select(
+    "+verificationCodeHash +verificationCodeExpiresAt +verificationAttempts"
+  );
 
   if (!user) {
     throw new AppError("User not found", 404);
@@ -68,17 +113,29 @@ async function verifyEmail(email, code) {
     };
   }
 
-  if (!user.emailVerificationCode || user.emailVerificationCode !== code.trim()) {
-    throw new AppError("Invalid verification code", 400);
+  if (user.verificationAttempts >= 5) {
+    throw new AppError("Too many failed attempts. Please request a new verification code.", 429);
   }
 
-  if (!user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
-    throw new AppError("Verification code has expired. Please request a new code.", 400);
+  if (!user.verificationCodeExpiresAt || user.verificationCodeExpiresAt < new Date()) {
+    throw new AppError("Verification code has expired. Please request a new one.", 400);
+  }
+
+  const providedHash = hashCode(code);
+  if (user.verificationCodeHash !== providedHash) {
+    user.verificationAttempts = (user.verificationAttempts || 0) + 1;
+    await user.save();
+    const remaining = Math.max(0, 5 - user.verificationAttempts);
+    throw new AppError(
+      `Invalid verification code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`,
+      400
+    );
   }
 
   user.isEmailVerified = true;
-  user.emailVerificationCode = null;
-  user.emailVerificationExpires = null;
+  user.verificationCodeHash = undefined;
+  user.verificationCodeExpiresAt = undefined;
+  user.verificationAttempts = 0;
   await user.save();
 
   const token = generateToken(user._id);
@@ -91,170 +148,76 @@ async function verifyEmail(email, code) {
       isEmailVerified: true,
       createdAt: user.createdAt
     },
-    token
+    token,
+    message: "Email verified successfully"
   };
 }
 
-async function resendVerification(email, type = "email") {
-  const normalizedEmail = email.toLowerCase().trim();
-  const user = await User.findOne({ email: normalizedEmail });
+async function resendVerificationCode(email) {
+  const normalizedEmail = String(email || "").toLowerCase().trim();
+  const user = await User.findOne({ email: normalizedEmail }).select(
+    "+verificationCodeHash +verificationCodeExpiresAt +lastVerificationSentAt"
+  );
 
   if (!user) {
-    throw new AppError("User not found", 404);
-  }
-
-  const code = generateCode();
-
-  if (type === "login") {
-    user.loginVerificationCode = code;
-    user.loginVerificationExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
-    await user.save();
-    await sendLoginVerificationEmail(user.email, user.name, code);
+    // Avoid email enumeration
     return {
-      message: "Login verification code resent to your email",
-      email: user.email,
-      ...(process.env.NODE_ENV !== "production" ? { verificationCode: code } : {})
+      message: "If an account exists with this email, a verification code has been sent."
     };
   }
 
   if (user.isEmailVerified) {
-    throw new AppError("Email is already verified", 400);
+    return {
+      alreadyVerified: true,
+      message: "This email address is already verified. You can sign in."
+    };
   }
 
-  user.emailVerificationCode = code;
-  user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+  // 60-second cooldown check
+  if (user.lastVerificationSentAt) {
+    const elapsedMs = Date.now() - new Date(user.lastVerificationSentAt).getTime();
+    if (elapsedMs < 60000) {
+      const waitSec = Math.ceil((60000 - elapsedMs) / 1000);
+      throw new AppError(
+        `Please wait ${waitSec} second${waitSec === 1 ? "" : "s"} before requesting another code.`,
+        429
+      );
+    }
+  }
+
+  const code = generateVerificationCode();
+  user.verificationCodeHash = hashCode(code);
+  user.verificationCodeExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  user.verificationAttempts = 0;
+  user.lastVerificationSentAt = new Date();
   await user.save();
-  await sendVerificationEmail(user.email, user.name, code);
+
+  await sendVerificationEmail({
+    to: user.email,
+    name: user.name,
+    code,
+    expiresMinutes: 15
+  });
 
   return {
-    message: "Verification code resent to your email",
     email: user.email,
-    ...(process.env.NODE_ENV !== "production" ? { verificationCode: code } : {})
+    message: "A new verification code has been sent to your email."
   };
 }
 
-async function loginUser(email, password, code = null) {
-  const normalizedEmail = email.toLowerCase().trim();
-  const user = await User.findOne({ email: normalizedEmail });
+async function loginUser(email, password) {
+  const user = await User.findOne({ email: email.toLowerCase().trim() });
 
   if (!user?.isActive || !(await user.comparePassword(password))) {
     throw new AppError("Invalid email or password", 401);
   }
 
-  // 1. If email is not verified from signup, require email verification
   if (!user.isEmailVerified) {
-    if (code) {
-      if (!user.emailVerificationCode || user.emailVerificationCode !== code.trim()) {
-        throw new AppError("Invalid verification code", 400);
-      }
-      if (!user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
-        throw new AppError("Verification code has expired. Please request a new code.", 400);
-      }
-      user.isEmailVerified = true;
-      user.emailVerificationCode = null;
-      user.emailVerificationExpires = null;
-      await user.save();
-      return {
-        user: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          isEmailVerified: true,
-          createdAt: user.createdAt
-        },
-        token: generateToken(user._id)
-      };
-    }
-
-    const verificationCode = generateCode();
-    user.emailVerificationCode = verificationCode;
-    user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
-    await user.save();
-    await sendVerificationEmail(user.email, user.name, verificationCode);
-
-    return {
-      requiresVerification: true,
-      verificationType: "email",
-      email: user.email,
-      message: "Please verify your email before logging in. A verification code has been sent to your email.",
-      ...(process.env.NODE_ENV !== "production" ? { verificationCode } : {})
-    };
+    const err = new AppError("Please verify your email address to continue.", 403);
+    err.requiresVerification = true;
+    err.email = user.email;
+    throw err;
   }
-
-  // 2. Verified user -> Login verification (email OTP)
-  if (code) {
-    if (!user.loginVerificationCode || user.loginVerificationCode !== code.trim()) {
-      throw new AppError("Invalid verification code", 400);
-    }
-    if (!user.loginVerificationExpires || user.loginVerificationExpires < new Date()) {
-      throw new AppError("Verification code has expired. Please request a new code.", 400);
-    }
-
-    user.loginVerificationCode = null;
-    user.loginVerificationExpires = null;
-    await user.save();
-
-    return {
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        isEmailVerified: true,
-        createdAt: user.createdAt
-      },
-      token: generateToken(user._id)
-    };
-  }
-
-  if (process.env.REQUIRE_LOGIN_VERIFICATION === "false") {
-    return {
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        isEmailVerified: true,
-        createdAt: user.createdAt
-      },
-      token: generateToken(user._id)
-    };
-  }
-
-  const loginCode = generateCode();
-  user.loginVerificationCode = loginCode;
-  user.loginVerificationExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
-  await user.save();
-  await sendLoginVerificationEmail(user.email, user.name, loginCode);
-
-  return {
-    requiresVerification: true,
-    verificationType: "login",
-    email: user.email,
-    message: "A login verification code has been sent to your email.",
-    ...(process.env.NODE_ENV !== "production" ? { verificationCode: loginCode } : {})
-  };
-}
-
-async function verifyLogin(email, code) {
-  const normalizedEmail = email.toLowerCase().trim();
-  const user = await User.findOne({ email: normalizedEmail });
-
-  if (!user) {
-    throw new AppError("User not found", 404);
-  }
-
-  if (!user.loginVerificationCode || user.loginVerificationCode !== code.trim()) {
-    throw new AppError("Invalid verification code", 400);
-  }
-
-  if (!user.loginVerificationExpires || user.loginVerificationExpires < new Date()) {
-    throw new AppError("Verification code has expired. Please request a new code.", 400);
-  }
-
-  user.loginVerificationCode = null;
-  user.loginVerificationExpires = null;
-  await user.save();
-
-  const token = generateToken(user._id);
 
   return {
     user: {
@@ -264,7 +227,7 @@ async function verifyLogin(email, code) {
       isEmailVerified: user.isEmailVerified,
       createdAt: user.createdAt
     },
-    token
+    token: generateToken(user._id)
   };
 }
 
@@ -289,6 +252,7 @@ async function changePassword(userId, currentPassword, newPassword) {
   await user.save();
 }
 
+// Phase 4 §6: update reminder preferences
 async function updateNotificationPreferences(userId, prefs) {
   const user = await User.findById(userId);
   if (!user) {
@@ -318,9 +282,8 @@ async function updateNotificationPreferences(userId, prefs) {
 module.exports = {
   registerUser,
   verifyEmail,
-  resendVerification,
+  resendVerificationCode,
   loginUser,
-  verifyLogin,
   getUserById,
   changePassword,
   updateNotificationPreferences
