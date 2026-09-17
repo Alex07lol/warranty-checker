@@ -21,6 +21,8 @@ Run through this before/after any deployment.
 | `JWT_EXPIRES_IN` | yes | duration format only: `15m`, `7d` — never `7 days` |
 | `CLOUDINARY_CLOUD_NAME` / `API_KEY` / `API_SECRET` | yes | from Cloudinary dashboard |
 | `CLIENT_URL` | yes | **specific origin** (`https://app.example.com`) — `*` fails boot in production |
+| `RESEND_API_KEY` | yes | API key from Resend dashboard (`re_...`) for actual OTP email delivery |
+| `EMAIL_FROM` | no | Sender address (e.g. `WarrantyVault <noreply@yourdomain.com>`, defaults to `WarrantyVault <onboarding@resend.dev>`) |
 | `GOOGLE_PLACES_API_KEY` | no | without it Places returns 503; Nominatim geocoding still works |
 | `OCR_MAX_CONCURRENT` | no | default 2 (free-tier friendly) |
 | Rate-limit overrides | no | `AUTH_RATE_LIMIT`, `UPLOAD_RATE_LIMIT`, `OCR_RATE_LIMIT`, `PLACES_RATE_LIMIT` |
