@@ -2020,7 +2020,9 @@ body.dark-mode .detail-action-btn.claim { color: #b3a7ff; background: #2a2350; b
   color: var(--brand);
   word-break: break-all;
 }
-.verify-code-input {
+/* Scoped to .login-field so it outranks the shared `.login-field input` rule
+   (element+class beats a lone class) without needing !important. */
+.login-field input.verify-code-input {
   width: 100%;
   padding: 12px 14px;
   border: 1.5px solid var(--line);
@@ -2035,7 +2037,7 @@ body.dark-mode .detail-action-btn.claim { color: #b3a7ff; background: #2a2350; b
   outline: none;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
-.verify-code-input:focus { border-color: var(--brand); background: var(--surface); box-shadow: var(--ring); }
+.login-field input.verify-code-input:focus { border-color: var(--brand); background: var(--surface); box-shadow: var(--ring); }
 .verify-resend-row {
   display: flex;
   align-items: center;
@@ -2046,7 +2048,9 @@ body.dark-mode .detail-action-btn.claim { color: #b3a7ff; background: #2a2350; b
 }
 .verify-countdown { color: var(--ink-3); }
 .verify-resend {
-  padding: 0;
+  /* Padded so the hit area clears a comfortable tap target, not just the 16px
+     text box a bare link would give. */
+  padding: 11px 0;
   border: none;
   background: none;
   color: var(--brand);
