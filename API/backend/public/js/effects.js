@@ -229,7 +229,10 @@
     `;
 
     // Tunable via CSS variables in :root (--aurora-*).
-    const aSpeed = clampNum(cssVar('--aurora-speed', '1'), 0.1, 5, 1);
+    // Interpolated as a *float literal*: GLSL has no implicit int→float
+    // conversion, so a bare `1` here breaks shader compilation (and with it
+    // the whole ambient background).
+    const aSpeed = clampNum(cssVar('--aurora-speed', '1'), 0.1, 5, 1).toFixed(4);
     const aDeep = vec3(cssVar('--aurora-deep', '#4d55a5'), [0.28, 0.32, 0.58]);
     const aIndigo = vec3(cssVar('--aurora-indigo', '#8a95f2'), [0.52, 0.60, 0.92]);
     const aLavender = vec3(cssVar('--aurora-lavender', '#b6bcf7'), [0.70, 0.73, 0.95]);
@@ -354,9 +357,20 @@
     const lightColA = hexToRgb(cssVar('--particles-color-a', '#7c88ea')) || [0.49, 0.53, 0.92];
     const lightColB = hexToRgb(cssVar('--particles-color-b', '#b9bff5')) || [0.73, 0.75, 0.96];
 
+    // Colours follow the active theme (light/dark declare their own
+    // --particles-color-* tokens), re-read whenever `body.dark-mode` flips.
     let colA = [...lightColA];
     let colB = [...lightColB];
     let lineRgb = colA;
+
+    const refreshThemeColors = () => {
+      colA = hexToRgb(cssVar('--particles-color-a', '#7c88ea')) || lightColA;
+      colB = hexToRgb(cssVar('--particles-color-b', '#b9bff5')) || lightColB;
+      lineRgb = colA;
+    };
+    const themeObserver = new MutationObserver(refreshThemeColors);
+    themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    refreshThemeColors();
 
     // ── Simulation state (positions live in CSS px) ──
     const COUNT = 160;
@@ -467,16 +481,6 @@
     }
 
     function paint(t) {
-      if (document.body.classList.contains('dark-mode')) {
-        colA = [1.0, 0.20, 0.20]; // Red
-        colB = [1.0, 0.60, 0.60]; // Light Red
-        lineRgb = colA;
-      } else {
-        colA = lightColA;
-        colB = lightColB;
-        lineRgb = colA;
-      }
-
       step(1 / 60, t);
       const segs = buildLines();
 
