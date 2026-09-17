@@ -41,7 +41,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      // fonts.googleapis.com serves the Inter stylesheet that index.html links
+      // (fonts.gstatic.com serves the font files it references). Without it the
+      // browser blocks the request and the UI silently falls back to system
+      // fonts — the stylesheet is still a deliberate, allow-listed external.
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       scriptSrcAttr: ["'unsafe-inline'"],
