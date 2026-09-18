@@ -1194,6 +1194,7 @@ function docCard(d, showProduct) {
     ? '<button class="btn btn-ghost btn-small" onclick="toggleDocVerified(\'' + d._id + '\', \'' + source + '\')">Unverify</button>'
     : '<button class="btn btn-ghost btn-small" onclick="toggleDocVerified(\'' + d._id + '\', \'' + source + '\')">✓ Verify</button>';
   actions += '<button class="btn btn-ghost btn-small" onclick="viewDoc(\'' + d._id + '\')">View</button>';
+  if (d.ocrStatus === 'done') actions += '<button class="btn btn-ghost btn-small" onclick="openDocOcrReview(\'' + d._id + '\')">✏️ Review OCR</button>';
   if (canRetry) actions += '<button class="btn btn-ghost btn-small" onclick="retryDocOcr(\'' + d._id + '\')">⟳ Retry OCR</button>';
   actions += '<button class="btn btn-danger btn-small" onclick="deleteDoc(\'' + d._id + '\')">Delete</button>';
 
@@ -1633,6 +1634,139 @@ async function pollCameraOcr(pid, doc, statusEl, fillEl) {
   showCameraError('OCR timed out. You can retry it from the product page.');
 }
 
+const OCR_FIELDS = [
+  { key: 'name', prop: 'productName', label: 'Product name', inputId: 'confirm-name', approveId: 'approve-name', wrapId: 'field-wrap-name', statusId: 'status-name' },
+  { key: 'brand', prop: 'brand', label: 'Brand', inputId: 'confirm-brand', approveId: 'approve-brand', wrapId: 'field-wrap-brand', statusId: 'status-brand' },
+  { key: 'model', prop: 'model', label: 'Model', inputId: 'confirm-model', approveId: 'approve-model', wrapId: 'field-wrap-model', statusId: 'status-model' },
+  { key: 'serial', prop: 'serialNumber', label: 'Serial number', inputId: 'confirm-serial', approveId: 'approve-serial', wrapId: 'field-wrap-serial', statusId: 'status-serial' },
+  { key: 'price', prop: 'purchasePrice', label: 'Purchase price', inputId: 'confirm-price', approveId: 'approve-price', wrapId: 'field-wrap-price', statusId: 'status-price' },
+  { key: 'store', prop: 'purchaseStore', label: 'Store', inputId: 'confirm-store', approveId: 'approve-store', wrapId: 'field-wrap-store', statusId: 'status-store' },
+  { key: 'purchase-date', prop: 'purchaseDate', label: 'Purchase date', inputId: 'confirm-purchase-date', approveId: 'approve-purchase-date', wrapId: 'field-wrap-purchase-date', statusId: 'status-purchase-date' },
+  { key: 'expiry', prop: 'warrantyExpiryDate', label: 'Warranty expiry', inputId: 'confirm-expiry', approveId: 'approve-expiry', wrapId: 'field-wrap-expiry', statusId: 'status-expiry' }
+];
+
+function updateOcrApprovalCount() {
+  let count = 0;
+  OCR_FIELDS.forEach(f => {
+    const cb = document.getElementById(f.approveId);
+    const wrap = document.getElementById(f.wrapId);
+    const status = document.getElementById(f.statusId);
+    const isApproved = cb && cb.checked;
+    if (isApproved) count++;
+    if (wrap) {
+      wrap.classList.toggle('ocr-field-approved', !!isApproved);
+      wrap.classList.toggle('ocr-field-excluded', !isApproved);
+    }
+    if (status) {
+      status.textContent = isApproved ? 'Approved' : 'Excluded';
+      status.classList.toggle('status-approved', !!isApproved);
+      status.classList.toggle('status-excluded', !isApproved);
+    }
+  });
+
+  const countBadge = document.getElementById('ocr-approved-count');
+  if (countBadge) countBadge.textContent = String(count);
+
+  const btnCount = document.getElementById('ocr-approved-btn-count');
+  if (btnCount) btnCount.textContent = String(count);
+
+  const btnCountAttached = document.getElementById('ocr-approved-btn-count-attached');
+  if (btnCountAttached) btnCountAttached.textContent = String(count);
+
+  return count;
+}
+
+function onOcrFieldToggle() {
+  updateOcrApprovalCount();
+}
+
+function onOcrFieldInput(key) {
+  const f = OCR_FIELDS.find(item => item.key === key);
+  if (f) {
+    const input = document.getElementById(f.inputId);
+    const cb = document.getElementById(f.approveId);
+    if (input && String(input.value || '').trim() && cb && !cb.checked) {
+      cb.checked = true;
+    }
+  }
+  updateOcrApprovalCount();
+}
+
+function toggleAllOcrApprovals(approveAll) {
+  OCR_FIELDS.forEach(f => {
+    const cb = document.getElementById(f.approveId);
+    if (cb) cb.checked = !!approveAll;
+  });
+  updateOcrApprovalCount();
+}
+
+function toDateInputValue(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+
+function fillCameraConfirmForm(data) {
+  document.getElementById('confirm-name').value = data.productName || '';
+  document.getElementById('confirm-brand').value = data.brand || '';
+  document.getElementById('confirm-model').value = data.model || '';
+  document.getElementById('confirm-serial').value = data.serialNumber || '';
+  document.getElementById('confirm-price').value =
+    data.purchasePrice != null ? data.purchasePrice : '';
+  document.getElementById('confirm-store').value = data.purchaseStore || '';
+  document.getElementById('confirm-purchase-date').value = toDateInputValue(data.purchaseDate);
+  document.getElementById('confirm-expiry').value = toDateInputValue(data.warrantyExpiryDate);
+
+  // Set approval checkboxes: approve non-empty fields by default
+  OCR_FIELDS.forEach(f => {
+    const cb = document.getElementById(f.approveId);
+    if (!cb) return;
+    const val = data[f.prop];
+    const hasVal = val != null && String(val).trim() !== '';
+    cb.checked = hasVal;
+  });
+
+  updateOcrApprovalCount();
+}
+
+function getApprovedOcrData() {
+  const approved = {};
+  const allEdited = {};
+  let count = 0;
+
+  OCR_FIELDS.forEach(f => {
+    const input = document.getElementById(f.inputId);
+    const cb = document.getElementById(f.approveId);
+    const rawVal = (input && input.value != null) ? String(input.value) : '';
+    let val = rawVal.trim();
+
+    if (f.key === 'price') {
+      if (rawVal !== '' && Number.isFinite(Number(rawVal))) {
+        val = Number(rawVal);
+      } else {
+        val = null;
+      }
+    } else if (f.key === 'purchase-date' || f.key === 'expiry') {
+      val = rawVal || null;
+    } else {
+      val = val || null;
+    }
+
+    allEdited[f.prop] = val;
+
+    if (cb && cb.checked) {
+      if (val !== null && val !== '') {
+        approved[f.prop] = val;
+      }
+      count++;
+    }
+  });
+
+  return { approved, allEdited, count };
+}
+
 async function renderCameraResult(doc, pid) {
   document.getElementById('camera-progress').style.display = 'none';
   const data = doc.parsedData || doc.ocrData || {};
@@ -1658,90 +1792,78 @@ async function renderCameraResult(doc, pid) {
   const applyBtn = document.getElementById('camera-apply-btn');
   const confirmBox = document.getElementById('camera-confirm-product');
   const createdBox = document.getElementById('camera-created-product');
+  const standaloneActions = document.getElementById('ocr-actions-standalone');
+  const attachedActions = document.getElementById('ocr-actions-attached');
+  const reviewTitle = document.getElementById('ocr-review-title');
+  const reviewSub = document.getElementById('ocr-review-sub');
 
-  if (!pid) {
-    if (doc.productId) {
-      // Product was created through the confirm step — show the success
-      // banner and refresh caches so the new product shows up everywhere.
-      if (createdBox) {
-        createdBox.style.display = '';
-        document.getElementById('camera-created-product-id').value = doc.productId;
-        document.getElementById('camera-created-product-name').textContent =
-          'Saved from this scan — tap below to review or edit it.';
-      }
-      if (confirmBox) confirmBox.style.display = 'none';
-      if (applyBtn) applyBtn.style.display = 'none';
-      productsCache = [];
-      Promise.all([
-        populateCameraProducts().catch(() => {}),
-        loadDashboard().catch(() => {})
-      ]);
-    } else if (hasConfirmableData(data)) {
-      // Standalone scan with extracted data — no product yet. Show the
-      // review-and-confirm form pre-filled with the OCR values so the user
-      // can fix mistakes before the product is created.
-      if (confirmBox) {
-        fillCameraConfirmForm(data);
-        confirmBox.style.display = '';
-      }
-      if (createdBox) createdBox.style.display = 'none';
-      if (applyBtn) applyBtn.style.display = 'none';
-    } else {
-      if (confirmBox) confirmBox.style.display = 'none';
-      if (createdBox) createdBox.style.display = 'none';
-      if (applyBtn) applyBtn.style.display = 'none';
+  if (doc.productId && !pid) {
+    if (createdBox) {
+      createdBox.style.display = '';
+      document.getElementById('camera-created-product-id').value = doc.productId;
+      document.getElementById('camera-created-product-name').textContent =
+        'Saved from this scan — tap below to review or edit it.';
     }
-  } else {
-    // A product was picked up front — "Apply to Product" fills its fields.
     if (confirmBox) confirmBox.style.display = 'none';
+    if (applyBtn) applyBtn.style.display = 'none';
+    productsCache = [];
+    Promise.all([
+      populateCameraProducts().catch(() => {}),
+      loadDashboard().catch(() => {})
+    ]);
+  } else {
     if (createdBox) createdBox.style.display = 'none';
-    if (applyBtn) applyBtn.style.display = '';
+    if (confirmBox) {
+      fillCameraConfirmForm(data);
+      confirmBox.style.display = '';
+
+      if (pid) {
+        if (standaloneActions) standaloneActions.style.display = 'none';
+        if (attachedActions) attachedActions.style.display = 'flex';
+        if (reviewTitle) reviewTitle.textContent = 'Review & Approve OCR Data for Product';
+        if (reviewSub) reviewSub.textContent = 'Edit extracted fields and choose which ones to apply. Only approved fields will be updated.';
+        if (applyBtn) applyBtn.style.display = 'none';
+      } else {
+        if (standaloneActions) standaloneActions.style.display = 'flex';
+        if (attachedActions) attachedActions.style.display = 'none';
+        if (reviewTitle) reviewTitle.textContent = 'Review & Approve OCR Data';
+        if (reviewSub) reviewSub.textContent = 'Edit extracted fields and choose which to approve before creating the product.';
+        if (applyBtn) applyBtn.style.display = 'none';
+      }
+    }
   }
   document.getElementById('camera-result').style.display = '';
   loadScanDocs().catch(() => {});
 }
 
-// The review-and-confirm form is worth showing only when OCR extracted a
-// strong product signal (price / serial / expiry) — the same gate the old
-// auto-create used. The suggested name is only a pre-fill convenience.
-function hasConfirmableData(data) {
-  return data.purchasePrice != null || !!data.serialNumber || !!data.warrantyExpiryDate;
-}
-
-function toDateInputValue(value) {
-  if (!value) return '';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-}
-
-function fillCameraConfirmForm(data) {
-  document.getElementById('confirm-name').value = data.productName || '';
-  document.getElementById('confirm-brand').value = data.brand || '';
-  document.getElementById('confirm-model').value = data.model || '';
-  document.getElementById('confirm-serial').value = data.serialNumber || '';
-  document.getElementById('confirm-price').value =
-    data.purchasePrice != null ? data.purchasePrice : '';
-  document.getElementById('confirm-store').value = data.purchaseStore || '';
-  document.getElementById('confirm-purchase-date').value = toDateInputValue(data.purchaseDate);
-  document.getElementById('confirm-expiry').value = toDateInputValue(data.warrantyExpiryDate);
-}
-
-// User reviewed (and corrected) the extracted fields — create the product.
+// User reviewed (and corrected) the extracted fields — create the product with approved fields.
 async function confirmCameraProduct() {
   if (!requireAuth('create a product')) return;
   const doc = cameraDoc;
   if (!doc) return;
 
-  const name = document.getElementById('confirm-name').value.trim();
-  if (!name) { toast('Product name is required', 'error'); return; }
-  const purchaseDate = document.getElementById('confirm-purchase-date').value;
-  const expiry = document.getElementById('confirm-expiry').value;
+  const dataResult = getApprovedOcrData();
+  const approved = dataResult.approved;
+  const count = dataResult.count;
+
+  if (count === 0) {
+    toast('Please approve at least one field to create a product, or save to document only', 'error');
+    return;
+  }
+
+  let name = approved.productName;
+  if (!name) {
+    const rawInputName = (document.getElementById('confirm-name').value || '').trim();
+    name = rawInputName || doc.fileName || 'Scanned Product';
+  }
+
+  const purchaseDate = approved.purchaseDate;
+  const expiry = approved.warrantyExpiryDate;
   if (purchaseDate && expiry && new Date(expiry) <= new Date(purchaseDate)) {
     toast('Warranty expiry must be after the purchase date', 'error');
     return;
   }
+
   const priceRaw = document.getElementById('confirm-price').value;
   if (priceRaw !== '' && !Number.isFinite(Number(priceRaw))) {
     toast('Enter a valid purchase price', 'error');
@@ -1750,13 +1872,13 @@ async function confirmCameraProduct() {
 
   const payload = {
     productName: name,
-    brand: document.getElementById('confirm-brand').value.trim() || undefined,
-    model: document.getElementById('confirm-model').value.trim() || undefined,
-    serialNumber: document.getElementById('confirm-serial').value.trim() || undefined,
-    purchasePrice: priceRaw !== '' ? Number(priceRaw) : undefined,
-    purchaseStore: document.getElementById('confirm-store').value.trim() || undefined,
-    purchaseDate: purchaseDate || undefined,
-    warrantyExpiryDate: expiry || undefined
+    brand: approved.brand || undefined,
+    model: approved.model || undefined,
+    serialNumber: approved.serialNumber || undefined,
+    purchasePrice: approved.purchasePrice != null ? approved.purchasePrice : undefined,
+    purchaseStore: approved.purchaseStore || undefined,
+    purchaseDate: approved.purchaseDate || undefined,
+    warrantyExpiryDate: approved.warrantyExpiryDate || undefined
   };
 
   try {
@@ -1764,8 +1886,7 @@ async function confirmCameraProduct() {
       method: 'POST',
       body: JSON.stringify(payload)
     });
-    toast('Product created from this scan', 'success');
-    // Re-render with the now-linked document so the success banner appears.
+    toast('Product created with approved fields (' + count + ' approved)', 'success');
     doc.productId = (result.document && result.document.productId) || result.product._id;
     productsCache = [];
     await Promise.all([
@@ -1779,8 +1900,6 @@ async function confirmCameraProduct() {
   }
 }
 
-// User chose not to create a product — the scan is saved standalone and can
-// be attached to a product later from the Docs list.
 function dismissCameraConfirm() {
   const confirmBox = document.getElementById('camera-confirm-product');
   if (confirmBox) confirmBox.style.display = 'none';
@@ -1788,24 +1907,92 @@ function dismissCameraConfirm() {
   toast('Scan saved — attach it to a product anytime from the Docs list');
 }
 
-async function applyCameraToProduct() {
+async function applyCameraApprovedToProduct() {
   if (!requireAuth('apply OCR data')) return;
   const doc = cameraDoc;
-  const pid = document.getElementById('camera-product-select').value;
-  if (!doc || !pid) { toast('Select a product to apply the scanned data to', 'error'); return; }
-  const data = doc.parsedData || doc.ocrData || {};
+  const pid = document.getElementById('camera-product-select').value || (doc && doc.productId);
+  if (!doc || !pid) {
+    toast('Select a product to apply the scanned data to', 'error');
+    return;
+  }
+
+  const dataResult = getApprovedOcrData();
+  const approved = dataResult.approved;
+  const allEdited = dataResult.allEdited;
+  const count = dataResult.count;
+
+  if (count === 0) {
+    toast('Please approve at least one field to apply to the product', 'error');
+    return;
+  }
+
+  const purchaseDate = approved.purchaseDate;
+  const expiry = approved.warrantyExpiryDate;
+  if (purchaseDate && expiry && new Date(expiry) <= new Date(purchaseDate)) {
+    toast('Warranty expiry must be after the purchase date', 'error');
+    return;
+  }
+
+  const priceRaw = document.getElementById('confirm-price').value;
+  if (priceRaw !== '' && !Number.isFinite(Number(priceRaw))) {
+    toast('Enter a valid purchase price', 'error');
+    return;
+  }
+
   const payload = {};
-  if (data.purchasePrice != null) payload.purchasePrice = data.purchasePrice;
-  if (data.serialNumber) payload.serialNumber = data.serialNumber;
-  if (data.warrantyExpiryDate) payload.warrantyExpiryDate = data.warrantyExpiryDate;
-  if (data.purchaseStore) payload.purchaseStore = data.purchaseStore;
-  if (data.purchaseDate) payload.purchaseDate = data.purchaseDate;
+  if (approved.productName) payload.productName = approved.productName;
+  if (approved.brand) payload.brand = approved.brand;
+  if (approved.model) payload.model = approved.model;
+  if (approved.serialNumber) payload.serialNumber = approved.serialNumber;
+  if (approved.purchasePrice != null) payload.purchasePrice = approved.purchasePrice;
+  if (approved.purchaseStore) payload.purchaseStore = approved.purchaseStore;
+  if (approved.purchaseDate) payload.purchaseDate = approved.purchaseDate;
+  if (approved.warrantyExpiryDate) payload.warrantyExpiryDate = approved.warrantyExpiryDate;
+
   try {
     await api('/products/' + pid, { method: 'PUT', body: JSON.stringify(payload) });
-    toast('OCR data applied to product', 'success');
+    await api('/documents/' + doc._id, { method: 'PATCH', body: JSON.stringify({ parsedData: allEdited }) }).catch(() => {});
+    toast('Applied ' + count + ' approved field(s) to product', 'success');
     resetCamera();
     await Promise.all([loadProducts(), loadDashboard(), loadScanDocs().catch(() => {})]);
     openDetail(pid);
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function applyCameraToProduct() {
+  return applyCameraApprovedToProduct();
+}
+
+async function saveCameraOcrToDocOnly() {
+  if (!requireAuth('save OCR data')) return;
+  const doc = cameraDoc;
+  if (!doc) return;
+
+  const dataResult = getApprovedOcrData();
+  const allEdited = dataResult.allEdited;
+  try {
+    await api('/documents/' + doc._id, { method: 'PATCH', body: JSON.stringify({ parsedData: allEdited }) });
+    toast('Document OCR data saved', 'success');
+    await loadScanDocs().catch(() => {});
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function openDocOcrReview(docId) {
+  if (!requireAuth('review document')) return;
+  try {
+    const doc = await api('/documents/' + docId);
+    if (!doc) { toast('Document not found', 'error'); return; }
+    showView('camera');
+    await populateCameraProducts(doc.productId || '');
+    await renderCameraResult(doc, doc.productId || '');
+    const confirmBox = document.getElementById('camera-confirm-product');
+    if (confirmBox) {
+      confirmBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   } catch (e) {
     toast(e.message, 'error');
   }

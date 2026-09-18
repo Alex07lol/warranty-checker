@@ -302,45 +302,108 @@
 
         <div id="camera-result" style="display:none;">
           <div id="camera-confirm-product" class="scan-card scan-card-accent" style="display:none;">
-            <div class="scan-card-title">Review product details</div>
-            <div class="scan-card-sub">OCR extracted these — fix any mistakes, then save as a new product.</div>
-            <div class="form-grid">
-              <div class="form-field" style="grid-column:1 / -1;margin-bottom:0;">
-                <label for="confirm-name">Product name</label>
-                <input type="text" id="confirm-name" placeholder="e.g. Fridge" />
+            <div class="scan-card-head" style="flex-wrap:wrap;gap:8px;">
+              <div>
+                <div class="scan-card-title" id="ocr-review-title">Review &amp; Approve OCR Data</div>
+                <div class="scan-card-sub" id="ocr-review-sub">Edit extracted fields and choose which to approve. Only approved fields will be applied.</div>
               </div>
-              <div class="form-field" style="margin-bottom:0;">
-                <label for="confirm-brand">Brand</label>
-                <input type="text" id="confirm-brand" placeholder="e.g. Samsung" />
-              </div>
-              <div class="form-field" style="margin-bottom:0;">
-                <label for="confirm-model">Model</label>
-                <input type="text" id="confirm-model" placeholder="e.g. RF28T5" />
-              </div>
-              <div class="form-field" style="margin-bottom:0;">
-                <label for="confirm-serial">Serial number</label>
-                <input type="text" id="confirm-serial" placeholder="e.g. SN1234567890" />
-              </div>
-              <div class="form-field" style="margin-bottom:0;">
-                <label for="confirm-price">Purchase price</label>
-                <input type="number" id="confirm-price" min="0" step="0.01" placeholder="0" />
-              </div>
-              <div class="form-field" style="margin-bottom:0;">
-                <label for="confirm-store">Store</label>
-                <input type="text" id="confirm-store" placeholder="e.g. Best Buy" />
-              </div>
-              <div class="form-field" style="margin-bottom:0;">
-                <label for="confirm-purchase-date">Purchase date</label>
-                <input type="date" id="confirm-purchase-date" />
-              </div>
-              <div class="form-field" style="margin-bottom:0;">
-                <label for="confirm-expiry">Warranty expiry</label>
-                <input type="date" id="confirm-expiry" />
+              <div class="ocr-approval-toolbar">
+                <span id="ocr-approval-badge" class="ocr-approval-badge"><span id="ocr-approved-count">8</span> of 8 approved</span>
+                <button type="button" class="btn btn-ghost btn-small ocr-pill-btn" id="ocr-approve-all-btn" onclick="toggleAllOcrApprovals(true)">✓ Approve All</button>
+                <button type="button" class="btn btn-ghost btn-small ocr-pill-btn" id="ocr-deselect-all-btn" onclick="toggleAllOcrApprovals(false)">✕ Deselect All</button>
               </div>
             </div>
-            <div class="scan-card-actions">
-              <button class="camera-apply-btn" id="confirm-create-btn">Confirm Warranty</button>
-              <button class="camera-retry-btn" id="confirm-skip-btn">Cancel</button>
+            <div class="form-grid ocr-approval-grid">
+              <div class="form-field ocr-field-container" id="field-wrap-name" style="grid-column:1 / -1;margin-bottom:0;">
+                <div class="ocr-field-header">
+                  <div class="ocr-checkbox-wrapper">
+                    <input type="checkbox" id="approve-name" class="ocr-field-checkbox" onchange="onOcrFieldToggle('name')" aria-label="Approve Product name" checked />
+                    <label for="confirm-name" class="ocr-field-label">Product name</label>
+                  </div>
+                  <span class="ocr-field-status status-approved" id="status-name">Approved</span>
+                </div>
+                <input type="text" id="confirm-name" placeholder="e.g. Fridge" oninput="onOcrFieldInput('name')" />
+              </div>
+              <div class="form-field ocr-field-container" id="field-wrap-brand" style="margin-bottom:0;">
+                <div class="ocr-field-header">
+                  <div class="ocr-checkbox-wrapper">
+                    <input type="checkbox" id="approve-brand" class="ocr-field-checkbox" onchange="onOcrFieldToggle('brand')" aria-label="Approve Brand" checked />
+                    <label for="confirm-brand" class="ocr-field-label">Brand</label>
+                  </div>
+                  <span class="ocr-field-status status-approved" id="status-brand">Approved</span>
+                </div>
+                <input type="text" id="confirm-brand" placeholder="e.g. Samsung" oninput="onOcrFieldInput('brand')" />
+              </div>
+              <div class="form-field ocr-field-container" id="field-wrap-model" style="margin-bottom:0;">
+                <div class="ocr-field-header">
+                  <div class="ocr-checkbox-wrapper">
+                    <input type="checkbox" id="approve-model" class="ocr-field-checkbox" onchange="onOcrFieldToggle('model')" aria-label="Approve Model" checked />
+                    <label for="confirm-model" class="ocr-field-label">Model</label>
+                  </div>
+                  <span class="ocr-field-status status-approved" id="status-model">Approved</span>
+                </div>
+                <input type="text" id="confirm-model" placeholder="e.g. RF28T5" oninput="onOcrFieldInput('model')" />
+              </div>
+              <div class="form-field ocr-field-container" id="field-wrap-serial" style="margin-bottom:0;">
+                <div class="ocr-field-header">
+                  <div class="ocr-checkbox-wrapper">
+                    <input type="checkbox" id="approve-serial" class="ocr-field-checkbox" onchange="onOcrFieldToggle('serial')" aria-label="Approve Serial number" checked />
+                    <label for="confirm-serial" class="ocr-field-label">Serial number</label>
+                  </div>
+                  <span class="ocr-field-status status-approved" id="status-serial">Approved</span>
+                </div>
+                <input type="text" id="confirm-serial" placeholder="e.g. SN1234567890" oninput="onOcrFieldInput('serial')" />
+              </div>
+              <div class="form-field ocr-field-container" id="field-wrap-price" style="margin-bottom:0;">
+                <div class="ocr-field-header">
+                  <div class="ocr-checkbox-wrapper">
+                    <input type="checkbox" id="approve-price" class="ocr-field-checkbox" onchange="onOcrFieldToggle('price')" aria-label="Approve Purchase price" checked />
+                    <label for="confirm-price" class="ocr-field-label">Purchase price</label>
+                  </div>
+                  <span class="ocr-field-status status-approved" id="status-price">Approved</span>
+                </div>
+                <input type="number" id="confirm-price" min="0" step="0.01" placeholder="0" oninput="onOcrFieldInput('price')" />
+              </div>
+              <div class="form-field ocr-field-container" id="field-wrap-store" style="margin-bottom:0;">
+                <div class="ocr-field-header">
+                  <div class="ocr-checkbox-wrapper">
+                    <input type="checkbox" id="approve-store" class="ocr-field-checkbox" onchange="onOcrFieldToggle('store')" aria-label="Approve Store" checked />
+                    <label for="confirm-store" class="ocr-field-label">Store</label>
+                  </div>
+                  <span class="ocr-field-status status-approved" id="status-store">Approved</span>
+                </div>
+                <input type="text" id="confirm-store" placeholder="e.g. Best Buy" oninput="onOcrFieldInput('store')" />
+              </div>
+              <div class="form-field ocr-field-container" id="field-wrap-purchase-date" style="margin-bottom:0;">
+                <div class="ocr-field-header">
+                  <div class="ocr-checkbox-wrapper">
+                    <input type="checkbox" id="approve-purchase-date" class="ocr-field-checkbox" onchange="onOcrFieldToggle('purchase-date')" aria-label="Approve Purchase date" checked />
+                    <label for="confirm-purchase-date" class="ocr-field-label">Purchase date</label>
+                  </div>
+                  <span class="ocr-field-status status-approved" id="status-purchase-date">Approved</span>
+                </div>
+                <input type="date" id="confirm-purchase-date" oninput="onOcrFieldInput('purchase-date')" />
+              </div>
+              <div class="form-field ocr-field-container" id="field-wrap-expiry" style="margin-bottom:0;">
+                <div class="ocr-field-header">
+                  <div class="ocr-checkbox-wrapper">
+                    <input type="checkbox" id="approve-expiry" class="ocr-field-checkbox" onchange="onOcrFieldToggle('expiry')" aria-label="Approve Warranty expiry" checked />
+                    <label for="confirm-expiry" class="ocr-field-label">Warranty expiry</label>
+                  </div>
+                  <span class="ocr-field-status status-approved" id="status-expiry">Approved</span>
+                </div>
+                <input type="date" id="confirm-expiry" oninput="onOcrFieldInput('expiry')" />
+              </div>
+            </div>
+            <div class="scan-card-actions" id="ocr-actions-standalone">
+              <button type="button" class="camera-apply-btn" id="confirm-create-btn">Create Product with Approved (<span id="ocr-approved-btn-count">8</span>)</button>
+              <button type="button" class="btn btn-ghost" id="confirm-save-doc-btn" onclick="saveCameraOcrToDocOnly()">Save to Document Only</button>
+              <button type="button" class="camera-retry-btn" id="confirm-skip-btn">Skip</button>
+            </div>
+            <div class="scan-card-actions" id="ocr-actions-attached" style="display:none;">
+              <button type="button" class="camera-apply-btn" id="confirm-apply-btn" onclick="applyCameraApprovedToProduct()">Apply Approved to Product (<span id="ocr-approved-btn-count-attached">8</span>)</button>
+              <button type="button" class="btn btn-ghost" id="confirm-save-doc-btn-attached" onclick="saveCameraOcrToDocOnly()">Save to Document Only</button>
+              <button type="button" class="camera-retry-btn" id="confirm-cancel-btn" onclick="resetCamera()">Cancel</button>
             </div>
           </div>
 

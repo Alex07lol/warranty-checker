@@ -1697,7 +1697,93 @@ body.dark-mode .detail-action-btn.claim { color: #b3a7ff; background: #2a2350; b
 .scan-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .scan-card-title { font-size: 15px; font-weight: 700; color: var(--ink); }
 .scan-card-sub { margin: -6px 0 12px; font-size: 12.5px; color: var(--ink-2); }
-.scan-card-actions { display: flex; gap: 10px; margin-top: 16px; }
+.scan-card-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+/* OCR Review & Field-by-Field Approval */
+.ocr-approval-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ocr-approval-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--line-2);
+}
+.ocr-pill-btn {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.ocr-field-container {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  transition: border-color 0.15s, opacity 0.15s, background 0.15s;
+}
+.ocr-field-container.ocr-field-approved {
+  border-color: var(--line-2);
+  background: var(--surface);
+}
+.ocr-field-container.ocr-field-excluded {
+  border-color: var(--line);
+  background: rgba(0, 0, 0, 0.02);
+  opacity: 0.65;
+}
+.ocr-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.ocr-checkbox-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ocr-field-checkbox {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--brand);
+  cursor: pointer;
+  margin: 0;
+}
+.ocr-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  margin-bottom: 0;
+}
+.ocr-field-status {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.ocr-field-status.status-approved {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.ocr-field-status.status-excluded {
+  background: var(--line);
+  color: var(--ink-2);
+}
+.ocr-field-container.ocr-field-excluded input {
+  color: var(--ink-2);
+}
 
 .scan-created {
   padding: 14px 16px;

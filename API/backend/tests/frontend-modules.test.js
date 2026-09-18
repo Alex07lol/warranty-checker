@@ -155,4 +155,59 @@ describe("Frontend module split", () => {
     const escaped = sandbox.escapeHtml("<script>alert(1)</script>");
     expect(escaped).toBe("&lt;script&gt;alert(1)&lt;/script&gt;");
   });
+
+  test("OCR field editing and approval helpers work correctly", () => {
+    const { sandbox } = loadAppSandbox();
+    expect(typeof sandbox.updateOcrApprovalCount).toBe("function");
+    expect(typeof sandbox.toggleAllOcrApprovals).toBe("function");
+    expect(typeof sandbox.fillCameraConfirmForm).toBe("function");
+    expect(typeof sandbox.getApprovedOcrData).toBe("function");
+    expect(typeof sandbox.openDocOcrReview).toBe("function");
+
+    // Populate with test OCR data
+    sandbox.fillCameraConfirmForm({
+      productName: "Microwave Oven",
+      brand: "Panasonic",
+      model: "NN-SN686S",
+      serialNumber: "SN12345",
+      purchasePrice: 199.99,
+      purchaseStore: "Best Buy",
+      purchaseDate: "2026-01-15",
+      warrantyExpiryDate: "2027-01-15"
+    });
+
+    // Verify all 8 are approved by default when populated with complete data
+    let res = sandbox.getApprovedOcrData();
+    expect(res.count).toBe(8);
+    expect(res.approved.productName).toBe("Microwave Oven");
+    expect(res.approved.brand).toBe("Panasonic");
+    expect(res.approved.purchasePrice).toBe(199.99);
+
+    // Deselect all
+    sandbox.toggleAllOcrApprovals(false);
+    res = sandbox.getApprovedOcrData();
+    expect(res.count).toBe(0);
+    expect(Object.keys(res.approved).length).toBe(0);
+    // allEdited still has the edited values
+    expect(res.allEdited.productName).toBe("Microwave Oven");
+
+    // Approve one field (serialNumber)
+    sandbox.document.getElementById("approve-serial").checked = true;
+    sandbox.updateOcrApprovalCount();
+    res = sandbox.getApprovedOcrData();
+    expect(res.count).toBe(1);
+    expect(res.approved).toEqual({ serialNumber: "SN12345" });
+
+    // Approve some fields (serialNumber + warrantyExpiryDate)
+    sandbox.document.getElementById("approve-expiry").checked = true;
+    sandbox.updateOcrApprovalCount();
+    res = sandbox.getApprovedOcrData();
+    expect(res.count).toBe(2);
+    expect(res.approved).toEqual({ serialNumber: "SN12345", warrantyExpiryDate: "2027-01-15" });
+
+    // Approve all
+    sandbox.toggleAllOcrApprovals(true);
+    res = sandbox.getApprovedOcrData();
+    expect(res.count).toBe(8);
+  });
 });
