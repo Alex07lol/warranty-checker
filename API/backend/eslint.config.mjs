@@ -23,6 +23,18 @@ export default [
     }
   },
   {
+    // The corpus/eval scripts are developer tooling (scripts/ocr-corpus.mjs,
+    // scripts/ocr-eval.mjs): readability beats formal complexity limits there,
+    // and their long keyword regexes are the point — they encode the vocabulary
+    // real documents print.
+    files: ["scripts/**"],
+    rules: {
+      "sonarjs/cognitive-complexity": "off",
+      "sonarjs/no-nested-conditional": "off",
+      "sonarjs/regex-complexity": "off"
+    }
+  },
+  {
     files: ["public/js/**/*.js"],
     languageOptions: {
       ecmaVersion: "latest",
