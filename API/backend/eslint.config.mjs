@@ -42,6 +42,8 @@ export default [
       globals: {
         window: "readonly",
         document: "readonly",
+        navigator: "readonly",
+        Notification: "readonly",
         localStorage: "readonly",
         sessionStorage: "readonly",
         fetch: "readonly",

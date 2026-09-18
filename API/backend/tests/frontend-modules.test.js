@@ -13,8 +13,21 @@ const PUBLIC = path.join(__dirname, "..", "public");
 const SCRIPTS = ["warranty.js", "utils.js", "api.js", "auth.js", "app.js"];
 
 function makeEl() {
+  const classes = new Set();
   return {
-    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    classList: {
+      add(...cls) { cls.forEach(c => classes.add(c)); },
+      remove(...cls) { cls.forEach(c => classes.delete(c)); },
+      toggle(cls, force) {
+        if (force === undefined) {
+          if (classes.has(cls)) { classes.delete(cls); return false; }
+          classes.add(cls); return true;
+        }
+        if (force) { classes.add(cls); return true; }
+        classes.delete(cls); return false;
+      },
+      contains(cls) { return classes.has(cls); }
+    },
     style: {},
     dataset: {},
     textContent: "",
@@ -22,6 +35,7 @@ function makeEl() {
     value: "",
     src: "",
     disabled: false,
+    checked: false,
     addEventListener() {},
     appendChild() {},
     append() {},
@@ -37,6 +51,7 @@ function makeEl() {
 
 function loadAppSandbox() {
   const elements = {};
+  const storage = new Map();
   let onDomContentLoaded = null;
 
   const sandbox = {
@@ -52,6 +67,8 @@ function loadAppSandbox() {
     Boolean,
     Array,
     Object,
+    Set,
+    Map,
     WeakMap,
     encodeURIComponent,
     decodeURIComponent,
@@ -65,7 +82,12 @@ function loadAppSandbox() {
     requestAnimationFrame: (cb) => { setTimeout(() => cb(performance.now()), 16); return 1; },
     cancelAnimationFrame: () => {},
     navigator: { clipboard: { writeText: async () => {} } },
-    localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+    localStorage: {
+      getItem: (k) => storage.get(k) ?? null,
+      setItem: (k, v) => storage.set(k, String(v)),
+      removeItem: (k) => storage.delete(k),
+      clear: () => storage.clear()
+    },
     // prefers-reduced-motion: reduce — animateCountUp takes its synchronous
     // fast path, so the guest boot never schedules animation timers and the
     // test can finish deterministically (that RAF branch is unchanged by the
@@ -209,5 +231,128 @@ describe("Frontend module split", () => {
     sandbox.toggleAllOcrApprovals(true);
     res = sandbox.getApprovedOcrData();
     expect(res.count).toBe(8);
+  });
+
+  test("device pop-up notification helpers work across permission states and devices", async () => {
+    const { sandbox } = loadAppSandbox();
+
+    // Verify all notification functions exist
+    const funcs = [
+      "initServiceWorker",
+      "getDeviceNotificationPermission",
+      "updateDeviceNotificationUI",
+      "requestDeviceNotificationPermission",
+      "toggleDeviceNotificationToggle",
+      "showDeviceNotification",
+      "testDeviceNotification",
+      "dispatchUnreadDeviceNotifications"
+    ];
+    for (const fn of funcs) {
+      expect(typeof sandbox[fn]).toBe("function");
+    }
+
+    // 1. In default sandbox (unsupported environment: window.Notification undefined)
+    expect(sandbox.getDeviceNotificationPermission()).toBe("unsupported");
+    sandbox.updateDeviceNotificationUI();
+    const badgeEl = sandbox.document.getElementById("device-notif-badge");
+    const statusEl = sandbox.document.getElementById("device-notif-status-text");
+    const enableBtn = sandbox.document.getElementById("enable-device-notif-btn");
+    const testBtn = sandbox.document.getElementById("test-device-notif-btn");
+    const popupToggle = sandbox.document.getElementById("pref-device-popups");
+
+    expect(badgeEl.textContent).toBe("Unsupported");
+    expect(badgeEl.classList.contains("badge-unsupported")).toBe(true);
+    expect(statusEl.textContent).toContain("does not support");
+    expect(enableBtn.style.display).toBe("none");
+    expect(testBtn.style.display).toBe("none");
+    expect(popupToggle.disabled).toBe(true);
+
+    const reqRes = await sandbox.requestDeviceNotificationPermission();
+    expect(reqRes).toBe("unsupported");
+
+    // 2. Mock browser Notification API
+    let requestPermissionResult = "granted";
+    const notificationCalls = [];
+    class MockNotification {
+      constructor(title, options) {
+        this.title = title;
+        this.options = options;
+        notificationCalls.push({ title, options });
+      }
+      close() {}
+    }
+    MockNotification.permission = "default";
+    MockNotification.requestPermission = async () => {
+      MockNotification.permission = requestPermissionResult;
+      return requestPermissionResult;
+    };
+
+    sandbox.window.Notification = MockNotification;
+    sandbox.Notification = MockNotification;
+
+    // In 'default' state: Action Required
+    sandbox.updateDeviceNotificationUI();
+    expect(sandbox.getDeviceNotificationPermission()).toBe("default");
+    expect(badgeEl.textContent).toBe("Action Required");
+    expect(badgeEl.classList.contains("badge-prompt")).toBe(true);
+    expect(enableBtn.style.display).toBe("");
+    expect(testBtn.style.display).toBe("none");
+
+    // 3. User requests permission -> Granted
+    requestPermissionResult = "granted";
+    const grantedRes = await sandbox.requestDeviceNotificationPermission();
+    expect(grantedRes).toBe("granted");
+    expect(MockNotification.permission).toBe("granted");
+    expect(badgeEl.textContent).toBe("Active");
+    expect(badgeEl.classList.contains("badge-granted")).toBe(true);
+    expect(testBtn.style.display).toBe("");
+    expect(enableBtn.style.display).toBe("none");
+    expect(popupToggle.checked).toBe(true);
+
+    // Welcome notification sent
+    expect(notificationCalls.length).toBeGreaterThan(0);
+    expect(notificationCalls[0].title).toBe("WarrantyVault Notifications Active");
+
+    // 4. Test Notification button
+    await sandbox.testDeviceNotification();
+    const testNotif = notificationCalls.find(c => c.title === "WarrantyVault Test Alert");
+    expect(testNotif).toBeDefined();
+    expect(testNotif.options.body).toContain("Device notifications are working correctly");
+
+    // 5. Unread notification dispatch and deduplication
+    const mockNotifs = [
+      { _id: "notif-1", title: "Warranty Expiring", message: "Laptop warranty expires in 5 days.", isRead: false, notificationType: "warranty_expiry" },
+      { _id: "notif-2", title: "Service Reminder", message: "Car service due.", isRead: false, notificationType: "service_reminder" },
+      { _id: "notif-3", title: "Already Read", message: "Nothing new.", isRead: true, notificationType: "warranty_expiry" }
+    ];
+
+    sandbox.dispatchUnreadDeviceNotifications(mockNotifs);
+    const unreadAlerts = notificationCalls.filter(c => c.options.tag && c.options.tag.startsWith("wv-alert-"));
+    expect(unreadAlerts.length).toBe(2);
+    expect(unreadAlerts.some(a => a.options.tag === "wv-alert-notif-1")).toBe(true);
+    expect(unreadAlerts.some(a => a.options.tag === "wv-alert-notif-2")).toBe(true);
+
+    // Deduplication check: dispatching again should NOT re-notify
+    const countBefore = notificationCalls.length;
+    sandbox.dispatchUnreadDeviceNotifications(mockNotifs);
+    expect(notificationCalls.length).toBe(countBefore);
+
+    // 6. User mutes popups via toggle
+    await sandbox.toggleDeviceNotificationToggle(false);
+    expect(sandbox.localStorage.getItem("wv_device_popups_disabled")).toBe("true");
+    expect(badgeEl.textContent).toBe("Muted");
+    expect(popupToggle.checked).toBe(false);
+
+    // Dispatches while muted should be suppressed
+    sandbox.dispatchUnreadDeviceNotifications([
+      { _id: "notif-4", title: "New Unread", message: "TV warranty alert", isRead: false }
+    ]);
+    expect(notificationCalls.length).toBe(countBefore);
+
+    // 7. Re-enable via toggle
+    await sandbox.toggleDeviceNotificationToggle(true);
+    expect(sandbox.localStorage.getItem("wv_device_popups_disabled")).toBeNull();
+    expect(badgeEl.textContent).toBe("Active");
+    expect(popupToggle.checked).toBe(true);
   });
 });

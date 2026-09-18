@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/app.css?v=15" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 </head>
 <body>
 
@@ -480,11 +481,35 @@
         </div>
       </div>
       <div class="view-scroll">
+        <!-- Device Browser / Pop-up Notification Card -->
+        <div class="settings-card device-notif-card" id="device-notif-card">
+          <div class="device-notif-header">
+            <div class="device-notif-title-row">
+              <span class="device-notif-bell">🔔</span>
+              <div>
+                <div class="settings-title" style="margin-bottom:2px;">Pop-up Notifications</div>
+                <div class="settings-hint" id="device-notif-status-text">Get alerts on your phone or desktop screen when warranties expire or scans complete.</div>
+              </div>
+            </div>
+            <span class="device-notif-badge" id="device-notif-badge">Checking...</span>
+          </div>
+
+          <div class="device-notif-actions" id="device-notif-actions">
+            <button type="button" class="btn btn-primary btn-small" id="enable-device-notif-btn" onclick="requestDeviceNotificationPermission()">Enable Pop-up Notifications</button>
+            <button type="button" class="btn btn-ghost btn-small" id="test-device-notif-btn" onclick="testDeviceNotification()" style="display:none;">Test Notification</button>
+          </div>
+          <div class="device-notif-note" id="device-notif-note" style="display:none;"></div>
+        </div>
+
         <div class="settings-card" id="reminder-settings" style="display:none;">
-          <div class="settings-title">🔔 Notification settings</div>
+          <div class="settings-title">⚙️ Notification settings</div>
 
           <div class="settings-section-label">Delivery triggers</div>
           <div class="settings-triggers">
+            <label class="settings-toggle">
+              <input type="checkbox" id="pref-device-popups" onchange="toggleDeviceNotificationToggle(this.checked)" />
+              <span>Browser pop-up alerts on this device</span>
+            </label>
             <label class="settings-toggle">
               <input type="checkbox" id="pref-expiry" />
               <span>Warranty expiry reminders</span>

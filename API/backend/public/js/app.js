@@ -1612,11 +1612,23 @@ async function pollCameraOcr(pid, doc, statusEl, fillEl) {
     if (current.ocrStatus === 'done') {
       fillEl.style.width = '100%';
       await renderCameraResult(current, pid);
+      showDeviceNotification('OCR Scan Complete', {
+        body: (current.extractedData && current.extractedData.productName)
+          ? 'Extracted details for ' + current.extractedData.productName
+          : 'Document OCR processed successfully. Review your details.',
+        tag: 'ocr-doc-' + (current._id || 'done'),
+        data: { view: 'camera', productId: pid }
+      });
       return;
     }
     if (current.ocrStatus === 'failed') {
       showCameraError("We couldn't extract enough information from this document.");
       loadScanDocs().catch(() => {});
+      showDeviceNotification('OCR Scan Failed', {
+        body: "We couldn't extract enough information from this document.",
+        tag: 'ocr-doc-' + (current._id || 'failed'),
+        data: { view: 'camera', productId: pid }
+      });
       return;
     }
     await new Promise(r => setTimeout(r, 2500));
@@ -2001,6 +2013,270 @@ async function openDocOcrReview(docId) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Notifications
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Browser & Device Pop-up Notifications (ServiceWorker + window.Notification)
+// ─────────────────────────────────────────────────────────────────────────────
+function initServiceWorker() {
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(err => {
+      console.debug('ServiceWorker registration failed:', err);
+    });
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'NOTIFICATION_CLICK') {
+        const { view, productId } = event.data;
+        if (productId) {
+          openDetail(productId);
+        } else if (view) {
+          showView(view);
+        } else {
+          showView('notifications');
+        }
+      }
+    });
+  }
+}
+
+function getDeviceNotificationPermission() {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return 'unsupported';
+  }
+  return Notification.permission;
+}
+
+function updateDeviceNotificationUI() {
+  const badgeEl = document.getElementById('device-notif-badge');
+  const statusEl = document.getElementById('device-notif-status-text');
+  const enableBtn = document.getElementById('enable-device-notif-btn');
+  const testBtn = document.getElementById('test-device-notif-btn');
+  const noteEl = document.getElementById('device-notif-note');
+  const popupToggle = document.getElementById('pref-device-popups');
+
+  const perm = getDeviceNotificationPermission();
+  const popupsMuted = typeof localStorage !== 'undefined' && localStorage.getItem('wv_device_popups_disabled') === 'true';
+
+  if (badgeEl) {
+    badgeEl.classList.remove('badge-granted', 'badge-prompt', 'badge-denied', 'badge-unsupported');
+  }
+
+  if (perm === 'unsupported') {
+    if (badgeEl) {
+      badgeEl.textContent = 'Unsupported';
+      badgeEl.classList.add('badge-unsupported');
+    }
+    if (statusEl) statusEl.textContent = 'Your current browser does not support web notifications.';
+    if (enableBtn) enableBtn.style.display = 'none';
+    if (testBtn) testBtn.style.display = 'none';
+    if (noteEl) noteEl.style.display = 'none';
+    if (popupToggle) { popupToggle.disabled = true; popupToggle.checked = false; }
+  } else if (perm === 'denied') {
+    if (badgeEl) {
+      badgeEl.textContent = 'Blocked';
+      badgeEl.classList.add('badge-denied');
+    }
+    if (statusEl) statusEl.textContent = 'Notifications are blocked in browser settings. Enable them in site permissions to receive pop-up alerts.';
+    if (enableBtn) enableBtn.style.display = 'none';
+    if (testBtn) testBtn.style.display = 'none';
+    if (noteEl) {
+      noteEl.textContent = '🔒 Browser notifications are blocked. To receive pop-up alerts on your lock screen or desktop, tap your browser’s site info icon (lock or settings) and set Notifications to Allow.';
+      noteEl.style.display = '';
+    }
+    if (popupToggle) { popupToggle.disabled = true; popupToggle.checked = false; }
+  } else if (perm === 'granted') {
+    if (badgeEl) {
+      badgeEl.textContent = popupsMuted ? 'Muted' : 'Active';
+      badgeEl.classList.add(popupsMuted ? 'badge-prompt' : 'badge-granted');
+    }
+    if (statusEl) {
+      statusEl.textContent = popupsMuted
+        ? 'Browser notifications are allowed, but muted in WarrantyVault settings.'
+        : 'Active. You will receive system alerts on this device when warranties expire or scans complete.';
+    }
+    if (enableBtn) enableBtn.style.display = 'none';
+    if (testBtn) testBtn.style.display = '';
+    if (noteEl) noteEl.style.display = 'none';
+    if (popupToggle) { popupToggle.disabled = false; popupToggle.checked = !popupsMuted; }
+  } else {
+    // 'default' - permission has not been asked yet
+    if (badgeEl) {
+      badgeEl.textContent = 'Action Required';
+      badgeEl.classList.add('badge-prompt');
+    }
+    if (statusEl) statusEl.textContent = 'Get pop-up alerts on your device lock screen or desktop when warranties expire or documents finish scanning.';
+    if (enableBtn) {
+      enableBtn.style.display = '';
+      enableBtn.textContent = 'Enable Pop-up Notifications';
+    }
+    if (testBtn) testBtn.style.display = 'none';
+    if (noteEl) noteEl.style.display = 'none';
+    if (popupToggle) { popupToggle.disabled = false; popupToggle.checked = false; }
+  }
+}
+
+async function requestDeviceNotificationPermission() {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    toast('Web notifications are not supported by this browser', 'error');
+    updateDeviceNotificationUI();
+    return 'unsupported';
+  }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('wv_device_popups_disabled');
+      }
+      toast('Pop-up notifications enabled!', 'success');
+      await showDeviceNotification('WarrantyVault Notifications Active', {
+        body: 'You will now receive alerts for expiring warranties and completed scans.',
+        tag: 'wv-welcome',
+        data: { view: 'notifications' }
+      });
+    } else if (perm === 'denied') {
+      toast('Notifications were blocked. You can enable them in browser settings.', 'warning');
+    }
+    updateDeviceNotificationUI();
+    return perm;
+  } catch (e) {
+    console.debug('Failed to request notification permission:', e);
+    updateDeviceNotificationUI();
+    return 'denied';
+  }
+}
+
+async function toggleDeviceNotificationToggle(checked) {
+  const perm = getDeviceNotificationPermission();
+  if (perm === 'unsupported') {
+    toast('Web notifications are not supported by this browser', 'error');
+    updateDeviceNotificationUI();
+    return;
+  }
+  if (perm === 'denied') {
+    toast('Notifications are blocked by your browser. Please update site settings.', 'warning');
+    updateDeviceNotificationUI();
+    return;
+  }
+  if (checked) {
+    if (perm === 'default') {
+      await requestDeviceNotificationPermission();
+      return;
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('wv_device_popups_disabled');
+    }
+    toast('Device pop-up alerts enabled', 'success');
+  } else {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('wv_device_popups_disabled', 'true');
+    }
+    toast('Device pop-up alerts muted', 'info');
+  }
+  updateDeviceNotificationUI();
+}
+
+async function showDeviceNotification(title, options = {}) {
+  if (typeof window === 'undefined' || !('Notification' in window)) return null;
+  if (Notification.permission !== 'granted') return null;
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('wv_device_popups_disabled') === 'true') {
+    return null;
+  }
+
+  const opt = {
+    icon: '/favicon.svg',
+    badge: '/favicon.svg',
+    vibrate: [200, 100, 200],
+    ...options
+  };
+
+  // Mobile browsers (e.g. Chrome on Android) require ServiceWorkerRegistration.showNotification
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && typeof reg.showNotification === 'function') {
+        await reg.showNotification(title, opt);
+        return true;
+      }
+    } catch (err) {
+      console.debug('ServiceWorker showNotification failed, trying window fallback:', err);
+    }
+  }
+
+  // Desktop window.Notification fallback
+  try {
+    const notif = new Notification(title, opt);
+    notif.onclick = () => {
+      if (typeof window !== 'undefined' && window.focus) window.focus();
+      if (opt.data) {
+        if (opt.data.productId) openDetail(opt.data.productId);
+        else if (opt.data.view) showView(opt.data.view);
+      }
+      notif.close();
+    };
+    return notif;
+  } catch (err) {
+    console.debug('Window Notification construction failed:', err);
+    return null;
+  }
+}
+
+async function testDeviceNotification() {
+  const perm = getDeviceNotificationPermission();
+  if (perm !== 'granted') {
+    await requestDeviceNotificationPermission();
+    return;
+  }
+  await showDeviceNotification('WarrantyVault Test Alert', {
+    body: 'Device notifications are working correctly on your device! 🔔',
+    tag: 'wv-test-' + Date.now(),
+    data: { view: 'notifications' }
+  });
+  toast('Test notification sent!', 'success');
+}
+
+function dispatchUnreadDeviceNotifications(notifs) {
+  if (!Array.isArray(notifs) || !notifs.length) return;
+  if (getDeviceNotificationPermission() !== 'granted') return;
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('wv_device_popups_disabled') === 'true') return;
+
+  let notifiedIds = [];
+  try {
+    notifiedIds = JSON.parse(localStorage.getItem('wv_notified_ids') || '[]');
+    if (!Array.isArray(notifiedIds)) notifiedIds = [];
+  } catch {
+    notifiedIds = [];
+  }
+  const notifiedSet = new Set(notifiedIds);
+
+  const unreadNotifs = notifs.filter(n => n && !n.isRead && n._id && !notifiedSet.has(n._id));
+  if (!unreadNotifs.length) return;
+
+  unreadNotifs.slice(0, 3).forEach(n => {
+    const pIdStr = (n.productId && typeof n.productId === 'object') ? n.productId._id : (n.productId || '');
+    let message = n.message || 'You have an unread notification.';
+    if (n.notificationType === 'warranty_expiry' || (n.title && n.title.toLowerCase().includes('expir'))) {
+      const daysMatch = message && message.match(/\b(\d{1,5})\s+days\b/i);
+      if (daysMatch) {
+        const prodName = (n.productId && typeof n.productId === 'object') ? n.productId.productName :
+          (typeof productsCache !== 'undefined' && productsCache.find(p => p._id === pIdStr)?.productName || 'Your product');
+        message = prodName + ' warranty expires in ' + daysMatch[1] + ' days.';
+      }
+    }
+
+    showDeviceNotification(n.title || 'WarrantyVault Alert', {
+      body: message,
+      tag: 'wv-alert-' + n._id,
+      data: { view: 'notifications', productId: pIdStr }
+    });
+    notifiedSet.add(n._id);
+  });
+
+  try {
+    const trimmed = Array.from(notifiedSet).slice(-100);
+    localStorage.setItem('wv_notified_ids', JSON.stringify(trimmed));
+  } catch {
+    // ignore quota issues
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Reminder preferences (Phase 4 §6): expiry/maintenance toggles + day chips.
 // Loaded from /auth/me; saved via PUT /auth/preferences. The available day
@@ -2012,6 +2288,7 @@ function showReminderSettings(show) {
 }
 
 async function loadReminderSettings() {
+  updateDeviceNotificationUI();
   if (isGuest()) { showReminderSettings(false); return; }
   try {
     const user = await api('/auth/me');
@@ -2075,18 +2352,23 @@ async function saveReminderSettings() {
 }
 
 async function loadNotifications() {
+  updateDeviceNotificationUI();
   const list = document.getElementById('notification-list');
   list.innerHTML = '';
   list.appendChild(skeletonLineCards(4));
   if (isGuest()) {
-    renderNotifications(demoNotifications());
+    const demo = demoNotifications();
+    renderNotifications(demo);
+    dispatchUnreadDeviceNotifications(demo);
     return;
   }
   try {
     const notifs = await api('/notifications');
     // Legacy shape (plain array) and paginated shape ({ notifications, … }) are
     // both accepted so the panel works against any deployed backend.
-    renderNotifications(Array.isArray(notifs) ? notifs : (notifs && notifs.notifications) || []);
+    const items = Array.isArray(notifs) ? notifs : (notifs && notifs.notifications) || [];
+    renderNotifications(items);
+    dispatchUnreadDeviceNotifications(items);
   } catch (e) {
     list.innerHTML = '';
     list.appendChild(emptyState('⚠️', 'Could not load notifications', e.message));
@@ -2687,11 +2969,17 @@ function wireEvents() {
       if (v === 'notifications') {
         loadNotifications();
         loadReminderSettings();
+        updateDeviceNotificationUI();
       }
       if (v === 'repair') openRepair();
       showView(v);
     });
   });
+
+  const enableNotifBtn = document.getElementById('enable-device-notif-btn');
+  if (enableNotifBtn) enableNotifBtn.addEventListener('click', requestDeviceNotificationPermission);
+  const testNotifBtn = document.getElementById('test-device-notif-btn');
+  if (testNotifBtn) testNotifBtn.addEventListener('click', testDeviceNotification);
 
   const themeToggle = document.getElementById('theme-toggle-btn');
   if (themeToggle) {
@@ -2857,6 +3145,8 @@ async function enterApp() {
 
 function init() {
   wireEvents();
+  initServiceWorker();
+  updateDeviceNotificationUI();
   const savedTheme = localStorage.getItem('wv_theme');
   if (savedTheme === 'dark') {
     document.body.classList.add('dark-mode');

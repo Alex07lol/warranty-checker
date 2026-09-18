@@ -1918,6 +1918,73 @@ body.dark-mode .detail-action-btn.claim { color: #b3a7ff; background: #2a2350; b
 .share-link-meta { margin-top: 2px; font-size: 11px; color: var(--ink-3); }
 .share-link-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
+/* ---- Device & Browser Pop-up Notifications ---- */
+.device-notif-card {
+  margin-bottom: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+}
+.device-notif-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.device-notif-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.device-notif-bell {
+  font-size: 22px;
+  line-height: 1.1;
+  flex-shrink: 0;
+}
+.device-notif-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.device-notif-badge.badge-granted {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.device-notif-badge.badge-prompt {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.device-notif-badge.badge-denied {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.device-notif-badge.badge-unsupported {
+  background: var(--line);
+  color: var(--ink-2);
+}
+.device-notif-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.device-notif-note {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--ink-2);
+  line-height: 1.4;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+}
+
 /* ---- Notification settings ---- */
 .settings-card {
   padding: 16px;
