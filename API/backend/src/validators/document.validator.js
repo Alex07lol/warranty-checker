@@ -27,7 +27,17 @@ const updateDocumentSchema = Joi.object({
   docState: Joi.string().valid("unreviewed", "reviewed", "important", "archived"),
   verified: Joi.boolean(),
   tags: Joi.array().items(Joi.string().trim().allow("").max(30)).max(20),
-  notes: Joi.string().max(2000).allow("")
+  notes: Joi.string().max(2000).allow(""),
+  parsedData: Joi.object({
+    productName: Joi.string().trim().max(120).allow("", null),
+    brand: Joi.string().trim().max(80).allow("", null),
+    model: Joi.string().trim().max(120).allow("", null),
+    serialNumber: Joi.string().trim().max(120).allow("", null),
+    purchasePrice: Joi.number().min(0).allow(null),
+    purchaseStore: Joi.string().trim().max(200).allow("", null),
+    purchaseDate: Joi.date().allow(null),
+    warrantyExpiryDate: Joi.date().allow(null)
+  }).allow(null)
 }).options({ stripUnknown: true });
 
 const confirmProductSchema = Joi.object({

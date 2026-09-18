@@ -310,7 +310,7 @@ async function confirmProductFromDocument(documentId, userId, data, scopeProduct
     }
   }
 
-  const product = await createProductFromOcr(userId, {
+  const productData = {
     productName,
     brand: String(data.brand || "").trim() || undefined,
     model: String(data.model || "").trim() || undefined,
@@ -319,9 +319,25 @@ async function confirmProductFromDocument(documentId, userId, data, scopeProduct
     purchaseStore: String(data.purchaseStore || "").trim() || undefined,
     purchaseDate: data.purchaseDate || undefined,
     warrantyExpiryDate: data.warrantyExpiryDate || undefined
-  });
+  };
+
+  const product = await createProductFromOcr(userId, productData);
 
   document.productId = product._id;
+  if (!document.parsedData) {
+    document.parsedData = {};
+  }
+  Object.assign(document.parsedData, {
+    productName,
+    brand: data.brand !== undefined ? (String(data.brand).trim() || undefined) : document.parsedData.brand,
+    model: data.model !== undefined ? (String(data.model).trim() || undefined) : document.parsedData.model,
+    serialNumber: data.serialNumber !== undefined ? (String(data.serialNumber).trim() || undefined) : document.parsedData.serialNumber,
+    purchasePrice: data.purchasePrice !== undefined ? price : document.parsedData.purchasePrice,
+    purchaseStore: data.purchaseStore !== undefined ? (String(data.purchaseStore).trim() || undefined) : document.parsedData.purchaseStore,
+    purchaseDate: data.purchaseDate !== undefined ? (data.purchaseDate || undefined) : document.parsedData.purchaseDate,
+    warrantyExpiryDate: data.warrantyExpiryDate !== undefined ? (data.warrantyExpiryDate || undefined) : document.parsedData.warrantyExpiryDate
+  });
+  document.markModified("parsedData");
   await document.save();
   return { product, document };
 }
@@ -344,8 +360,8 @@ function normalizeTags(tags) {
 }
 
 // Phase 4 §13/§14 — partial update of organization + verification fields
-// (docState, verified, tags, notes, documentType). Ownership is enforced via
-// getDocumentById before any write; only whitelisted fields are applied.
+// (docState, verified, tags, notes, documentType) and user-reviewed OCR data.
+// Ownership is enforced via getDocumentById before any write; only whitelisted fields are applied.
 async function updateDocument(documentId, userId, data) {
   const document = await getDocumentById(documentId, userId);
   const patch = {};
@@ -355,9 +371,22 @@ async function updateDocument(documentId, userId, data) {
   if (data.verified !== undefined) patch.verified = Boolean(data.verified);
   if (data.notes !== undefined) patch.notes = data.notes;
   if (data.tags !== undefined) patch.tags = normalizeTags(data.tags);
+  if (data.parsedData !== undefined && data.parsedData !== null) {
+    let existing = {};
+    if (document.parsedData) {
+      existing = document.parsedData.toObject ? document.parsedData.toObject() : { ...document.parsedData };
+    }
+    patch.parsedData = {
+      ...existing,
+      ...data.parsedData
+    };
+  }
 
   if (Object.keys(patch).length > 0) {
     Object.assign(document, patch);
+    if (patch.parsedData) {
+      document.markModified("parsedData");
+    }
     await document.save();
   }
   return document;

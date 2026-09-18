@@ -258,6 +258,25 @@ describe("Document organization + verification (Phase 4 §13/§14)", () => {
     expect(response.body.data.tags).toEqual(["kitchen", "high value", "important"]); // untouched
   });
 
+  test("updates parsedData when user edits OCR data", async () => {
+    const response = await request(app)
+      .patch(`/api/v1/documents/${documentId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        parsedData: {
+          productName: "Edited Microwave",
+          brand: "LG",
+          serialNumber: "LG-SN-12345",
+          purchasePrice: 299.99
+        }
+      });
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.parsedData.productName).toBe("Edited Microwave");
+    expect(response.body.data.parsedData.brand).toBe("LG");
+    expect(response.body.data.parsedData.serialNumber).toBe("LG-SN-12345");
+    expect(response.body.data.parsedData.purchasePrice).toBe(299.99);
+  });
+
   test("rejects an invalid docState", async () => {
     const response = await request(app)
       .patch(`/api/v1/documents/${documentId}`)
@@ -532,5 +551,35 @@ describe("Document confirm-product endpoint", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ productName: "Ghost" });
     expect(response.statusCode).toBe(404);
+  });
+
+  test("creates product with only approved fields and updates document parsedData", async () => {
+    const upload = await request(app)
+      .post("/api/v1/documents")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ documentType: "warranty_card" });
+    const docId = upload.body.data._id;
+    await waitForOcrDone(docId, token);
+
+    // User only approves productName, serialNumber, and purchasePrice (omits brand, store, dates)
+    const response = await request(app)
+      .post(`/api/v1/documents/${docId}/confirm-product`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        productName: "Air Conditioner",
+        serialNumber: "AC-APPROVED-001",
+        purchasePrice: 450
+      });
+    expect(response.statusCode).toBe(201);
+    const { product, document } = response.body.data;
+    expect(product.productName).toBe("Air Conditioner");
+    expect(product.serialNumber).toBe("AC-APPROVED-001");
+    expect(product.purchasePrice).toBe(450);
+    expect(product.brand).toBeUndefined();
+    expect(product.purchaseStore).toBeUndefined();
+    expect(document.productId).toBe(product._id);
+    expect(document.parsedData.productName).toBe("Air Conditioner");
+    expect(document.parsedData.serialNumber).toBe("AC-APPROVED-001");
+    expect(document.parsedData.purchasePrice).toBe(450);
   });
 });
