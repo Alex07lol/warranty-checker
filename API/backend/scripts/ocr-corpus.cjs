@@ -801,6 +801,195 @@ const DOCUMENTS = [
       warrantyExpiryDate: "2027-06-22"
     }
   },
+  // ── Stress styles: structures and degradations beyond everyday captures ──
+  {
+    id: "statement-multipage-retailer",
+    label: "Three-page retailer statement — transaction table on p2, warranty clause on p3",
+    documentType: "receipt",
+    fileName: "retailer-statement.pdf",
+    capture: "digital",
+    page: "a4",
+    files: ["pdf"],
+    pages: [
+      {
+        lines: [
+          l("HOMETOWN APPLIANCES", { size: 16, bold: true, align: "center" }),
+          l("Customer Statement of Account", { align: "center" }),
+          l("Statement No: HS-2026-7781", { align: "center" }),
+          gap(20),
+          l("Customer: Priya Sharma", { align: "center" }),
+          l("Page 1 of 3", { align: "center", size: 9 })
+        ]
+      },
+      {
+        lines: [
+          l("HOMETOWN APPLIANCES", { size: 14, bold: true, align: "center" }),
+          gap(6),
+          row(["Description", "Amount"], { bold: true }),
+          row(["Front Load Washer 8kg", "749.00"]),
+          row(["Extended Care Package", "129.00"]),
+          row(["Total", "878.00"], { bold: true }),
+          gap(6),
+          l("Transaction Date: 01/17/2026")
+        ]
+      },
+      {
+        lines: [
+          l("HOMETOWN APPLIANCES", { size: 14, bold: true, align: "center" }),
+          gap(6),
+          l("Brand: Samsung"),
+          l("Model: WW80T554DAW"),
+          l("Serial Number: SN-2026-W80-04417"),
+          gap(6),
+          l("Warranty Covers Until: 01/17/2028")
+        ]
+      }
+    ],
+    expected: {
+      productName: "Front Load Washer 8kg",
+      brand: "Samsung",
+      model: "WW80T554DAW",
+      serialNumber: "SN-2026-W80-04417",
+      purchaseDate: "2026-01-17",
+      purchasePrice: 878,
+      purchaseStore: "HOMETOWN APPLIANCES",
+      warrantyExpiryDate: "2028-01-17"
+    }
+  },
+  {
+    id: "receipt-thermal-curl-roll",
+    label: "Thermal receipt with curl banding — ink lifted in horizontal waves",
+    documentType: "receipt",
+    fileName: "curl-receipt.png",
+    capture: "photo",
+    page: "roll",
+    files: ["png"],
+    degrade: { rotate: 0.7, thermalCurl: 0.5, noise: 6, contrast: 0.88 },
+    pages: [
+      {
+        lines: [
+          l("SPENCER HYPERMARKET", { size: 11, bold: true, align: "center" }),
+          l("GSTIN: 29ABCDE1234F1Z5", { size: 8, align: "center" }),
+          gap(6),
+          l("Date: 02/27/2026", { size: 9 }),
+          row(["PREETHI MIXER GRINDER", "4,199.00"], { size: 9 }),
+          row(["TOTAL", "4,199.00"], { size: 9, bold: true }),
+          gap(6),
+          l("S/N: PG-7712-0904", { size: 9 }),
+          l("Warranty: 2 years from date of purchase", { size: 9 })
+        ]
+      }
+    ],
+    expected: {
+      productName: "PREETHI MIXER GRINDER",
+      purchaseDate: "2026-02-27",
+      purchasePrice: 4199,
+      purchaseStore: "SPENCER HYPERMARKET",
+      // 27 February 2026 + 2 years
+      warrantyExpiryDate: "2028-02-27"
+    }
+  },
+  {
+    id: "warranty-card-handwritten",
+    label: "Hand-filled warranty card — no script font, modelled as baseline wander and glyph wobble",
+    documentType: "warranty_card",
+    fileName: "handwritten-card.png",
+    capture: "handwritten",
+    page: "a4",
+    files: ["png", "pdf"],
+    degrade: { rotate: 0.8, noise: 5, contrast: 0.9 },
+    pages: [
+      {
+        lines: [
+          l("WARRANTY CARD", { size: 16, bold: true }),
+          gap(),
+          l("Sold by: Lakshmi Electronics"),
+          l("Product: Prestige Induction Cooktop"),
+          l("Model No: PIC 16.0+"),
+          l("Serial No: PRS-2026-5521"),
+          gap(6),
+          l("Date of Purchase: 10/04/2025"),
+          l("Warranty: 2 Years")
+        ]
+      }
+    ],
+    expected: {
+      // Brand split off (Prestige is a known brand) per corpus semantics.
+      productName: "Induction Cooktop",
+      brand: "Prestige",
+      model: "PIC 16.0+",
+      serialNumber: "PRS-2026-5521",
+      purchaseDate: "2025-10-04",
+      purchaseStore: "Lakshmi Electronics",
+      // 4 October 2025 + 24 months
+      warrantyExpiryDate: "2027-10-04"
+    }
+  },
+  {
+    id: "warranty-card-wallet-size",
+    label: "Wallet-size credit-card proportioned warranty card — tiny type, tight margins",
+    documentType: "warranty_card",
+    fileName: "wallet-card.png",
+    capture: "scan",
+    page: "a4",
+    files: ["png"],
+    degrade: { noise: 6, contrast: 0.9 },
+    tiny: true,
+    pages: [
+      {
+        lines: [
+          l("SUNRISE ELECTRONICS", { size: 8, bold: true }),
+          l("Warranty Card", { size: 7 }),
+          l("Model: SRX-450BT", { size: 7 }),
+          l("S/N: SRX450BT-88214", { size: 7 }),
+          l("Purchased: 09/12/2025", { size: 7 }),
+          l("Cover Ends: 09/12/2026", { size: 7 })
+        ]
+      }
+    ],
+    expected: {
+      model: "SRX-450BT",
+      serialNumber: "SRX450BT-88214",
+      purchaseDate: "2025-09-12",
+      purchaseStore: "SUNRISE ELECTRONICS",
+      warrantyExpiryDate: "2026-09-12",
+      purchasePrice: null
+    }
+  },
+  {
+    id: "receipt-thermal-skew-roll",
+    label: "Thermal receipt printed with a progressive sideways drift (misfed roll)",
+    documentType: "receipt",
+    fileName: "skew-receipt.png",
+    capture: "photo",
+    page: "roll",
+    files: ["png"],
+    degrade: { rotate: 0.4, rollSkew: 14, noise: 6, contrast: 0.88 },
+    pages: [
+      {
+        lines: [
+          l("VIJAY SALES", { size: 11, bold: true, align: "center" }),
+          gap(6),
+          l("Date: 11/03/2025", { size: 9 }),
+          row(["PHILIPS AIR FRYER", "8,999.00"], { size: 9 }),
+          row(["TOTAL", "8,999.00"], { size: 9, bold: true }),
+          gap(6),
+          l("S/N: HD9252-661204", { size: 9 }),
+          l("Warranty Expires: 11/03/2027", { size: 9 })
+        ]
+      }
+    ],
+    expected: {
+      // Brand split off (Philips is a known brand) per corpus semantics.
+      productName: "AIR FRYER",
+      brand: "Philips",
+      serialNumber: "HD9252-661204",
+      purchaseDate: "2025-11-03",
+      purchasePrice: 8999,
+      purchaseStore: "VIJAY SALES",
+      warrantyExpiryDate: "2027-11-03"
+    }
+  },
   {
     id: "photo-garbage-negative",
     label: "Photo with no document data at all — must not invent fields",

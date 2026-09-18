@@ -169,6 +169,59 @@ export function buildTextPdf(doc) {
   return pdf;
 }
 
+// A hand-filled warranty card: no script font is available to a base-14 PDF,
+// so "handwriting" is modelled the way it challenges OCR — every glyph gets
+// its own baseline offset and size wobble (people do not write on a ruler)
+// and every line drifts a little (ruling lines are never straight). Layout is
+// one character per Tj so the per-glyph transforms are possible.
+function buildHandwrittenPdf(doc, seed = 42) {
+  const random = mulberry32(seed);
+  const pdf = new mupdf.PDFDocument();
+  const regular = new mupdf.Font("Helvetica");
+  const fontRef = pdf.addSimpleFont(regular, "Latin");
+  const fonts = pdf.newDictionary();
+  fonts.put("F1", fontRef);
+  const resources = pdf.newDictionary();
+  resources.put("Font", fonts);
+  const [width, height] = PAGE_SIZES[doc.page];
+  const margin = MARGIN[doc.page];
+  const base = BASE_SIZE[doc.page];
+
+  for (const page of doc.pages) {
+    const runs = [];
+    let y = height - margin;
+    for (const line of page.lines) {
+      if (line.gap) {
+        y -= line.gap;
+        continue;
+      }
+      const size = (line.size || base) * 1.15; // handwriting runs larger
+      y -= size * 1.9;
+      const lineDrift = (random() * 2 - 1) * 6; // the whole line wanders
+      let x = margin + lineDrift + (random() * 2 - 1) * 3;
+      for (const ch of line.text) {
+        const cw = ch === " " ? 0.3 * size : measure(regular, ch, size);
+        x += cw;
+        if (ch === " ") continue;
+        const jitterX = (random() * 2 - 1) * size * 0.08;
+        const jitterY = (random() * 2 - 1) * size * 0.16; // baseline wander
+        const glyphSize = size * (0.92 + random() * 0.16);
+        runs.push({
+          text: ch,
+          x: x + jitterX,
+          y: y + jitterY,
+          size: glyphSize,
+          bold: false
+        });
+        x += (random() * 2 - 1) * size * 0.06;
+      }
+    }
+    const pageObj = pdf.addPage([0, 0, width, height], 0, resources, new TextEncoder().encode(contentStream(runs)));
+    pdf.insertPage(-1, pageObj);
+  }
+  return pdf;
+}
+
 // `saveToBuffer` hands back a view into the WASM heap, and that heap can be
 // detached the moment mupdf allocates again (opening the next document). Copy
 // every buffer we intend to reuse into real Node memory first.
@@ -283,10 +336,44 @@ function boxBlur(pixels, width, height, radius) {
   return pass(pass(pixels, true), false);
 }
 
+// Thermal paper passes over a worn platen / curled edge: narrow horizontal
+// bands of the print come out lighter or slightly displaced. Implemented as a
+// per-row luminance wobble plus a slow vertical stretch wobble, which is what
+// a curled roll photograph actually shows.
+function thermalCurl(pixels, width, height, strength, seed) {
+  const random = mulberry32(seed);
+  // A few slow sine waves in band phase + a fast per-row jitter.
+  const waves = Array.from({ length: 3 }, () => ({
+    period: 12 + Math.floor(random() * 30),
+    phase: random() * Math.PI * 2,
+    amp: (0.25 + random() * 0.75) * strength
+  }));
+  const out = new Uint8Array(pixels.length);
+  for (let y = 0; y < height; y += 1) {
+    let band = 0;
+    for (const w of waves) band += Math.sin((y / w.period) * Math.PI * 2 + w.phase) * w.amp;
+    const lift = band * 140; // lighten dark ink inside the band
+    const shift = Math.round(band * 1.6); // small horizontal displacement
+    for (let x = 0; x < width; x += 1) {
+      const sx = Math.min(width - 1, Math.max(0, x + shift));
+      const target = (y * width + x) * 3;
+      const source = (y * width + sx) * 3;
+      for (let c = 0; c < 3; c += 1) {
+        const v = pixels[source + c];
+        // Only ink (dark pixels) is lifted; white paper stays paper.
+        out[target + c] = clamp8(v + lift * (1 - v / 255));
+      }
+    }
+  }
+  return out;
+}
+
 function degrade(pixels, width, height, options = {}, seed = 1) {
   const random = mulberry32(seed);
   let out = rotate(pixels, width, height, options.rotate);
   out = boxBlur(out, width, height, options.blur);
+  if (options.thermalCurl) out = thermalCurl(out, width, height, options.thermalCurl, seed + 7);
+  if (options.rollSkew) out = rollSkew(out, width, height, options.rollSkew, seed + 13);
   const contrast = options.contrast;
   const faded = options.faded;
   const noise = options.noise;
@@ -297,6 +384,31 @@ function degrade(pixels, width, height, options = {}, seed = 1) {
       if (contrast !== undefined) v = 128 + (v - 128) * contrast;
       if (noise) v += (random() * 2 - 1) * noise;
       out[i + c] = clamp8(v);
+    }
+  }
+  return out;
+}
+
+// A misfed thermal roll prints each line a little further sideways than the
+// last — a progressive horizontal shear ("vertical skew"). Rows keep their
+// content; only the x offset grows with y, so text stays legible but every
+// line lands at a different indent.
+function rollSkew(pixels, width, height, maxShift, seed) {
+  const random = mulberry32(seed);
+  const drift = (random() < 0.5 ? -1 : 1) * (0.4 + random() * 0.6) * maxShift;
+  const wobble = (random() * 2 - 1) * maxShift * 0.15;
+  const out = new Uint8Array(pixels.length);
+  out.fill(255);
+  for (let y = 0; y < height; y += 1) {
+    const shift = Math.round((drift * y) / height + wobble);
+    for (let x = 0; x < width; x += 1) {
+      const sx = x - shift;
+      if (sx < 0 || sx >= width) continue;
+      const target = (y * width + x) * 3;
+      const source = (y * width + sx) * 3;
+      out[target] = pixels[source];
+      out[target + 1] = pixels[source + 1];
+      out[target + 2] = pixels[source + 2];
     }
   }
   return out;
@@ -357,7 +469,8 @@ export function generateCorpus({ outDir = DEFAULT_OUT, dpi = DEFAULT_DPI, only }
       fs.writeFileSync(file, toBytes(buildTextPdf(doc).saveToBuffer("compress")));
       entry.files.push({ path: path.relative(outDir, file), name: doc.fileName, mimeType: "application/pdf" });
     } else {
-      const textPdf = buildTextPdf(doc);
+      const textPdf =
+        doc.capture === "handwritten" ? buildHandwrittenPdf(doc, 17 + doc.id.length) : buildTextPdf(doc);
       const rendered = [];
       const source = mupdf.Document.openDocument(toBytes(textPdf.saveToBuffer("compress")), "application/pdf");
       for (let i = 0; i < doc.pages.length; i += 1) {
@@ -368,7 +481,7 @@ export function generateCorpus({ outDir = DEFAULT_OUT, dpi = DEFAULT_DPI, only }
         page.destroy();
       }
 
-      const captureName = doc.capture === "scan" ? "scan" : "photo";
+      const captureName = doc.capture === "scan" ? "scan" : doc.capture;
       const pngName = doc.fileName.endsWith(".pdf")
         ? doc.fileName.replace(/\.pdf$/, `-${captureName}.png`)
         : doc.fileName;

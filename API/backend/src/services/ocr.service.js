@@ -101,12 +101,22 @@ function parseDateValue(raw) {
 // found on the NEXT non-empty line ("Warranty End\n14 March 2028"). Stops at
 // the first non-empty line so "Warranty Type\nLimited Manufacturer Warranty"
 // never reaches a later date. Returns null when there is no follow-up date.
+// Non-date noise lines (toll-free lines, URLs, QR labels) that interleave
+// between a label and its date on multi-column layouts.
+const DATE_INTERLEAVE_NOISE = /^(?:or\s+call|call|tel|phone|toll\s*free|www\.|https?:\/\/|scan\s+for)\b/i;
+
 function nextDate(lines, i, reject) {
+  let nonEmpties = 0;
   for (let j = i + 1; j < lines.length; j++) {
     if (reject && reject(lines[j])) continue;
     const match = matchDate(lines[j]);
     if (match) return match;
-    if (lines[j].trim()) break;
+    const trimmed = lines[j].trim();
+    if (trimmed) {
+      nonEmpties++;
+      if (DATE_INTERLEAVE_NOISE.test(trimmed) && nonEmpties <= 2) continue;
+      break;
+    }
   }
   return null;
 }
@@ -305,10 +315,17 @@ function parsePrice(text) {
     // The value may sit on the next line ("Order Total\n2,499.00"). It has to
     // be an amount that ENDS that line — otherwise the next row's card number
     // ("CARD ****1234") would be read as the total.
-    const next = nextValue(i);
-    if (next) {
-      const trailing = moneyTokens(next).filter((token) => token.exact).pop();
-      if (trailing && next.trimEnd().endsWith(trailing.raw)) return trailing.amount;
+    // A bare column-header line ("Description   Amount") is NOT a label with
+    // a value on the next line: pulling it would adopt the first item row's
+    // price ("Front Load Washer … 749.00") instead of the "Total" row further
+    // down. Only label lines that name a specific figure may look ahead.
+    const isHeaderOnly = columnHeader(line) || /^(?:description|item|article|bezeichnung)\b/i.test(line);
+    if (!isHeaderOnly) {
+      const next = nextValue(i);
+      if (next) {
+        const trailing = moneyTokens(next).filter((token) => token.exact).pop();
+        if (trailing && next.trimEnd().endsWith(trailing.raw)) return trailing.amount;
+      }
     }
   }
 
@@ -331,7 +348,10 @@ function parseSerial(text) {
   // Tag", "Product Code" — one label family per regex keeps each pattern
   // readable (and inside SonarQube's complexity budget).
   const LABELS = [
-    /\bs\/?n\.?/i,
+    // "S/N", "S/N.", "SN:" — but NOT the "SN-" at the head of the serial value
+    // itself ("Serial Number: SN-2026-W80-04417" must yield the whole value,
+    // so the label must be followed by a separator, not a hyphen).
+    /\bs\/?n\.?(?=[\s:#,]|$)/i,
     /\bserial(?:\s+(?:number|no\.?|#))?\b/i,
     /\bimei\b/i,
     /\bservice\s+tag\b/i,
@@ -848,6 +868,10 @@ function cleanItemName(value) {
   // WHOLESALE".
   if (/\b(?:store|shop|outlet|mart|supermarket|superstore|wholesale|retail)\s*$/i.test(name)) return null;
   if (PAGE_HEADER.test(name) || nameReject(name)) return null;
+  if (/\b(?:customer|store|merchant|office|original|duplicate)\s*copy\b/i.test(name)) return null;
+  if (/\b(?:call|phone|tel|toll\s*free|hotline|helpline)\b/i.test(name)) return null;
+  if (/\b(?:india|karnataka|bengaluru|bangalore|delhi|mumbai|california|texas|street|road|avenue|arena)\b/i.test(name)) return null;
+  if (/\b\d{5,6}\b/.test(name)) return null;
   if (/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/.test(name)) return null;
   // A "label: value" line is a field, not a product ("IMEI: 352099001761481",
   // "Model: SM-S921B"), and neither is a long digit run on its own.
@@ -990,6 +1014,7 @@ function isOcrEligible(document) {
 // shreds into unreadable fragments when the input is a photo.
 const PSM_AUTO = 3;
 const PSM_SINGLE_BLOCK = 6;
+const PSM_SPARSE_TEXT = 11;
 
 let workerPromise = null;
 
@@ -1253,8 +1278,8 @@ async function extractDocumentData(fileBuffer, options = {}) {
   // cannot load it); production always uses the real engine.
   const pdfOcrFn = options.pdfOcrFn || runPdfOcr;
   const isPdf = options.mimeType === OCR_PDF_MIME_TYPE;
-  const text = isPdf ? await pdfOcrFn(fileBuffer, ocrFn) : await ocrFn(fileBuffer, { psm: PSM_AUTO });
-  const parsed = parseDocument(text, options);
+  let text = isPdf ? await pdfOcrFn(fileBuffer, ocrFn) : await ocrFn(fileBuffer, { psm: PSM_AUTO });
+  let parsed = parseDocument(text, options);
 
   // A photo or scan that yielded no fields at all is worth one more attempt
   // with a different page-segmentation mode — the common failure is the engine
@@ -1264,6 +1289,46 @@ async function extractDocumentData(fileBuffer, options = {}) {
     const retryParsed = parseDocument(retryText, options);
     if (extractedFieldCount(retryParsed) > 0) {
       return { text: retryText, parsed: retryParsed };
+    }
+  }
+
+  // Warranty cards frequently have complex two-column or card layouts with barcodes,
+  // support boxes, and stamps that confuse block segmentation. If a warranty card
+  // is missing its explicit product name or key dates, sparse text recognition
+  // extracts fields without artificial block boundary slicing.
+  if (!isPdf && options.documentType === "warranty_card") {
+    const isGeneric = (name) =>
+      !name || name === "Receipt product" || name === "Warranty card product";
+    const hasLabeledProduct = (txt) =>
+      /\b(?:product|item)(?:\s+name)?\s*[:#-]/i.test(txt) || /\bproduct\s*name\b/i.test(txt);
+
+    const needsSparse = isGeneric(parsed.productName) || !hasLabeledProduct(text);
+    if (needsSparse) {
+      try {
+        const sparseText = await ocrFn(fileBuffer, { psm: PSM_SPARSE_TEXT });
+        if (sparseText && sparseText.trim() && sparseText !== text) {
+          const sparseParsed = parseDocument(sparseText, options);
+          const currentCount = extractedFieldCount(parsed) + (isGeneric(parsed.productName) ? 0 : 1);
+          const sparseCount = extractedFieldCount(sparseParsed) + (isGeneric(sparseParsed.productName) ? 0 : 1);
+          if (sparseCount >= currentCount) {
+            const merged = { ...parsed, ...sparseParsed };
+            if (hasLabeledProduct(sparseText) && !hasLabeledProduct(text) && !isGeneric(sparseParsed.productName)) {
+              merged.productName = sparseParsed.productName;
+              text = sparseText;
+            } else if (isGeneric(parsed.productName) && !isGeneric(sparseParsed.productName)) {
+              merged.productName = sparseParsed.productName;
+            } else if (!isGeneric(parsed.productName)) {
+              merged.productName = parsed.productName;
+            }
+            if (parsed.purchaseStore && !/^[^\w\s]/.test(parsed.purchaseStore)) {
+              merged.purchaseStore = parsed.purchaseStore;
+            }
+            parsed = merged;
+          }
+        }
+      } catch {
+        // Fall back to primary parse
+      }
     }
   }
 
