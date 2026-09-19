@@ -197,6 +197,75 @@ describe("Warranty claim + export", () => {
     }
   });
 
+  test("exports products as PDF with attachment headers and valid PDF 1.4 bytes", async () => {
+    const response = await request(app)
+      .get("/api/v1/export/products?format=pdf")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("application/pdf");
+    expect(response.headers["content-disposition"]).toContain(".pdf");
+    expect(response.headers["content-disposition"]).toContain("attachment");
+
+    const service = require("../src/services/export.service.js");
+    const file = await service.exportProducts(ownerUserId, "pdf");
+    expect(file.extension).toBe("pdf");
+    expect(file.mimeType).toBe("application/pdf");
+    const buf = file.body;
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.subarray(0, 8).toString("utf8")).toBe("%PDF-1.4");
+    expect(buf.toString("utf8")).toContain("%%EOF");
+    expect(buf.toString("utf8")).toContain("/Type /Catalog");
+    expect(buf.toString("utf8")).toContain("/Type /Pages");
+    expect(buf.toString("utf8")).toContain("/Type /Page");
+    // Outer box stroke and fill
+    expect(buf.toString("utf8")).toContain("36 36 523.28 769.89 re f");
+    expect(buf.toString("utf8")).toContain("36 36 523.28 769.89 re S");
+    // Product details inside the box
+    expect(buf.toString("utf8")).toContain("Bosch Washing Machine");
+    expect(buf.toString("utf8")).toContain("BOSCH-77");
+    expect(buf.toString("utf8")).toContain("Bosch India");
+    expect(buf.toString("utf8")).toContain("Bosch Care");
+  });
+
+  test("PDF export produces multi-page document with dedicated page per product", () => {
+    const { buildPdf } = require("../src/services/export.service.js");
+    const serviceMap = new Map();
+    serviceMap.set("1", [{ serviceDate: "2025-01-01", serviceType: "repair", serviceProvider: "FixIt", cost: 50 }]);
+    const buf = buildPdf([
+      { _id: "1", productName: "Item One", serialNumber: "SN-001" },
+      { _id: "2", productName: "Item Two", serialNumber: "SN-002" },
+      { _id: "3", productName: "Item Three", serialNumber: "SN-003" }
+    ], serviceMap);
+
+    const text = buf.toString("utf8");
+    expect(text).toContain("/Count 3");
+    expect(text).toContain("Item One");
+    expect(text).toContain("Item Two");
+    expect(text).toContain("Item Three");
+    expect(text).toContain("Page 1 of 3");
+    expect(text).toContain("Page 2 of 3");
+    expect(text).toContain("Page 3 of 3");
+    expect(text).toContain("FixIt");
+  });
+
+  test("PDF export renders clean empty-state page when vault has 0 products", async () => {
+    const service = require("../src/services/export.service.js");
+    const otherUser = await registerUser("EmptyVaultUser", `empty_vault_${Date.now()}@example.com`);
+    const file = await service.exportProducts(otherUser.userId, "pdf");
+    expect(file.mimeType).toBe("application/pdf");
+    const text = file.body.toString("utf8");
+    expect(text).toContain("/Count 1");
+    expect(text).toContain("NO PRODUCTS IN VAULT");
+    expect(text).toContain("36 36 523.28 769.89 re S");
+  });
+
+  test("pdfEscape sanitizes parenthesis, backslashes and currency symbols", () => {
+    const { pdfEscape } = require("../src/services/export.service.js");
+    expect(pdfEscape("Test (Value) & \\Slash\\")).toBe("Test \\(Value\\) & \\\\Slash\\\\");
+    expect(pdfEscape("Price: ₹500")).toBe("Price: INR 500");
+    expect(pdfEscape(null)).toBe("");
+  });
+
   test("export defaults to JSON when format is missing or unknown", async () => {
     const defaulted = await request(app)
       .get("/api/v1/export/products")

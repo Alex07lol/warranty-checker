@@ -343,10 +343,270 @@ function buildOds(rows) {
   ]);
 }
 
+// ─── PDF (Product Passport & Certificate) export ─────────────────────────────
+// Generates a spec-compliant PDF 1.4 binary buffer. Multi-page: each page
+// contains an explicit visual frame box enclosing all product attributes,
+// warranty details, tags, notes, and service history.
+
+function pdfEscape(str) {
+  if (str == null) return "";
+  return String(str)
+    .replace(/₹/g, "INR ")
+    .replace(/[•●]/g, "-")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/[^\x20-\x7E]/g, "?")
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
+}
+
+function formatPrice(price, currency) {
+  if (price == null || price === "") return "N/A";
+  const num = Number(price);
+  const formattedNum = Number.isFinite(num) ? num.toLocaleString("en-US", { maximumFractionDigits: 2 }) : String(price);
+  return currency ? `${currency} ${formattedNum}` : formattedNum;
+}
+
+function buildPdfPageStream(p, services, pageNum, totalPages, timestamp) {
+  const statusText = (p.lifecycleStatus || "owned").toUpperCase().replace(/_/g, " ");
+  const subtitle = [p.brand, p.model, p.category].filter(Boolean).join("  |  ") || "Registered Asset";
+
+  let ops = "";
+  // White page canvas
+  ops += "1 1 1 rg 0 0 595.28 841.89 re f\n";
+  // Main outer framed box enclosing all product elements
+  ops += "0.97 0.98 0.99 rg 36 36 523.28 769.89 re f\n";
+  ops += "0.58 0.64 0.72 RG 1.5 w 36 36 523.28 769.89 re S\n";
+
+  // Top header banner
+  ops += "0.08 0.12 0.22 rg 36 760 523.28 45.89 re f\n";
+  ops += "BT /F2 13 Tf 1 1 1 rg 52 778 Td (WARRANTYVAULT) Tj ET\n";
+  ops += "BT /F1 9 Tf 0.65 0.8 0.95 rg 180 778 Td (PRODUCT PASSPORT & WARRANTY RECORD) Tj ET\n";
+  ops += `BT /F1 8.5 Tf 0.8 0.85 0.95 rg 480 778 Td (Page ${pageNum} of ${totalPages}) Tj ET\n`;
+
+  // Product title & subtitle
+  ops += `BT /F2 16 Tf 0.06 0.09 0.16 rg 52 732 Td (${pdfEscape(p.productName || "Unnamed Product")}) Tj ET\n`;
+  ops += `BT /F1 9.5 Tf 0.3 0.35 0.45 rg 52 715 Td (${pdfEscape(subtitle)}) Tj ET\n`;
+
+  // Lifecycle status badge pill
+  ops += "0.9 0.92 0.95 rg 440 722 105 20 re f\n";
+  ops += "0.75 0.8 0.88 RG 1 w 440 722 105 20 re S\n";
+  ops += `BT /F2 8 Tf 0.2 0.25 0.35 rg 448 728 Td (STATUS: ${pdfEscape(statusText)}) Tj ET\n`;
+
+  // Section 1: Product & Purchase Specifications box
+  ops += "1 1 1 rg 50 585 495 112 re f\n";
+  ops += "0.85 0.88 0.92 RG 1 w 50 585 495 112 re S\n";
+  ops += "0.94 0.96 0.98 rg 50 673 495 24 re f\n";
+  ops += "BT /F2 9 Tf 0.15 0.25 0.45 rg 60 681 Td (PRODUCT & PURCHASE SPECIFICATIONS) Tj ET\n";
+
+  ops += "BT /F1 8.5 Tf 0.4 0.45 0.5 rg 60 650 Td (Serial Number:) Tj ET\n";
+  ops += `BT /F5 9 Tf 0.06 0.09 0.16 rg 135 650 Td (${pdfEscape(p.serialNumber || "Not recorded")}) Tj ET\n`;
+  ops += "BT /F1 8.5 Tf 0.4 0.45 0.5 rg 60 630 Td (Category:) Tj ET\n";
+  ops += `BT /F1 9 Tf 0.06 0.09 0.16 rg 135 630 Td (${pdfEscape(p.category || "General")}) Tj ET\n`;
+  ops += "BT /F1 8.5 Tf 0.4 0.45 0.5 rg 60 610 Td (Store:) Tj ET\n";
+  ops += `BT /F1 9 Tf 0.06 0.09 0.16 rg 135 610 Td (${pdfEscape(p.purchaseStore || "Not specified")}) Tj ET\n`;
+
+  ops += "BT /F1 8.5 Tf 0.4 0.45 0.5 rg 310 650 Td (Purchase Date:) Tj ET\n";
+  ops += `BT /F1 9 Tf 0.06 0.09 0.16 rg 395 650 Td (${pdfEscape(toDateString(p.purchaseDate) || "N/A")}) Tj ET\n`;
+  ops += "BT /F1 8.5 Tf 0.4 0.45 0.5 rg 310 630 Td (Purchase Price:) Tj ET\n";
+  ops += `BT /F2 9 Tf 0.06 0.09 0.16 rg 395 630 Td (${pdfEscape(formatPrice(p.purchasePrice, p.currency))}) Tj ET\n`;
+  ops += "BT /F1 8.5 Tf 0.4 0.45 0.5 rg 310 610 Td (Lifecycle:) Tj ET\n";
+  ops += `BT /F1 9 Tf 0.06 0.09 0.16 rg 395 610 Td (${pdfEscape(statusText)}) Tj ET\n`;
+
+  // Section 2: Warranty & Coverage Protection box
+  ops += "0.94 0.98 1.0 rg 50 450 495 120 re f\n";
+  ops += "0.73 0.90 0.99 RG 1 w 50 450 495 120 re S\n";
+  ops += "0.88 0.95 0.99 rg 50 546 495 24 re f\n";
+  ops += "BT /F2 9 Tf 0.01 0.45 0.72 rg 60 554 Td (WARRANTY & COVERAGE PROTECTION) Tj ET\n";
+
+  ops += "BT /F1 8.5 Tf 0.3 0.45 0.6 rg 60 524 Td (Provider:) Tj ET\n";
+  ops += `BT /F2 9 Tf 0.06 0.09 0.16 rg 150 524 Td (${pdfEscape(p.warrantyProvider || "Direct Manufacturer")}) Tj ET\n`;
+  ops += "BT /F1 8.5 Tf 0.3 0.45 0.6 rg 60 504 Td (Provider Type:) Tj ET\n";
+  ops += `BT /F1 9 Tf 0.06 0.09 0.16 rg 150 504 Td (${pdfEscape(p.warrantyProviderType || "Standard")}) Tj ET\n`;
+  ops += "BT /F1 8.5 Tf 0.3 0.45 0.6 rg 60 484 Td (Support Contact:) Tj ET\n";
+  ops += `BT /F1 9 Tf 0.06 0.09 0.16 rg 150 484 Td (${pdfEscape(p.warrantyContact || "Refer to store receipt")}) Tj ET\n`;
+
+  const expiry = toDateString(p.warrantyExpiryDate);
+  let statusColor = "0.09 0.64 0.29";
+  let statusLabel = "ACTIVE";
+  if (expiry) {
+    const expDate = new Date(expiry);
+    const now = new Date();
+    if (expDate < now) {
+      statusColor = "0.86 0.15 0.15";
+      statusLabel = "EXPIRED";
+    } else if (expDate - now < 30 * 24 * 3600 * 1000) {
+      statusColor = "0.85 0.55 0.05";
+      statusLabel = "EXPIRING SOON";
+    }
+  } else {
+    statusColor = "0.4 0.45 0.5";
+    statusLabel = "UNSPECIFIED";
+  }
+
+  ops += "BT /F1 8.5 Tf 0.3 0.45 0.6 rg 310 524 Td (Warranty Expiry:) Tj ET\n";
+  ops += `BT /F2 9.5 Tf 0.06 0.09 0.16 rg 400 524 Td (${pdfEscape(expiry || "No date recorded")}) Tj ET\n`;
+  ops += "BT /F1 8.5 Tf 0.3 0.45 0.6 rg 310 504 Td (Warranty Status:) Tj ET\n";
+  ops += `BT /F2 9 Tf ${statusColor} rg 400 504 Td (${pdfEscape(statusLabel)}) Tj ET\n`;
+  ops += "BT /F1 8.5 Tf 0.3 0.45 0.6 rg 310 484 Td (Coverage Period:) Tj ET\n";
+  const months = p.warrantyPeriodMonths ? `${p.warrantyPeriodMonths} Months` : "Standard Term";
+  ops += `BT /F1 9 Tf 0.06 0.09 0.16 rg 400 484 Td (${pdfEscape(months)}) Tj ET\n`;
+
+  if (p.warranties && p.warranties.length > 0) {
+    const wSummary = p.warranties.map((w) => `${w.type || "Coverage"}: ${w.coverage || "Standard"}`).join(" | ");
+    ops += `BT /F3 8 Tf 0.2 0.35 0.55 rg 60 464 Td (${pdfEscape(wSummary)}) Tj ET\n`;
+  }
+
+  // Section 3: Metadata & Notes box
+  ops += "1 1 1 rg 50 355 495 80 re f\n";
+  ops += "0.85 0.88 0.92 RG 1 w 50 355 495 80 re S\n";
+  ops += "0.94 0.96 0.98 rg 50 411 495 24 re f\n";
+  ops += "BT /F2 9 Tf 0.25 0.3 0.4 rg 60 419 Td (TAGS & NOTES) Tj ET\n";
+
+  const tagsStr = p.tags && p.tags.length > 0 ? p.tags.join(", ") : "None";
+  ops += "BT /F1 8.5 Tf 0.4 0.45 0.5 rg 60 390 Td (Tags:) Tj ET\n";
+  ops += `BT /F1 9 Tf 0.06 0.09 0.16 rg 110 390 Td (${pdfEscape(tagsStr)}) Tj ET\n`;
+
+  const notesStr = p.notes ? p.notes.slice(0, 95) : "None recorded";
+  ops += "BT /F1 8.5 Tf 0.4 0.45 0.5 rg 60 370 Td (Notes:) Tj ET\n";
+  ops += `BT /F1 9 Tf 0.06 0.09 0.16 rg 110 370 Td (${pdfEscape(notesStr)}) Tj ET\n`;
+
+  // Section 4: Service & Maintenance History box
+  ops += "1 1 1 rg 50 110 495 230 re f\n";
+  ops += "0.85 0.88 0.92 RG 1 w 50 110 495 230 re S\n";
+  ops += "0.94 0.96 0.98 rg 50 316 495 24 re f\n";
+  ops += "BT /F2 9 Tf 0.25 0.3 0.4 rg 60 324 Td (SERVICE & MAINTENANCE HISTORY) Tj ET\n";
+
+  ops += "BT /F2 8 Tf 0.3 0.35 0.45 rg 60 300 Td (DATE) Tj ET\n";
+  ops += "BT /F2 8 Tf 0.3 0.35 0.45 rg 140 300 Td (SERVICE TYPE) Tj ET\n";
+  ops += "BT /F2 8 Tf 0.3 0.35 0.45 rg 245 300 Td (PROVIDER) Tj ET\n";
+  ops += "BT /F2 8 Tf 0.3 0.35 0.45 rg 370 300 Td (COST) Tj ET\n";
+  ops += "BT /F2 8 Tf 0.3 0.35 0.45 rg 450 300 Td (NEXT SERVICE) Tj ET\n";
+  ops += "0.85 0.88 0.92 rg 60 294 475 0.5 re f\n";
+
+  if (services.length === 0) {
+    ops += "BT /F3 9 Tf 0.5 0.55 0.65 rg 60 270 Td (No maintenance or service history recorded for this product.) Tj ET\n";
+  } else {
+    const maxRows = Math.min(services.length, 7);
+    for (let rIdx = 0; rIdx < maxRows; rIdx++) {
+      const s = services[rIdx];
+      const yRow = 276 - rIdx * 22;
+      ops += `BT /F1 8.5 Tf 0.06 0.09 0.16 rg 60 ${yRow} Td (${pdfEscape(toDateString(s.serviceDate) || "-")}) Tj ET\n`;
+      ops += `BT /F1 8.5 Tf 0.06 0.09 0.16 rg 140 ${yRow} Td (${pdfEscape(s.serviceType || "Service")}) Tj ET\n`;
+      ops += `BT /F1 8.5 Tf 0.06 0.09 0.16 rg 245 ${yRow} Td (${pdfEscape(s.serviceProvider || "-")}) Tj ET\n`;
+      ops += `BT /F1 8.5 Tf 0.06 0.09 0.16 rg 370 ${yRow} Td (${pdfEscape(formatPrice(s.cost, s.currency))}) Tj ET\n`;
+      ops += `BT /F1 8.5 Tf 0.06 0.09 0.16 rg 450 ${yRow} Td (${pdfEscape(toDateString(s.nextServiceDate) || "-")}) Tj ET\n`;
+      if (rIdx < maxRows - 1) {
+        ops += `0.92 0.94 0.96 rg 60 ${yRow - 6} 475 0.25 re f\n`;
+      }
+    }
+  }
+
+  // Footer inside box
+  ops += "0.85 0.88 0.92 rg 50 78 495 0.5 re f\n";
+  ops += `BT /F1 7.5 Tf 0.4 0.45 0.5 rg 52 64 Td (Generated by WarrantyVault on ${timestamp} UTC | Record ID: ${p._id || "N/A"}) Tj ET\n`;
+  ops += `BT /F1 7.5 Tf 0.5 0.55 0.6 rg 52 50 Td (Confidential Document | Authentic Vault Export | Page ${pageNum} of ${totalPages}) Tj ET\n`;
+
+  return Buffer.from(ops, "utf8");
+}
+
+function buildEmptyPdfStream(timestamp) {
+  let ops = "";
+  ops += "1 1 1 rg 0 0 595.28 841.89 re f\n";
+  ops += "0.97 0.98 0.99 rg 36 36 523.28 769.89 re f\n";
+  ops += "0.58 0.64 0.72 RG 1.5 w 36 36 523.28 769.89 re S\n";
+  ops += "0.08 0.12 0.22 rg 36 760 523.28 45.89 re f\n";
+  ops += "BT /F2 13 Tf 1 1 1 rg 52 778 Td (WARRANTYVAULT) Tj ET\n";
+  ops += "BT /F1 9 Tf 0.65 0.8 0.95 rg 180 778 Td (PRODUCT PASSPORT & WARRANTY RECORD) Tj ET\n";
+  ops += "BT /F1 8.5 Tf 0.8 0.85 0.95 rg 480 778 Td (Page 1 of 1) Tj ET\n";
+
+  ops += "1 1 1 rg 100 370 395 120 re f\n";
+  ops += "0.8 0.85 0.9 RG 1 w 100 370 395 120 re S\n";
+  ops += "BT /F2 13 Tf 0.15 0.2 0.3 rg 130 445 Td (NO PRODUCTS IN VAULT) Tj ET\n";
+  ops += "BT /F1 10 Tf 0.4 0.45 0.55 rg 130 420 Td (Your WarrantyVault library is currently empty.) Tj ET\n";
+  ops += "BT /F1 9 Tf 0.5 0.55 0.65 rg 130 395 Td (Add products and receipts to generate warranty passports and certificates.) Tj ET\n";
+
+  ops += "0.8 0.85 0.9 rg 50 78 495 0.5 re f\n";
+  ops += `BT /F1 7.5 Tf 0.4 0.45 0.5 rg 52 64 Td (Generated by WarrantyVault on ${timestamp} UTC) Tj ET\n`;
+  ops += "BT /F1 7.5 Tf 0.5 0.55 0.6 rg 52 50 Td (Confidential Document | Authentic Vault Export | Page 1 of 1) Tj ET\n";
+
+  return Buffer.from(ops, "utf8");
+}
+
+function buildPdf(products, serviceByProduct = new Map()) {
+  const totalPages = Math.max(1, products.length);
+  const timestamp = new Date().toISOString().replace("T", " ").slice(0, 19);
+
+  const pagesStreamBufs = [];
+
+  if (products.length === 0) {
+    pagesStreamBufs.push(buildEmptyPdfStream(timestamp));
+  } else {
+    products.forEach((p, idx) => {
+      const services = serviceByProduct.get(String(p._id)) || [];
+      pagesStreamBufs.push(buildPdfPageStream(p, services, idx + 1, totalPages, timestamp));
+    });
+  }
+
+  const objects = [];
+  const kids = [];
+  for (let i = 0; i < pagesStreamBufs.length; i++) {
+    const pageObjNum = 8 + 2 * i;
+    kids.push(`${pageObjNum} 0 R`);
+  }
+
+  // 1: Catalog
+  objects.push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+  // 2: Pages root
+  objects.push(`2 0 obj\n<< /Type /Pages /Kids [${kids.join(" ")}] /Count ${pagesStreamBufs.length} >>\nendobj\n`);
+  // 3..7: Standard Type 1 Font Resources (Helvetica, Helvetica-Bold, Helvetica-Oblique, Courier, Courier-Bold)
+  objects.push("3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n");
+  objects.push("4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n");
+  objects.push("5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>\nendobj\n");
+  objects.push("6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>\nendobj\n");
+  objects.push("7 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>\nendobj\n");
+
+  for (let i = 0; i < pagesStreamBufs.length; i++) {
+    const streamBuf = pagesStreamBufs[i];
+    const pageObjNum = 8 + 2 * i;
+    const contentObjNum = pageObjNum + 1;
+
+    objects.push(`${pageObjNum} 0 obj\n<<\n  /Type /Page\n  /Parent 2 0 R\n  /MediaBox [0 0 595.28 841.89]\n  /Resources <<\n    /Font <<\n      /F1 3 0 R\n      /F2 4 0 R\n      /F3 5 0 R\n      /F4 6 0 R\n      /F5 7 0 R\n    >>\n  >>\n  /Contents ${contentObjNum} 0 R\n>>\nendobj\n`);
+    objects.push(`${contentObjNum} 0 obj\n<< /Length ${streamBuf.length} >>\nstream\n` + streamBuf.toString("binary") + `\nendstream\nendobj\n`);
+  }
+
+  const header = "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
+  const offsets = [0];
+  let curOffset = Buffer.byteLength(header, "binary");
+
+  const objBuffers = [];
+  for (let i = 0; i < objects.length; i++) {
+    offsets.push(curOffset);
+    const b = Buffer.from(objects[i], "binary");
+    objBuffers.push(b);
+    curOffset += b.length;
+  }
+
+  const startxref = curOffset;
+  let xref = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let i = 1; i <= objects.length; i++) {
+    xref += String(offsets[i]).padStart(10, "0") + " 00000 n \n";
+  }
+  const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${startxref}\n%%EOF\n`;
+
+  return Buffer.concat([
+    Buffer.from(header, "binary"),
+    ...objBuffers,
+    Buffer.from(xref + trailer, "binary")
+  ]);
+}
+
 // ─── Unified export entry point ──────────────────────────────────────────────
 
-// Export every live product the user owns. format: "json" (default), "csv"
-// or "ods". All user-scoped.
+// Export every live product the user owns. format: "json" (default), "csv",
+// "ods" or "pdf". All user-scoped.
 async function exportProducts(userId, format = "json") {
   const products = await Product.find({ userId, isDeleted: false })
     .sort({ createdAt: 1 })
@@ -379,6 +639,14 @@ async function exportProducts(userId, format = "json") {
       mimeType: "application/vnd.oasis.opendocument.spreadsheet",
       extension: "ods",
       body: buildOds(products.map((p) => productToCsvRow(p, serviceByProduct)))
+    };
+  }
+
+  if (fmt === "pdf") {
+    return {
+      mimeType: "application/pdf",
+      extension: "pdf",
+      body: buildPdf(products, serviceByProduct)
     };
   }
 
@@ -646,5 +914,7 @@ module.exports = {
   CSV_HEADERS,
   ODS_HEADERS,
   buildOds,
+  buildPdf,
+  pdfEscape,
   toDateString
 };

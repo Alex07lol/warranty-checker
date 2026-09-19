@@ -1021,7 +1021,7 @@ function copyShareLink(token) {
 // ─────────────────────────────────────────────────────────────────────────────
 async function exportProductsFile(format) {
   if (!requireAuth('export your products')) return;
-  const btnId = { csv: 'export-csv-btn', json: 'export-json-btn', ods: 'export-ods-btn' }[format] || 'export-json-btn';
+  const btnId = { csv: 'export-csv-btn', json: 'export-json-btn', ods: 'export-ods-btn', pdf: 'export-pdf-btn' }[format] || 'export-json-btn';
   const btn = document.getElementById(btnId);
   if (btn) btn.disabled = true;
   try {
@@ -3104,6 +3104,8 @@ function wireEvents() {
   if (exportCsv) exportCsv.addEventListener('click', () => exportProductsFile('csv'));
   const exportOds = document.getElementById('export-ods-btn');
   if (exportOds) exportOds.addEventListener('click', () => exportProductsFile('ods'));
+  const exportPdf = document.getElementById('export-pdf-btn');
+  if (exportPdf) exportPdf.addEventListener('click', () => exportProductsFile('pdf'));
 
   // Import: the visible button proxies to the hidden file input; on selection
   // the file is POSTed to /export/products/import and the report is toasted.

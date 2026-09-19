@@ -521,17 +521,18 @@ paths:
   /api/v1/export/products:
     get:
       tags: [Products]
-      summary: Export all owned products (JSON, CSV or ODS)
+      summary: Export all owned products (JSON, CSV, ODS or PDF)
       description: |
         Phase 4 §16 — downloads every live product with its service history.
         Ownership is scoped to the authenticated user. CSV follows RFC 4180
         (quoting/escaping); ODS is an OpenDocument Spreadsheet with a bold
-        header row. Delivered as an attachment.
+        header row; PDF is a framed multi-page passport/certificate document.
+        Delivered as an attachment.
       parameters:
-        - { name: format, in: query, schema: { type: string, enum: [json, csv, ods], default: json } }
+        - { name: format, in: query, schema: { type: string, enum: [json, csv, ods, pdf], default: json } }
       responses:
         "200":
-          description: File attachment (application/json, text/csv or application/vnd.oasis.opendocument.spreadsheet)
+          description: File attachment (application/json, text/csv, application/vnd.oasis.opendocument.spreadsheet or application/pdf)
         "401":
           $ref: "#/components/responses/Unauthorized"
 
