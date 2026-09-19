@@ -185,9 +185,17 @@ async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
     if (error instanceof AppError) throw error;
     logger.error("Error sending verification email via Nodemailer/SMTP", {
       to,
-      error: error.message
+      error: error.message,
+      code: error.code,
+      response: error.response
     });
-    throw new AppError("Failed to send verification email. Please try again later.", 502);
+    let message = "Failed to send verification email. Please try again later.";
+    if (error.code === "EAUTH") {
+      message = "Email authentication failed (EAUTH). Please check your Gmail address and 16-character App Password.";
+    } else if (NODE_ENV !== "production") {
+      message = `Failed to send email: ${error.message}`;
+    }
+    throw new AppError(message, 502);
   }
 }
 

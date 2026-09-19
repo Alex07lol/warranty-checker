@@ -75,6 +75,31 @@ if (process.env.NODE_ENV === "production") {
   }
 }
 
+function resolveEmailFrom(user) {
+  const configured = process.env.EMAIL_FROM;
+  if (configured && !configured.includes("resend.dev")) {
+    return configured;
+  }
+  if (user) {
+    return `WarrantyVault <${user}>`;
+  }
+  return "WarrantyVault <no-reply@warrantyvault.com>";
+}
+
+const smtpUser =
+  process.env.SMTP_USER ||
+  process.env.GMAIL_USER ||
+  process.env.EMAIL_USER;
+
+const rawSmtpPass =
+  process.env.SMTP_PASS ||
+  process.env.SMTP_PASSWORD ||
+  process.env.GMAIL_APP_PASSWORD ||
+  process.env.GMAIL_PASS ||
+  process.env.GMAIL_PASSWORD ||
+  process.env.EMAIL_PASS ||
+  "";
+
 module.exports = {
   PORT: Number(process.env.PORT),
   NODE_ENV: process.env.NODE_ENV,
@@ -86,12 +111,8 @@ module.exports = {
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
   CLIENT_URL: process.env.CLIENT_URL,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
-  SMTP_USER: process.env.SMTP_USER || process.env.GMAIL_USER,
-  SMTP_PASS: process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD,
+  SMTP_USER: smtpUser,
+  SMTP_PASS: rawSmtpPass.replace(/\s+/g, ""),
   SMTP_SERVICE: process.env.SMTP_SERVICE || "gmail",
-  EMAIL_FROM:
-    process.env.EMAIL_FROM ||
-    (process.env.SMTP_USER
-      ? `WarrantyVault <${process.env.SMTP_USER}>`
-      : "WarrantyVault <onboarding@resend.dev>")
+  EMAIL_FROM: resolveEmailFrom(smtpUser)
 };
