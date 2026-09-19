@@ -19,7 +19,8 @@ jest.mock("../src/middleware/upload", () => ({
       filename: "test/receipt123"
     };
     return next();
-  }
+  },
+  uploadImport: (req, res, next) => next()
 }));
 // The OCR engine memoizes a singleton worker (getWorker), so per-call mock
 // overrides never fire after the first test. The mock exposes a mutable state

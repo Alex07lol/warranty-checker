@@ -22,7 +22,8 @@ jest.mock("../src/middleware/upload", () => ({
       mimetype: "image/jpeg"
     };
     return next();
-  }
+  },
+  uploadImport: (req, res, next) => next()
 }));
 
 const mongoose = require("mongoose");

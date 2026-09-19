@@ -27,7 +27,8 @@ jest.mock("../src/middleware/upload", () => ({
       filename: "test/receipt123"
     };
     return next();
-  }
+  },
+  uploadImport: (req, res, next) => next()
 }));
 
 // Uploading a receipt now fires background OCR (processDocument) asynchronously.
