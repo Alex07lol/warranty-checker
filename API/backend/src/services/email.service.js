@@ -586,10 +586,301 @@ async function sendAccountDeletionEmail({ to, name, code, expiresMinutes = 15 })
   });
 }
 
+// ─── Notification email templates ────────────────────────────────────────────
+
+/**
+ * Shared header/footer chrome for notification emails.
+ * @param {object} opts
+ * @param {string} opts.accentColor   – hex colour for the icon circle
+ * @param {string} opts.icon          – emoji for the icon
+ * @param {string} opts.subtitle      – subheading beneath WarrantyVault
+ * @param {string} opts.bodyHtml      – inner content between header and footer
+ */
+function buildNotificationEmailWrapper({ accentColor, icon, subtitle, bodyHtml }) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WarrantyVault Notification</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f1f5f9;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0b0f19; padding: 40px 15px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 520px; background: #151d30; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.4);">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 36px 36px 20px 36px; text-align: center;">
+              <div style="display: inline-block; width: 48px; height: 48px; border-radius: 12px; background: ${accentColor}; line-height: 48px; text-align: center; margin-bottom: 16px;">
+                <span style="font-size: 24px; color: #ffffff;">${icon}</span>
+              </div>
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">WarrantyVault</h1>
+              <p style="margin: 6px 0 0 0; font-size: 14px; color: #94a3b8;">${subtitle}</p>
+            </td>
+          </tr>
+          <!-- Content -->
+          <tr>
+            <td style="padding: 10px 36px 30px 36px;">
+              ${bodyHtml}
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 36px; background: #0c1222; border-top: 1px solid #1e293b; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #64748b;">
+                &copy; ${new Date().getFullYear()} WarrantyVault. All rights reserved.<br>
+                <span style="color: #475569;">You can manage your email preferences in your account settings.</span>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function buildWarrantyExpiryNotifHtml({ name, productName, expiryDate, daysLeft }) {
+  const safeName = name ? String(name).replace(/[<>&"]/g, "") : "there";
+  const safeProduct = String(productName || "Your product").replace(/[<>&"]/g, "");
+  let badge = "#3b82f6";
+  let urgency = `IN ${daysLeft} DAYS`;
+  if (daysLeft <= 1) {
+    badge = "#ef4444";
+    urgency = "TODAY";
+  } else if (daysLeft <= 7) {
+    badge = "#f59e0b";
+    urgency = "THIS WEEK";
+  }
+  const bodyHtml = `
+    <h2 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #f8fafc;">Warranty expiring soon</h2>
+    <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 24px; color: #cbd5e1;">
+      Hi ${safeName},<br>
+      The warranty on one of your products is about to expire. Here are the details:
+    </p>
+    <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+      <div style="font-size: 13px; color: #94a3b8; margin-bottom: 4px;">Product</div>
+      <div style="font-size: 17px; font-weight: 600; color: #f8fafc; margin-bottom: 14px;">${safeProduct}</div>
+      <div style="font-size: 13px; color: #94a3b8; margin-bottom: 4px;">Warranty Expiry Date</div>
+      <div style="font-size: 16px; font-weight: 600; color: #f8fafc; margin-bottom: 14px;">${expiryDate}</div>
+      <div style="display: inline-block; background: ${badge}22; border: 1px solid ${badge}; border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 700; color: ${badge}; letter-spacing: 0.5px;">EXPIRES ${urgency}</div>
+    </div>
+    <p style="margin: 0; font-size: 13px; line-height: 20px; color: #94a3b8;">
+      Log in to WarrantyVault to view your product details or take action before your warranty expires.
+    </p>`;
+  return buildNotificationEmailWrapper({
+    accentColor: "linear-gradient(135deg, #f59e0b, #ef4444)",
+    icon: "⚠️",
+    subtitle: "Warranty Expiry Alert",
+    bodyHtml
+  });
+}
+
+function buildWarrantyExpiryNotifText({ name, productName, expiryDate, daysLeft }) {
+  return [
+    `WarrantyVault — Warranty Expiry Alert`,
+    `--------------------------------------`,
+    `Hello ${name || "there"},`,
+    ``,
+    `Your warranty for "${productName}" expires on ${expiryDate} (${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining).`,
+    ``,
+    `Log in to WarrantyVault to view details or take action.`,
+    ``,
+    `-- The WarrantyVault Team`
+  ].join("\n");
+}
+
+function buildServiceReminderNotifHtml({ name, productName, serviceDate, daysLeft }) {
+  const safeName = name ? String(name).replace(/[<>&"]/g, "") : "there";
+  const safeProduct = String(productName || "Your product").replace(/[<>&"]/g, "");
+  const bodyHtml = `
+    <h2 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #f8fafc;">Maintenance reminder</h2>
+    <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 24px; color: #cbd5e1;">
+      Hi ${safeName},<br>
+      A scheduled maintenance or service is coming up for one of your products.
+    </p>
+    <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+      <div style="font-size: 13px; color: #94a3b8; margin-bottom: 4px;">Product</div>
+      <div style="font-size: 17px; font-weight: 600; color: #f8fafc; margin-bottom: 14px;">${safeProduct}</div>
+      <div style="font-size: 13px; color: #94a3b8; margin-bottom: 4px;">Next Service Date</div>
+      <div style="font-size: 16px; font-weight: 600; color: #f8fafc; margin-bottom: 14px;">${serviceDate}</div>
+      <div style="display: inline-block; background: #06b6d422; border: 1px solid #06b6d4; border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 700; color: #06b6d4; letter-spacing: 0.5px;">DUE IN ${daysLeft} DAY${daysLeft === 1 ? "" : "S"}</div>
+    </div>
+    <p style="margin: 0; font-size: 13px; line-height: 20px; color: #94a3b8;">
+      Log in to WarrantyVault to review your service history and schedule an appointment.
+    </p>`;
+  return buildNotificationEmailWrapper({
+    accentColor: "linear-gradient(135deg, #06b6d4, #3b82f6)",
+    icon: "🔧",
+    subtitle: "Maintenance Reminder",
+    bodyHtml
+  });
+}
+
+function buildServiceReminderNotifText({ name, productName, serviceDate, daysLeft }) {
+  return [
+    `WarrantyVault — Maintenance Reminder`,
+    `-------------------------------------`,
+    `Hello ${name || "there"},`,
+    ``,
+    `Scheduled service for "${productName}" is due on ${serviceDate} (${daysLeft} day${daysLeft === 1 ? "" : "s"}).`,
+    ``,
+    `Log in to WarrantyVault to review your service history.`,
+    ``,
+    `-- The WarrantyVault Team`
+  ].join("\n");
+}
+
+function buildDocumentProcessingNotifHtml({ name, fileName, succeeded }) {
+  const safeName = name ? String(name).replace(/[<>&"]/g, "") : "there";
+  const safeFile = String(fileName || "your document").replace(/[<>&"]/g, "");
+  const statusColor = succeeded ? "#22c55e" : "#ef4444";
+  const statusLabel = succeeded ? "PROCESSING COMPLETE" : "PROCESSING FAILED";
+  const bodyHtml = `
+    <h2 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #f8fafc;">
+      Document ${succeeded ? "processed" : "processing failed"}
+    </h2>
+    <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 24px; color: #cbd5e1;">
+      Hi ${safeName},<br>
+      ${succeeded
+    ? "OCR successfully extracted data from your document. The information is now available in your vault."
+    : "We were unable to extract data from your document. You may want to review the file quality or re-upload it."}
+    </p>
+    <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+      <div style="font-size: 13px; color: #94a3b8; margin-bottom: 4px;">File</div>
+      <div style="font-size: 16px; font-weight: 600; color: #f8fafc; margin-bottom: 14px;">${safeFile}</div>
+      <div style="display: inline-block; background: ${statusColor}22; border: 1px solid ${statusColor}; border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 700; color: ${statusColor}; letter-spacing: 0.5px;">${statusLabel}</div>
+    </div>
+    <p style="margin: 0; font-size: 13px; line-height: 20px; color: #94a3b8;">
+      Log in to WarrantyVault to ${succeeded ? "view the extracted data" : "re-upload or review the document"}.
+    </p>`;
+  return buildNotificationEmailWrapper({
+    accentColor: succeeded ? "linear-gradient(135deg, #22c55e, #16a34a)" : "linear-gradient(135deg, #ef4444, #dc2626)",
+    icon: succeeded ? "✅" : "❌",
+    subtitle: "Document Processing",
+    bodyHtml
+  });
+}
+
+function buildDocumentProcessingNotifText({ name, fileName, succeeded }) {
+  return [
+    `WarrantyVault — Document ${succeeded ? "Processed" : "Processing Failed"}`,
+    `----------------------------------------------`,
+    `Hello ${name || "there"},`,
+    ``,
+    succeeded
+      ? `OCR successfully processed "${fileName}". The data is now available in your vault.`
+      : `We could not process "${fileName}". Please review the file and try re-uploading.`,
+    ``,
+    `-- The WarrantyVault Team`
+  ].join("\n");
+}
+
+function buildSharedAccessNotifHtml({ name, productName }) {
+  const safeName = name ? String(name).replace(/[<>&"]/g, "") : "there";
+  const safeProduct = String(productName || "Your product").replace(/[<>&"]/g, "");
+  const bodyHtml = `
+    <h2 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #f8fafc;">Share link created</h2>
+    <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 24px; color: #cbd5e1;">
+      Hi ${safeName},<br>
+      A shareable link has been created for one of your products. Anyone with the link can view the product details.
+    </p>
+    <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+      <div style="font-size: 13px; color: #94a3b8; margin-bottom: 4px;">Shared Product</div>
+      <div style="font-size: 17px; font-weight: 600; color: #f8fafc; margin-bottom: 14px;">${safeProduct}</div>
+      <div style="display: inline-block; background: #a855f722; border: 1px solid #a855f7; border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 700; color: #a855f7; letter-spacing: 0.5px;">LINK ACTIVE</div>
+    </div>
+    <p style="margin: 0; font-size: 13px; line-height: 20px; color: #94a3b8;">
+      If you did not create this link, log in immediately and revoke it from your product's share settings.
+    </p>`;
+  return buildNotificationEmailWrapper({
+    accentColor: "linear-gradient(135deg, #a855f7, #6366f1)",
+    icon: "🔗",
+    subtitle: "Share Link Created",
+    bodyHtml
+  });
+}
+
+function buildSharedAccessNotifText({ name, productName }) {
+  return [
+    `WarrantyVault — Share Link Created`,
+    `-----------------------------------`,
+    `Hello ${name || "there"},`,
+    ``,
+    `A shareable link for "${productName}" was created. Anyone with the link can view the product details.`,
+    ``,
+    `If you did not create this link, log in and revoke it immediately.`,
+    ``,
+    `-- The WarrantyVault Team`
+  ].join("\n");
+}
+
+/**
+ * Send an email for an in-app notification event.
+ *
+ * @param {object} opts
+ * @param {string} opts.to              – recipient email address
+ * @param {string} opts.name            – recipient display name
+ * @param {string} opts.notificationType – warranty_expiry | service_reminder | document_processing | shared_access
+ * @param {object} opts.payload         – type-specific fields (productName, expiryDate, daysLeft, etc.)
+ */
+async function sendNotificationEmail({ to, name, notificationType, payload = {} }) {
+  let subject, html, text;
+
+  switch (notificationType) {
+    case "warranty_expiry": {
+      const { productName, expiryDate, daysLeft } = payload;
+      subject = `⚠️ Warranty expiring in ${daysLeft} day${daysLeft === 1 ? "" : "s"}: ${productName}`;
+      html = buildWarrantyExpiryNotifHtml({ name, productName, expiryDate, daysLeft });
+      text = buildWarrantyExpiryNotifText({ name, productName, expiryDate, daysLeft });
+      break;
+    }
+    case "service_reminder": {
+      const { productName, serviceDate, daysLeft } = payload;
+      subject = `🔧 Service reminder in ${daysLeft} day${daysLeft === 1 ? "" : "s"}: ${productName}`;
+      html = buildServiceReminderNotifHtml({ name, productName, serviceDate, daysLeft });
+      text = buildServiceReminderNotifText({ name, productName, serviceDate, daysLeft });
+      break;
+    }
+    case "document_processing": {
+      const { fileName, succeeded } = payload;
+      subject = succeeded
+        ? `✅ Document processed: ${fileName}`
+        : `❌ Document processing failed: ${fileName}`;
+      html = buildDocumentProcessingNotifHtml({ name, fileName, succeeded });
+      text = buildDocumentProcessingNotifText({ name, fileName, succeeded });
+      break;
+    }
+    case "shared_access": {
+      const { productName } = payload;
+      subject = `🔗 Share link created for: ${productName}`;
+      html = buildSharedAccessNotifHtml({ name, productName });
+      text = buildSharedAccessNotifText({ name, productName });
+      break;
+    }
+    default:
+      // Unknown type — skip silently
+      return { success: false, reason: "unknown_type" };
+  }
+
+  return dispatchEmail({
+    to,
+    name,
+    subject,
+    html,
+    text,
+    type: notificationType,
+    logLabel: `Notification email (${notificationType})`
+  });
+}
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendAccountDeletionEmail,
+  sendNotificationEmail,
   getTestSentEmails,
   clearTestSentEmails,
   getLatestCodeForEmail,
@@ -598,5 +889,9 @@ module.exports = {
   buildPasswordResetEmailHtml,
   buildPasswordResetEmailText,
   buildAccountDeletionEmailHtml,
-  buildAccountDeletionEmailText
+  buildAccountDeletionEmailText,
+  buildWarrantyExpiryNotifHtml,
+  buildServiceReminderNotifHtml,
+  buildDocumentProcessingNotifHtml,
+  buildSharedAccessNotifHtml
 };

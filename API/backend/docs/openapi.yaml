@@ -242,6 +242,7 @@ paths:
                 maintenanceAlerts: { type: boolean, description: Maintenance/service reminders on/off (default true) }
                 documentAlerts: { type: boolean, description: Document processing (OCR finished/failed) on/off (default true) }
                 sharedAccessAlerts: { type: boolean, description: Share link activity on/off (default true) }
+                emailAlerts: { type: boolean, description: Email delivery for alerts on/off (default true) }
                 reminderDays:
                   type: array
                   description: Remind N days before expiry / next service (default [30, 7, 1])
@@ -1657,6 +1658,7 @@ components:
             maintenanceAlerts: { type: boolean, description: Maintenance/service reminders (default true) }
             documentAlerts: { type: boolean, description: Document processing notifications — OCR finished/failed (default true) }
             sharedAccessAlerts: { type: boolean, description: Share link activity notifications (default true) }
+            emailAlerts: { type: boolean, description: Email delivery for alerts (default true) }
             reminderDays:
               type: array
               description: Remind N days before expiry / next service

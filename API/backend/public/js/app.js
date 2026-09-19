@@ -2311,10 +2311,12 @@ async function loadReminderSettings() {
     const maintEl = document.getElementById('pref-maintenance');
     const docEl = document.getElementById('pref-document');
     const sharedEl = document.getElementById('pref-shared');
+    const emailEl = document.getElementById('pref-email');
     if (expiryEl) expiryEl.checked = prefs.expiryAlerts !== false;
     if (maintEl) maintEl.checked = prefs.maintenanceAlerts !== false;
     if (docEl) docEl.checked = prefs.documentAlerts !== false;
     if (sharedEl) sharedEl.checked = prefs.sharedAccessAlerts !== false;
+    if (emailEl) emailEl.checked = prefs.emailAlerts !== false;
     renderReminderDayChips(prefs.reminderDays || [30, 7, 1]);
     showReminderSettings(true);
   } catch (e) {
@@ -2347,11 +2349,13 @@ async function saveReminderSettings() {
   if (!requireAuth('update reminder preferences')) return;
   const status = document.getElementById('pref-status');
   if (status) status.textContent = '';
+  const emailEl = document.getElementById('pref-email');
   const payload = {
     expiryAlerts: document.getElementById('pref-expiry').checked,
     maintenanceAlerts: document.getElementById('pref-maintenance').checked,
     documentAlerts: document.getElementById('pref-document').checked,
     sharedAccessAlerts: document.getElementById('pref-shared').checked,
+    emailAlerts: emailEl ? emailEl.checked : true,
     reminderDays: collectReminderDays()
   };
   try {

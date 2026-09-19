@@ -25,6 +25,7 @@ const updatePreferencesSchema = Joi.object({
   maintenanceAlerts: Joi.boolean(),
   documentAlerts: Joi.boolean(),
   sharedAccessAlerts: Joi.boolean(),
+  emailAlerts: Joi.boolean(),
   reminderDays: Joi.array().items(Joi.number().integer().min(1).max(365)).max(10)
 }).min(1);
 

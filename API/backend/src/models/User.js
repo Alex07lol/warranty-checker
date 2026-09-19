@@ -22,6 +22,13 @@ const notificationPreferencesSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    // Email delivery toggle — when false in-app notifications still fire but
+    // no email is dispatched. Defaults to true so new users receive emails
+    // without any configuration.
+    emailAlerts: {
+      type: Boolean,
+      default: true
+    },
     reminderDays: {
       type: [Number],
       default: [30, 7, 1],

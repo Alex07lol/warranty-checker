@@ -6,6 +6,40 @@ const AppError = require("../utils/AppError");
 const mongoose = require("mongoose");
 const { paginate, paginationMeta } = require("../utils/pagination");
 const logger = require("../utils/logger");
+const { sendNotificationEmail } = require("./email.service");
+
+/**
+ * Fire-and-forget email delivery for an in-app notification.
+ * Fetches the user's email + emailAlerts preference; if disabled or the
+ * lookup fails the in-app notification is already created — this never throws.
+ *
+ * @param {string|object} userId
+ * @param {string}        notificationType
+ * @param {object}        payload          – type-specific data (productName, …)
+ */
+async function sendEmailForNotification(userId, notificationType, payload) {
+  try {
+    const user = await User.findById(userId).select("name email notificationPreferences");
+    if (!user) return;
+    // Respect the global emailAlerts toggle (defaults to true for users who
+    // have never set a preference, i.e. field is undefined / missing).
+    if (user.notificationPreferences.emailAlerts === false) return;
+    await sendNotificationEmail({
+      to: user.email,
+      name: user.name,
+      notificationType,
+      payload
+    });
+  } catch (err) {
+    // Email delivery must never break the calling operation.
+    logger.warn("sendEmailForNotification failed (non-fatal)", {
+      userId: String(userId),
+      notificationType,
+      error: err.message
+    });
+  }
+}
+
 
 // Non-default params first (S1788): `page`/`limit` before the defaulted
 // `unreadOnly`. The controller passes all four positionally.
@@ -137,6 +171,8 @@ async function createExpiryNotifications() {
           userId: product.userId,
           productId: product._id,
           day,
+          productName: product.productName,
+          expiryDateStr: expiry.toISOString().slice(0, 10),
           title: `Warranty expires in ${day} day${day === 1 ? "" : "s"}`,
           message: `${product.productName} warranty expires on ${expiry.toISOString().slice(0, 10)}.`,
           scheduledAt: dayStart
@@ -179,8 +215,21 @@ async function createExpiryNotifications() {
     }))
   );
 
+  // Fire email notifications for each newly created in-app notification.
+  // Awaited so batch callers (cron, API, tests) know emails have been dispatched.
+  await Promise.allSettled(
+    toCreate.map(({ userId, day, productName, expiryDateStr }) =>
+      sendEmailForNotification(userId, "warranty_expiry", {
+        productName,
+        expiryDate: expiryDateStr,
+        daysLeft: day
+      })
+    )
+  );
+
   return toCreate.length;
 }
+
 
 // Maintenance reminders (Phase 4 §7): service records with a nextServiceDate
 // landing on a configured reminder day become `service_reminder`
@@ -231,12 +280,15 @@ async function createMaintenanceNotifications() {
       const dayEnd = new Date(dayStart);
       dayEnd.setHours(23, 59, 59, 999);
       if (next >= dayStart && next <= dayEnd) {
+        const pName = productName.get(String(record.productId)) || "A product";
         candidates.push({
           userId: record.userId,
           productId: record.productId,
           day,
+          productNameStr: pName,
+          serviceDateStr: next.toISOString().slice(0, 10),
           title: `Service due in ${day} day${day === 1 ? "" : "s"}`,
-          message: `${productName.get(String(record.productId)) || "A product"} is due for service on ${next.toISOString().slice(0, 10)}.`,
+          message: `${pName} is due for service on ${next.toISOString().slice(0, 10)}.`,
           scheduledAt: dayStart
         });
         userIds.add(String(record.userId));
@@ -276,8 +328,19 @@ async function createMaintenanceNotifications() {
     }))
   );
 
+  await Promise.allSettled(
+    toCreate.map(({ userId, day, productNameStr, serviceDateStr }) =>
+      sendEmailForNotification(userId, "service_reminder", {
+        productName: productNameStr,
+        serviceDate: serviceDateStr,
+        daysLeft: day
+      })
+    )
+  );
+
   return toCreate.length;
 }
+
 
 // Shared gate for preference-gated event notifications: a user whose stored
 // preferences predate the field (missing => on) or who explicitly enabled it
@@ -314,7 +377,7 @@ async function createDocumentProcessingNotification(document) {
     if (existing) return null;
 
     const succeeded = document.ocrStatus === "done";
-    return createGatedNotification(document.userId, "documentAlerts", {
+    const notif = await createGatedNotification(document.userId, "documentAlerts", {
       userId: document.userId,
       productId: document.productId || undefined,
       documentId: document._id,
@@ -324,6 +387,15 @@ async function createDocumentProcessingNotification(document) {
         ? `OCR finished reading ${document.fileName}.`
         : `OCR could not read ${document.fileName}. Review it or re-upload the file.`
     });
+
+    if (notif) {
+      await sendEmailForNotification(document.userId, "document_processing", {
+        fileName: document.fileName,
+        succeeded
+      });
+    }
+
+    return notif;
   } catch (error) {
     logger.error("Failed to create document processing notification", {
       documentId: String(document._id),
@@ -336,14 +408,23 @@ async function createDocumentProcessingNotification(document) {
 // Phase 4 §22/§23 — share activity notification. Fired when the owner creates
 // a share link. Gated by sharedAccessAlerts (default true).
 async function createShareLinkNotification(share, productName) {
-  return createGatedNotification(share.userId, "sharedAccessAlerts", {
+  const notif = await createGatedNotification(share.userId, "sharedAccessAlerts", {
     userId: share.userId,
     productId: share.productId,
     notificationType: "shared_access",
     title: "Share link created",
     message: `${productName || "Your product"} is now viewable by anyone with the link. Revoke it any time.`
   });
+
+  if (notif) {
+    await sendEmailForNotification(share.userId, "shared_access", {
+      productName: productName || "Your product"
+    });
+  }
+
+  return notif;
 }
+
 
 module.exports = {
   getNotifications,

@@ -45,9 +45,14 @@ const {
   createExpiryNotifications,
   createMaintenanceNotifications
 } = require("../src/services/notification.service");
+const {
+  getTestSentEmails,
+  clearTestSentEmails
+} = require("../src/services/email.service");
 const { app, request, startDb, stopDb, registerUser } = require("./helpers/setup");
 
 const originalFetch = global.fetch;
+
 
 describe("Notifications API", () => {
   let token;
@@ -479,3 +484,196 @@ describe("Notification types + preferences (Phase 4 §22/§23)", () => {
     expect(me.body.data.notificationPreferences.maintenanceAlerts).toBe(true);
   });
 });
+
+// ─── Email notification delivery tests ────────────────────────────────────────
+// NODE_ENV=test means dispatchEmail() records into the in-memory testSentEmails
+// store instead of hitting any real SMTP/Brevo/Resend endpoint — fully hermetic.
+
+describe("Email notifications", () => {
+  let token;
+  let userId;
+  let productId;
+
+  beforeAll(async () => {
+    global.fetch = jest.fn(async () => ({ arrayBuffer: async () => new ArrayBuffer(8) }));
+    await startDb();
+    const user = await registerUser("Email Notif User", `emailnotif_${Date.now()}@example.com`);
+    token = user.token;
+    userId = user.userId;
+    const product = await request(app)
+      .post("/api/v1/products")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ productName: "Smart TV" });
+    productId = product.body.data._id;
+  });
+
+  afterAll(async () => {
+    global.fetch = originalFetch;
+    await stopDb();
+  });
+
+  beforeEach(() => {
+    clearTestSentEmails();
+  });
+
+  test("warranty expiry notification sends an email to the product owner", async () => {
+    const expiry = new Date();
+    expiry.setHours(12, 0, 0, 0);
+    expiry.setDate(expiry.getDate() + 7); // lands on the 7-day reminder
+
+    await Product.create({
+      userId,
+      productName: "Fridge XL",
+      purchaseDate: new Date("2024-01-01"),
+      warrantyExpiryDate: expiry
+    });
+
+    const count = await createExpiryNotifications();
+    expect(count).toBeGreaterThanOrEqual(1);
+
+    // Give the fire-and-forget Promise a tick to settle.
+    await new Promise((r) => setImmediate(r));
+
+    const emails = getTestSentEmails();
+    const warrantyEmail = emails.find((e) => e.type === "warranty_expiry");
+    expect(warrantyEmail).toBeDefined();
+    expect(warrantyEmail.subject).toMatch(/Fridge XL/);
+    expect(warrantyEmail.html).toContain("Fridge XL");
+    expect(warrantyEmail.html).toContain("Warranty expiring soon");
+  });
+
+  test("service reminder notification sends an email to the product owner", async () => {
+    const next = new Date();
+    next.setHours(12, 0, 0, 0);
+    next.setDate(next.getDate() + 7);
+
+    const product = await Product.create({
+      userId,
+      productName: "AC Unit",
+      purchaseDate: new Date("2024-01-01")
+    });
+
+    await request(app)
+      .post(`/api/v1/products/${product._id}/service-history`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        serviceDate: "2025-05-01",
+        serviceType: "maintenance",
+        nextServiceDate: next.toISOString().slice(0, 10)
+      });
+
+    const count = await createMaintenanceNotifications();
+    expect(count).toBeGreaterThanOrEqual(1);
+
+    await new Promise((r) => setImmediate(r));
+
+    const emails = getTestSentEmails();
+    const serviceEmail = emails.find((e) => e.type === "service_reminder");
+    expect(serviceEmail).toBeDefined();
+    expect(serviceEmail.subject).toMatch(/AC Unit/);
+    expect(serviceEmail.html).toContain("Maintenance reminder");
+  });
+
+  test("document processing (success) sends an email", async () => {
+    const doc = await Document.create({
+      userId,
+      documentType: "receipt",
+      fileName: "warranty_card.jpg",
+      fileUrl: "https://res.cloudinary.com/test/image/upload/v1/test/wc",
+      publicId: "test/wc",
+      fileSize: 1024,
+      mimeType: "image/jpeg",
+      ocrStatus: "pending"
+    });
+
+    await request(app)
+      .post(`/api/v1/documents/${doc._id}/ocr`)
+      .set("Authorization", `Bearer ${token}`);
+
+    await new Promise((r) => setImmediate(r));
+
+    const emails = getTestSentEmails();
+    const docEmail = emails.find((e) => e.type === "document_processing");
+    expect(docEmail).toBeDefined();
+    expect(docEmail.subject).toContain("warranty_card.jpg");
+    expect(docEmail.html).toContain("warranty_card.jpg");
+  });
+
+  test("share link creation sends an email", async () => {
+    const response = await request(app)
+      .post(`/api/v1/products/${productId}/shares`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ expiresInDays: 7 });
+    expect(response.statusCode).toBe(201);
+
+    await new Promise((r) => setImmediate(r));
+
+    const emails = getTestSentEmails();
+    const shareEmail = emails.find((e) => e.type === "shared_access");
+    expect(shareEmail).toBeDefined();
+    expect(shareEmail.subject).toMatch(/Smart TV/);
+    expect(shareEmail.html).toContain("Share link created");
+  });
+
+  test("emailAlerts=false suppresses email delivery but in-app notification still fires", async () => {
+    // Disable email alerts for this user.
+    await request(app)
+      .put("/api/v1/auth/preferences")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ emailAlerts: false });
+
+    const expiry = new Date();
+    expiry.setHours(12, 0, 0, 0);
+    expiry.setDate(expiry.getDate() + 1); // 1-day reminder
+
+    const product = await Product.create({
+      userId,
+      productName: "Email Suppressed Widget",
+      purchaseDate: new Date("2024-01-01"),
+      warrantyExpiryDate: expiry
+    });
+
+    await createExpiryNotifications();
+    await new Promise((r) => setImmediate(r));
+
+    // In-app notification must exist.
+    const notif = await Notification.findOne({
+      userId,
+      productId: product._id,
+      notificationType: "warranty_expiry"
+    });
+    expect(notif).not.toBeNull();
+
+    // No email should have been recorded.
+    const emails = getTestSentEmails();
+    const emailForProduct = emails.find(
+      (e) => e.type === "warranty_expiry" && e.html && e.html.includes("Email Suppressed Widget")
+    );
+    expect(emailForProduct).toBeUndefined();
+
+    // Restore.
+    await request(app)
+      .put("/api/v1/auth/preferences")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ emailAlerts: true });
+  });
+
+  test("emailAlerts preference round-trips correctly", async () => {
+    const update = await request(app)
+      .put("/api/v1/auth/preferences")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ emailAlerts: false });
+    expect(update.statusCode).toBe(200);
+    expect(update.body.data.notificationPreferences.emailAlerts).toBe(false);
+
+    const me = await request(app).get("/api/v1/auth/me").set("Authorization", `Bearer ${token}`);
+    expect(me.body.data.notificationPreferences.emailAlerts).toBe(false);
+
+    // Restore.
+    await request(app)
+      .put("/api/v1/auth/preferences")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ emailAlerts: true });
+  });
+});
+
