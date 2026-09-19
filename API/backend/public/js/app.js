@@ -759,8 +759,10 @@ async function copyAllExtracted() {
   }
 }
 
+// Product details as a real, styled table — one per product. Each row pairs a
+// bold row header (scope="row", a11y-correct) with a semibold value. Excluded
+// by design: warranty provider info, notes (and their labels never render).
 function renderDetailSpecs(p) {
-  const providerParts = [p.warrantyProvider, p.warrantyContact].filter(Boolean).join(' · ');
   const rows = [
     ['Serial number', p.serialNumber],
     ['Model', p.model],
@@ -768,14 +770,23 @@ function renderDetailSpecs(p) {
     ['Purchased', fmtDate(p.purchaseDate)],
     ['Price', fmtMoney(p)],
     ['Store', p.purchaseStore],
+    ['Warranty expiry', fmtDate(p.warrantyExpiryDate)],
     ['Warranty period', p.warrantyPeriodMonths ? p.warrantyPeriodMonths + ' months' : null],
-    ['Lifecycle', p.lifecycleStatus ? lifecycleLabel(p.lifecycleStatus) : 'Owned'],
-    ['Warranty provider', providerParts || null],
-    ['Provider type', p.warrantyProviderType ? providerTypeLabel(p.warrantyProviderType) : null],
-    ['Warranty website', p.warrantyWebsite || null],
-    ['Notes', p.notes]
+    ['Lifecycle', p.lifecycleStatus ? lifecycleLabel(p.lifecycleStatus) : 'Owned']
   ];
-  document.getElementById('detail-specs').innerHTML = rows.map(r => detailRow(r[0], r[1])).join('');
+  const body = rows
+    .filter(r => r[1] != null && r[1] !== '')
+    .map(r =>
+      '<tr class="specs-row">' +
+        '<th class="specs-label" scope="row">' + escapeHtml(r[0]) + '</th>' +
+        '<td class="specs-value">' + escapeHtml(r[1]) + '</td>' +
+      '</tr>'
+    )
+    .join('');
+  document.getElementById('detail-specs').innerHTML =
+    '<table class="specs-table"><caption class="sr-only">Product details</caption><tbody>' +
+    body +
+    '</tbody></table>';
   renderDetailCoverage(p);
 }
 
@@ -1005,12 +1016,13 @@ function copyShareLink(token) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Export (Phase 4 §16): download all products as JSON or CSV via the
+// Export (Phase 4 §16): download all products as JSON, CSV or ODS via the
 // authenticated download endpoint.
 // ─────────────────────────────────────────────────────────────────────────────
 async function exportProductsFile(format) {
   if (!requireAuth('export your products')) return;
-  const btn = document.getElementById(format === 'csv' ? 'export-csv-btn' : 'export-json-btn');
+  const btnId = { csv: 'export-csv-btn', json: 'export-json-btn', ods: 'export-ods-btn' }[format] || 'export-json-btn';
+  const btn = document.getElementById(btnId);
   if (btn) btn.disabled = true;
   try {
     const res = await fetch(API + '/export/products?format=' + format, {
@@ -3090,6 +3102,39 @@ function wireEvents() {
   if (exportJson) exportJson.addEventListener('click', () => exportProductsFile('json'));
   const exportCsv = document.getElementById('export-csv-btn');
   if (exportCsv) exportCsv.addEventListener('click', () => exportProductsFile('csv'));
+  const exportOds = document.getElementById('export-ods-btn');
+  if (exportOds) exportOds.addEventListener('click', () => exportProductsFile('ods'));
+
+  // Import: the visible button proxies to the hidden file input; on selection
+  // the file is POSTed to /export/products/import and the report is toasted.
+  const importBtn = document.getElementById('import-products-btn');
+  const importInput = document.getElementById('import-file-input');
+  if (importBtn && importInput) {
+    importBtn.addEventListener('click', () => {
+      if (!requireAuth('import products')) return;
+      importInput.value = '';
+      importInput.click();
+    });
+    importInput.addEventListener('change', async () => {
+      const file = importInput.files && importInput.files[0];
+      if (!file) return;
+      importBtn.disabled = true;
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const data = await api('/export/products/import', { method: 'POST', body: fd });
+        const dupeWord = data.duplicates === 1 ? ' duplicate' : ' duplicates';
+        const dupes = data.duplicates ? ' (' + data.duplicates + dupeWord + ')' : '';
+        const failed = data.failed ? ' (' + data.failed + ' failed)' : '';
+        toast('Imported ' + data.imported + ' of ' + data.totalRows + ' products' + dupes + failed, 'success');
+        await loadProducts();
+      } catch (e) {
+        toast(e.message, 'error');
+      } finally {
+        importBtn.disabled = false;
+      }
+    });
+  }
   document.getElementById('detail-scan-btn').addEventListener('click', () => {
     const pid = currentProductId;
     closeDetail();

@@ -1467,6 +1467,50 @@ body {
 #camera-extracted-fields .detail-row-label { flex-shrink: 0; }
 #camera-extracted-fields .detail-row-value { max-width: 170px; }
 
+/* ── Product outline: styled per-product spec table ────────────────────────
+   Each product's details render as a real <table>: bold uppercase label
+   column on the left, semibold value column on the right, hairline separators
+   and a subtle zebra tint for scanning. Tokens keep it dark-mode safe. */
+.specs-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  background: var(--surface);
+}
+.specs-table tbody tr {
+  border-bottom: 1px solid var(--line);
+}
+.specs-table tbody tr:nth-child(even) { background: var(--surface-2); }
+.specs-table tbody tr:last-child { border-bottom: none; }
+.specs-row:hover { background: var(--brand-soft); }
+.specs-label {
+  width: 40%;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  text-align: left;
+  vertical-align: top;
+}
+.specs-value {
+  padding: 9px 12px 9px 4px;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--ink);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+/* Dark mode: the subtle zebra tint needs lifting off the plain surface. */
+body.dark-mode .specs-table tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.03); }
+body.dark-mode .specs-row:hover { background: rgba(36, 87, 245, 0.16); }
+
 .progress-container { margin-top: 14px; }
 .progress-bar-label {
   display: flex;
