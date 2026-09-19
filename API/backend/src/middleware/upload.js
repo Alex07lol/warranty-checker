@@ -22,4 +22,26 @@ const uploadSingle = multer({
   }
 }).single("file");
 
-module.exports = { uploadSingle };
+// Import uploads (bulk CSV/JSON product import). Text-only formats, 2 MB cap
+// — generous for hundreds of product rows, tight enough to be harmless.
+const IMPORT_MIME_TYPES = new Set([
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/json",
+  "text/plain"
+]);
+const uploadImport = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const name = String(file.originalname || "").toLowerCase();
+    const okMime = IMPORT_MIME_TYPES.has(file.mimetype);
+    const okExt = name.endsWith(".csv") || name.endsWith(".json");
+    if (!okMime && !okExt) {
+      return cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "file"));
+    }
+    return cb(null, true);
+  }
+}).single("file");
+
+module.exports = { uploadSingle, uploadImport };
