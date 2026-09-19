@@ -1367,9 +1367,6 @@ async function processDocument(document, options = {}) {
     document.ocrText = text;
     document.parsedData = parsed;
 
-    document.ocrStatus = "done";
-    await document.save();
-
     // Best-effort product enrichment. A failure here (e.g. duplicate serial)
     // must NOT flip the document to "failed" — the OCR itself succeeded.
     if (document.productId) {
@@ -1382,6 +1379,9 @@ async function processDocument(document, options = {}) {
         });
       }
     }
+
+    document.ocrStatus = "done";
+    await document.save();
     // Phase 4 §22 — notify the owner that their document finished processing
     // (preference-gated; never breaks OCR).
     await createDocumentProcessingNotification(document);
