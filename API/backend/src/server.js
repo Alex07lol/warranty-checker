@@ -27,6 +27,7 @@ const notificationRoutes = require("./routes/notification.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const exportRoutes = require("./routes/export.routes");
 const placesRoutes = require("./routes/places.routes");
+const migrationRoutes = require("./routes/migration.routes");
 const cron = require("node-cron");
 const {
   createExpiryNotifications,
@@ -126,7 +127,8 @@ app.get("/", (req, res) => {
         "/api/v1/documents",
         "/api/v1/notifications",
         "/api/v1/dashboard",
-        "/api/v1/places"
+        "/api/v1/places",
+        "/api/v1/migrations"
       ]
     }
   });
@@ -198,6 +200,8 @@ app.use("/api/v1/products/:productId/shares", shareRoutes);
 app.use("/api/v1/shared", sharedRoutes);
 // Google Places proxy (rate-limited + fully validated — see places.routes.js).
 app.use("/api/v1/places", placesRoutes);
+// Data migration module: external data import, normalization, validation, and audit evidence
+app.use("/api/v1/migrations", migrationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

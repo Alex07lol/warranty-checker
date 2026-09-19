@@ -1,0 +1,11 @@
+Name,Manufacturer,Model No,Purchase Date,Cost,Shop,S/N,Warranty End,Type,Tags
+Samsung Refrigerator,Samsung,RF28A,12/03/2025,₹89999,Croma,SN1001,12/03/2028,Appliance,Home;Kitchen
+Sony WH-1000XM5,Sony,WH-1000XM5,2025-05-10,29999,Amazon,SN1002,2027-05-10,Audio,Personal
+Dell Laptop,Dell,Latitude 5420,,55000,Amazon,SN1003,2027-09-01,Computer,Work
+Samsung Refrigerator,Samsung,RF28A,12/03/2025,89999,Croma,SN1001,12/03/2028,Appliance,Home;Kitchen
+Broken Record,,MODEL-X,not-a-date,-200,,SN1005,invalid-date,,
+Apple iPad Air,Apple,iPad Air M2,2025-03-01,$599,Apple Store,SN1006,2026-03-01,Tablet,Personal;Work
+LG OLED TV,LG,OLED65C3,2024-11-20,Rs. 120000,Reliance Digital,SN1007,2026-11-20,Television,Living Room;Entertainment
+,Anker,737 Power Bank,2025-02-10,9999,Amazon,SN1008,2026-02-10,Accessory,Travel
+Bose QuietComfort 45,Bose,QC45,2025-04-12,24999,Croma,SN1009,2026-04-12,Audio,Travel;Music
+Apple iPad Air,Apple,iPad Air M2,2025-03-01,599,Apple Store,SN1006,2026-03-01,Tablet,Personal;Work

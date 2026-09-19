@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WarrantyVault — Data Migration Module</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/app.css?v=18">
+  <style>
+    body {
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      margin: 0;
+      padding: 0;
+    }
+    .mig-container {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 24px 20px 80px;
+    }
+    .mig-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .mig-title-area h1 {
+      margin: 0 0 4px;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .mig-title-area p {
+      margin: 0;
+      color: var(--ink-2);
+      font-size: 14px;
+    }
+    .mig-panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-lg);
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+    .mig-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .mig-panel-title {
+      font-size: 17px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dropzone {
+      border: 2px dashed var(--line-2);
+      border-radius: var(--r-md);
+      padding: 32px 20px;
+      text-align: center;
+      background: var(--surface-2);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+    }
+    .dropzone-icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+    }
+    .table-scroll {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+      background: var(--surface);
+      margin-top: 12px;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      text-align: left;
+    }
+    .data-table th {
+      background: var(--surface-3);
+      padding: 10px 14px;
+      font-weight: 600;
+      color: var(--ink-2);
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    .data-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+    }
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+    .chip-status {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: var(--r-pill);
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .chip-imported { background: var(--ok-soft); color: var(--ok); }
+    .chip-rejected { background: var(--danger-soft); color: var(--danger); }
+    .chip-duplicate { background: var(--warn-soft); color: var(--warn); }
+    .chip-pending { background: var(--brand-soft); color: var(--brand); }
+    .chip-warning { background: var(--info-soft); color: var(--info); }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .metric-card {
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+      padding: 16px;
+      text-align: center;
+    }
+    .metric-card.accent {
+      background: var(--brand-soft);
+      border-color: rgba(36, 87, 245, 0.3);
+    }
+    .metric-val {
+      font-size: 26px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .metric-val.ok { color: var(--ok); }
+    .metric-val.warn { color: var(--warn); }
+    .metric-val.danger { color: var(--danger); }
+    .metric-lbl {
+      font-size: 12px;
+      color: var(--ink-2);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .formula-explanation {
+      background: var(--surface-3);
+      border-radius: var(--r-sm);
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--ink-2);
+      margin-top: 14px;
+      line-height: 1.5;
+    }
+    .expandable-content {
+      display: none;
+      padding: 12px 16px;
+      background: var(--surface-2);
+      border-top: 1px dashed var(--line);
+      font-size: 12.5px;
+    }
+    .expandable-content.show {
+      display: block;
+    }
+    .diff-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .diff-box {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-xs);
+      padding: 10px;
+    }
+    .diff-box h4 {
+      margin: 0 0 6px;
+      font-size: 12px;
+      color: var(--ink-3);
+      text-transform: uppercase;
+    }
+    .diff-box pre {
+      margin: 0;
+      font-family: ui-monospace, monospace;
+      font-size: 11.5px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .comparison-pill {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin: 2px 4px 2px 0;
+    }
+    .pill-match { background: var(--ok-soft); color: var(--ok); }
+    .pill-mismatch { background: var(--danger-soft); color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="mig-container">
+    <!-- Header -->
+    <header class="mig-header">
+      <div class="mig-title-area">
+        <h1>Data Migration &amp; Audit Evidence</h1>
+        <p>Ingest external CSV records, validate, deduplicate, import into Product collection, and prove data accuracy.</p>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <button type="button" class="btn btn-ghost btn-small" id="theme-toggle" onclick="toggleTheme()">🌙 Theme</button>
+        <a href="/" class="btn btn-ghost btn-small" style="text-decoration:none;">← Back to App</a>
+      </div>
+    </header>
+
+    <!-- Upload & Ingestion Panel -->
+    <section class="mig-panel" id="upload-panel">
+      <div class="mig-panel-header">
+        <div class="mig-panel-title">
+          <span>📁 Step 1: Ingest External Records</span>
+        </div>
+        <div>
+          <button type="button" class="btn btn-ghost btn-small" id="load-demo-btn" onclick="loadBenchmarkDemo()">⚡ Load Demo Dataset (10 Records)</button>
+        </div>
+      </div>
+
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+        <div class="dropzone-icon">📥</div>
+        <div style="font-weight:700; font-size:15px; margin-bottom:4px;">Drag &amp; drop external CSV or JSON file here</div>
+        <div style="color:var(--ink-2); font-size:13px; margin-bottom:12px;">Supports custom column headers, dates (DD/MM/YYYY, ISO), prices with currencies (₹, $, Rs.)</div>
+        <button type="button" class="btn btn-primary btn-small">Choose File</button>
+        <input type="file" id="file-input" accept=".csv,.txt,.json" style="display:none;" onchange="handleFileSelected(event)">
+      </div>
+
+      <div style="display:flex; gap:14px; margin-top:16px; flex-wrap:wrap; align-items:center;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label for="date-format-select" style="font-size:13px; font-weight:600; color:var(--ink-2);">Date Format:</label>
+          <select id="date-format-select" style="padding:6px 10px; border-radius:var(--r-xs); border:1px solid var(--line); background:var(--surface);">
+            <option value="DD/MM/YYYY" selected>DD/MM/YYYY (International / Indian standard)</option>
+            <option value="MM/DD/YYYY">MM/DD/YYYY (US standard)</option>
+          </select>
+        </div>
+        <div id="upload-status" style="font-size:13px; font-weight:600; color:var(--brand);"></div>
+      </div>
+    </section>
+
+    <!-- Evidence & Metrics Dashboard (hidden until preview/imported) -->
+    <section class="mig-panel" id="evidence-panel" style="display:none;">
+      <div class="mig-panel-header">
+        <div class="mig-panel-title">
+          <span>📊 Evidence &amp; Audit Metrics</span>
+          <span class="chip-status chip-pending" id="migration-status-chip">PREVIEW</span>
+        </div>
+        <div id="import-actions">
+          <button type="button" class="btn btn-primary" id="execute-import-btn" onclick="executeImportAction()">Import Valid Records</button>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-val" id="metric-source">0</div>
+          <div class="metric-lbl">Source Records</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val" id="metric-valid">0</div>
+          <div class="metric-lbl">Valid Records</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val ok" id="metric-imported">0</div>
+          <div class="metric-lbl">Imported Records</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val danger" id="metric-rejected">0</div>
+          <div class="metric-lbl">Rejected Invalid</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val warn" id="metric-duplicate">0</div>
+          <div class="metric-lbl">Duplicate Records</div>
+        </div>
+        <div class="metric-card accent">
+          <div class="metric-val ok" id="metric-success-rate">0.0%</div>
+          <div class="metric-lbl">Import Success Rate</div>
+        </div>
+        <div class="metric-card accent">
+          <div class="metric-val ok" id="metric-accuracy">0.0%</div>
+          <div class="metric-lbl">Data Accuracy</div>
+        </div>
+      </div>
+
+      <div class="formula-explanation" id="formula-text">
+        <strong>Audited Formulas:</strong><br>
+        • <strong>Import Success Rate</strong> = successfully imported valid records / total valid records × 100<br>
+        • <strong>Data Accuracy</strong> = correctly imported expected fields / expected fields across successfully imported records × 100
+      </div>
+    </section>
+
+    <!-- Step 2: Received External Data (Original Raw Records) -->
+    <section class="mig-panel" id="received-data-panel" style="display:none;">
+      <div class="mig-panel-header">
+        <div class="mig-panel-title">
+          <span>📄 Received External Data (Original Input)</span>
+        </div>
+        <div style="font-size:13px; color:var(--ink-2);" id="raw-meta-text">Showing raw external input exactly as uploaded</div>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table" id="raw-data-table">
+          <thead id="raw-table-head"></thead>
+          <tbody id="raw-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Step 3: Processed Data & Pipeline Transformation -->
+    <section class="mig-panel" id="processed-data-panel" style="display:none;">
+      <div class="mig-panel-header">
+        <div class="mig-panel-title">
+          <span>⚙️ Processed Data (Transformation &amp; Decision Pipeline)</span>
+        </div>
+        <div style="font-size:13px; color:var(--ink-2);">Click any row to inspect mapped, normalized, and field verification evidence</div>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table" id="processed-table">
+          <thead>
+            <tr>
+              <th>Row</th>
+              <th>Product / Title</th>
+              <th>Mapped Name</th>
+              <th>Normalized Price</th>
+              <th>Dates</th>
+              <th>Outcome</th>
+              <th>Details &amp; Reasons</th>
+            </tr>
+          </thead>
+          <tbody id="processed-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Step 4: Rejected Records -->
+    <section class="mig-panel" id="rejected-records-panel" style="display:none;">
+      <div class="mig-panel-header">
+        <div class="mig-panel-title">
+          <span style="color:var(--danger);">⛔ Rejected Records</span>
+        </div>
+        <div style="font-size:13px; color:var(--ink-2);">Records failing required schema or business invariants</div>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table" id="rejected-table">
+          <thead>
+            <tr>
+              <th>Row</th>
+              <th>Product Name</th>
+              <th>Rejection Reasons</th>
+              <th>Raw Values</th>
+            </tr>
+          </thead>
+          <tbody id="rejected-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Step 5: Duplicate Records -->
+    <section class="mig-panel" id="duplicate-records-panel" style="display:none;">
+      <div class="mig-panel-header">
+        <div class="mig-panel-title">
+          <span style="color:var(--warn);">⚠️ Duplicate Records</span>
+        </div>
+        <div style="font-size:13px; color:var(--ink-2);">Detected duplicate items (skipped to protect data integrity)</div>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table" id="duplicate-table">
+          <thead>
+            <tr>
+              <th>Source Row</th>
+              <th>Product</th>
+              <th>Duplicate Type</th>
+              <th>Matched Item</th>
+              <th>Match Reason</th>
+            </tr>
+          </thead>
+          <tbody id="duplicate-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Step 6: Resulting WarrantyVault Data (Actual MongoDB Documents) -->
+    <section class="mig-panel" id="resulting-products-panel" style="display:none;">
+      <div class="mig-panel-header">
+        <div class="mig-panel-title">
+          <span style="color:var(--ok);">✅ Resulting Project Data (MongoDB Product Documents)</span>
+        </div>
+        <div style="font-size:13px; color:var(--ink-2);">Live products created in database</div>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table" id="resulting-table">
+          <thead>
+            <tr>
+              <th>Product Name</th>
+              <th>Brand &amp; Model</th>
+              <th>Price</th>
+              <th>Store</th>
+              <th>Serial Number</th>
+              <th>Warranty Expiry</th>
+              <th>Tags</th>
+              <th>MongoDB ID</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="resulting-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/js/utils.js?v=11"></script>
+  <script src="/js/api.js?v=11"></script>
+  <script>
+    let currentMigration = null;
+    let currentEvidence = null;
+
+    // Drag and drop handlers
+    const dropzone = document.getElementById('dropzone');
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processUploadFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    function handleFileSelected(e) {
+      if (e.target.files && e.target.files.length > 0) {
+        processUploadFile(e.target.files[0]);
+      }
+    }
+
+    async function processUploadFile(file) {
+      const statusEl = document.getElementById('upload-status');
+      statusEl.textContent = 'Uploading and generating preview...';
+      const dateFormat = document.getElementById('date-format-select').value;
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('dateFormat', dateFormat);
+
+        const data = await api('/migrations/preview', {
+          method: 'POST',
+          body: formData
+        });
+
+        currentMigration = data;
+        statusEl.textContent = 'Preview generated successfully!';
+        renderMigrationState(data);
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+        alert('Migration preview failed: ' + err.message);
+      }
+    }
+
+    async function loadBenchmarkDemo() {
+      const statusEl = document.getElementById('upload-status');
+      statusEl.textContent = 'Loading benchmark demo dataset...';
+      const dateFormat = document.getElementById('date-format-select').value;
+
+      const demoCsv = [
+        "Name,Manufacturer,Model No,Purchase Date,Cost,Shop,S/N,Warranty End,Type,Tags",
+        "Samsung Refrigerator,Samsung,RF28A,12/03/2025,₹89999,Croma,SN1001,12/03/2028,Appliance,Home;Kitchen",
+        "Sony WH-1000XM5,Sony,WH-1000XM5,2025-05-10,29999,Amazon,SN1002,2027-05-10,Audio,Personal",
+        "Dell Laptop,Dell,Latitude 5420,,55000,Amazon,SN1003,2027-09-01,Computer,Work",
+        "Samsung Refrigerator,Samsung,RF28A,12/03/2025,89999,Croma,SN1001,12/03/2028,Appliance,Home;Kitchen",
+        "Broken Record,,MODEL-X,not-a-date,-200,,SN1005,invalid-date,,",
+        "Apple iPad Air,Apple,iPad Air M2,2025-03-01,$599,Apple Store,SN1006,2026-03-01,Tablet,Personal;Work",
+        "LG OLED TV,LG,OLED65C3,2024-11-20,Rs. 120000,Reliance Digital,SN1007,2026-11-20,Television,Living Room;Entertainment",
+        ",Anker,737 Power Bank,2025-02-10,9999,Amazon,SN1008,2026-02-10,Accessory,Travel",
+        "Bose QuietComfort 45,Bose,QC45,2025-04-12,24999,Croma,SN1009,2026-04-12,Audio,Travel;Music",
+        "Apple iPad Air,Apple,iPad Air M2,2025-03-01,599,Apple Store,SN1006,2026-03-01,Tablet,Personal;Work"
+      ].join("\n");
+
+      try {
+        const data = await api('/migrations/preview', {
+          method: 'POST',
+          body: {
+            content: demoCsv,
+            fileName: 'migration-demo.csv',
+            dateFormat
+          }
+        });
+
+        currentMigration = data;
+        statusEl.textContent = 'Benchmark dataset loaded (10 records: 8 valid, 2 invalid, 2 duplicate).';
+        renderMigrationState(data);
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+        alert('Failed to load demo: ' + err.message);
+      }
+    }
+
+    async function executeImportAction() {
+      if (!currentMigration || !currentMigration.migrationId) return;
+
+      const importBtn = document.getElementById('execute-import-btn');
+      importBtn.disabled = true;
+      importBtn.textContent = 'Importing Products...';
+
+      try {
+        const data = await api('/migrations/' + currentMigration.migrationId + '/import', {
+          method: 'POST'
+        });
+
+        currentMigration = data;
+        // Fetch evidence for deep verification
+        currentEvidence = await api('/migrations/' + currentMigration.migrationId + '/evidence');
+
+        renderMigrationState(data, currentEvidence);
+        alert('Migration import complete! Successfully created ' + data.importedRecordCount + ' products.');
+      } catch (err) {
+        alert('Import failed: ' + err.message);
+      } finally {
+        importBtn.disabled = false;
+        importBtn.textContent = 'Import Valid Records';
+      }
+    }
+
+    function renderMigrationState(data, evidence) {
+      document.getElementById('evidence-panel').style.display = 'block';
+      document.getElementById('received-data-panel').style.display = 'block';
+      document.getElementById('processed-data-panel').style.display = 'block';
+
+      // Status chip
+      const statusChip = document.getElementById('migration-status-chip');
+      statusChip.textContent = data.status.toUpperCase();
+      statusChip.className = 'chip-status ' + (data.status === 'completed' ? 'chip-imported' : 'chip-pending');
+
+      const importActions = document.getElementById('import-actions');
+      if (data.status === 'completed') {
+        importActions.innerHTML = '<span style="color:var(--ok); font-weight:700; font-size:14px;">✓ Imported to MongoDB</span>';
+      } else {
+        importActions.innerHTML = '<button type="button" class="btn btn-primary" id="execute-import-btn" onclick="executeImportAction()">Import Valid Records (' + (data.importableRecordCount || 0) + ')</button>';
+      }
+
+      // Metrics
+      document.getElementById('metric-source').textContent = data.sourceRecordCount;
+      document.getElementById('metric-valid').textContent = data.validRecordCount;
+      document.getElementById('metric-imported').textContent = data.importedRecordCount || 0;
+      document.getElementById('metric-rejected').textContent = data.rejectedRecordCount;
+      document.getElementById('metric-duplicate').textContent = data.duplicateRecordCount;
+
+      const successRate = data.importSuccessRate !== undefined ? Number(data.importSuccessRate).toFixed(1) + '%' : '—';
+      const accuracyRate = data.dataAccuracy !== undefined ? Number(data.dataAccuracy).toFixed(1) + '%' : '—';
+      document.getElementById('metric-success-rate').textContent = successRate;
+      document.getElementById('metric-accuracy').textContent = accuracyRate;
+
+      // Formula note
+      const formulaEl = document.getElementById('formula-text');
+      if (data.status === 'completed') {
+        formulaEl.innerHTML = '<strong>Audited Formulas:</strong><br>' +
+          '• <strong>Import Success Rate:</strong> ' + data.importedRecordCount + ' / ' + data.validRecordCount + ' valid records = <strong>' + successRate + '</strong><br>' +
+          '• <strong>Data Accuracy:</strong> ' + (data.totalCorrectFields || 0) + ' / ' + (data.totalExpectedFields || 0) + ' verified fields match expected = <strong>' + accuracyRate + '</strong>';
+      }
+
+      // 1. Render Raw Table
+      renderRawTable(data.headers || [], data.records || []);
+
+      // 2. Render Processed Table
+      renderProcessedTable(data.records || []);
+
+      // 3. Render Rejected Table
+      renderRejectedTable(data.records || []);
+
+      // 4. Render Duplicate Table
+      renderDuplicateTable(data.records || []);
+
+      // 5. Render Resulting Products
+      if (evidence && evidence.evidenceRecords) {
+        renderResultingTable(evidence.evidenceRecords);
+      } else if (data.status === 'completed') {
+        // Load evidence if not yet loaded
+        api('/migrations/' + data.migrationId + '/evidence').then((ev) => {
+          currentEvidence = ev;
+          renderResultingTable(ev.evidenceRecords);
+        });
+      } else {
+        document.getElementById('resulting-products-panel').style.display = 'none';
+      }
+    }
+
+    function renderRawTable(headers, records) {
+      const thead = document.getElementById('raw-table-head');
+      const tbody = document.getElementById('raw-table-body');
+      thead.innerHTML = '';
+      tbody.innerHTML = '';
+
+      if (!records || records.length === 0) return;
+
+      let headHtml = '<tr><th>Row</th>';
+      headers.forEach(h => { headHtml += '<th>' + escapeHtml(h) + '</th>'; });
+      headHtml += '</tr>';
+      thead.innerHTML = headHtml;
+
+      records.forEach(r => {
+        let rowHtml = '<tr><td><b>' + r.sourceRowNumber + '</b></td>';
+        headers.forEach(h => {
+          const val = r.rawRecord ? (r.rawRecord[h] || '') : '';
+          rowHtml += '<td>' + escapeHtml(String(val)) + '</td>';
+        });
+        rowHtml += '</tr>';
+        tbody.insertAdjacentHTML('beforeend', rowHtml);
+      });
+    }
+
+    function renderProcessedTable(records) {
+      const tbody = document.getElementById('processed-table-body');
+      tbody.innerHTML = '';
+
+      records.forEach((r, idx) => {
+        const rowId = 'detail-row-' + idx;
+        const name = (r.normalizedRecord && r.normalizedRecord.productName) || (r.mappedRecord && r.mappedRecord.productName) || '(No Name)';
+        const price = (r.normalizedRecord && r.normalizedRecord.purchasePrice !== undefined)
+          ? ((r.normalizedRecord.currency || '') + ' ' + r.normalizedRecord.purchasePrice)
+          : (r.mappedRecord && r.mappedRecord.purchasePrice) || '—';
+
+        const purchase = r.normalizedRecord && r.normalizedRecord.purchaseDate ? new Date(r.normalizedRecord.purchaseDate).toISOString().slice(0, 10) : '—';
+        const expiry = r.normalizedRecord && r.normalizedRecord.warrantyExpiryDate ? new Date(r.normalizedRecord.warrantyExpiryDate).toISOString().slice(0, 10) : '—';
+
+        let chipClass = 'chip-pending';
+        if (r.outcome === 'imported') chipClass = 'chip-imported';
+        else if (r.outcome === 'rejected') chipClass = 'chip-rejected';
+        else if (r.outcome === 'duplicate') chipClass = 'chip-duplicate';
+
+        let details = '';
+        if (r.outcome === 'rejected') {
+          details = '<span style="color:var(--danger);">' + r.errors.join('; ') + '</span>';
+        } else if (r.outcome === 'duplicate') {
+          details = '<span style="color:var(--warn);">' + (r.duplicateOf ? r.duplicateOf.matchReason : 'Duplicate') + '</span>';
+        } else if (r.outcome === 'imported') {
+          details = '<span style="color:var(--ok);">Product created ID: ' + r.importedProductId + '</span>';
+        } else {
+          details = '<span style="color:var(--brand);">Valid &amp; ready for import</span>';
+        }
+
+        let mainRow = '<tr style="cursor:pointer;" onclick="toggleRowExpand(\'' + rowId + '\')">' +
+          '<td><b>' + r.sourceRowNumber + '</b></td>' +
+          '<td>' + escapeHtml(name) + '</td>' +
+          '<td>' + escapeHtml((r.mappedRecord && r.mappedRecord.productName) || '—') + '</td>' +
+          '<td>' + escapeHtml(price) + '</td>' +
+          '<td>' + purchase + ' → ' + expiry + '</td>' +
+          '<td><span class="chip-status ' + chipClass + '">' + r.outcome.toUpperCase() + '</span></td>' +
+          '<td>' + details + '</td>' +
+          '</tr>';
+
+        // Expandable drawer row
+        let comparisonsHtml = '';
+        if (r.accuracyChecks && r.accuracyChecks.fieldComparisons && r.accuracyChecks.fieldComparisons.length > 0) {
+          comparisonsHtml = '<div style="margin-top:8px;"><strong>Field Accuracy Evidence:</strong><br>';
+          r.accuracyChecks.fieldComparisons.forEach(c => {
+            const cls = c.isMatch ? 'pill-match' : 'pill-mismatch';
+            comparisonsHtml += '<span class="comparison-pill ' + cls + '">' + c.field + ': ' + (c.isMatch ? '✓ Match' : '✗ Mismatch') + '</span>';
+          });
+          comparisonsHtml += '</div>';
+        }
+
+        let drawerRow = '<tr class="expandable-content" id="' + rowId + '">' +
+          '<td colspan="7">' +
+            '<div class="diff-grid">' +
+              '<div class="diff-box"><h4>Raw Source Record</h4><pre>' + escapeHtml(JSON.stringify(r.rawRecord, null, 2)) + '</pre></div>' +
+              '<div class="diff-box"><h4>Mapped Product Fields</h4><pre>' + escapeHtml(JSON.stringify(r.mappedRecord, null, 2)) + '</pre></div>' +
+              '<div class="diff-box"><h4>Normalized Values</h4><pre>' + escapeHtml(JSON.stringify(r.normalizedRecord, null, 2)) + '</pre></div>' +
+            '</div>' +
+            comparisonsHtml +
+          '</td>' +
+          '</tr>';
+
+        tbody.insertAdjacentHTML('beforeend', mainRow + drawerRow);
+      });
+    }
+
+    function renderRejectedTable(records) {
+      const panel = document.getElementById('rejected-records-panel');
+      const tbody = document.getElementById('rejected-table-body');
+      tbody.innerHTML = '';
+
+      const rejected = records.filter(r => r.outcome === 'rejected');
+      if (rejected.length === 0) {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.style.display = 'block';
+
+      rejected.forEach(r => {
+        const name = (r.mappedRecord && r.mappedRecord.productName) || (r.rawRecord && (r.rawRecord.Name || r.rawRecord.name)) || '(Blank)';
+        const rowHtml = '<tr>' +
+          '<td><b>Row ' + r.sourceRowNumber + '</b></td>' +
+          '<td>' + escapeHtml(name) + '</td>' +
+          '<td style="color:var(--danger); font-weight:600;">' + r.errors.join('<br>') + '</td>' +
+          '<td><pre style="margin:0; font-size:11px;">' + escapeHtml(JSON.stringify(r.rawRecord)) + '</pre></td>' +
+          '</tr>';
+        tbody.insertAdjacentHTML('beforeend', rowHtml);
+      });
+    }
+
+    function renderDuplicateTable(records) {
+      const panel = document.getElementById('duplicate-records-panel');
+      const tbody = document.getElementById('duplicate-table-body');
+      tbody.innerHTML = '';
+
+      const duplicates = records.filter(r => r.outcome === 'duplicate');
+      if (duplicates.length === 0) {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.style.display = 'block';
+
+      duplicates.forEach(r => {
+        const name = (r.mappedRecord && r.mappedRecord.productName) || '(Unknown)';
+        const dup = r.duplicateOf || {};
+        const typeLabel = dup.type === 'existing' ? 'Database Match' : 'Batch Match';
+        const matchedItem = dup.matchedRow ? ('Row ' + dup.matchedRow) : (dup.matchedProductName || dup.matchedProductId || 'Existing Product');
+
+        const rowHtml = '<tr>' +
+          '<td><b>Row ' + r.sourceRowNumber + '</b></td>' +
+          '<td>' + escapeHtml(name) + '</td>' +
+          '<td><span class="chip-status chip-duplicate">' + typeLabel + '</span></td>' +
+          '<td><b>' + escapeHtml(matchedItem) + '</b></td>' +
+          '<td>' + escapeHtml(dup.matchReason || 'Duplicate') + '</td>' +
+          '</tr>';
+        tbody.insertAdjacentHTML('beforeend', rowHtml);
+      });
+    }
+
+    function renderResultingTable(evidenceRecords) {
+      const panel = document.getElementById('resulting-products-panel');
+      const tbody = document.getElementById('resulting-table-body');
+      tbody.innerHTML = '';
+
+      const imported = evidenceRecords.filter(r => r.outcome === 'imported' && r.resultingProduct);
+      if (imported.length === 0) {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.style.display = 'block';
+
+      imported.forEach(r => {
+        const p = r.resultingProduct;
+        const brandModel = [p.brand, p.model].filter(Boolean).join(' ') || '—';
+        const price = p.purchasePrice !== undefined ? ((p.currency || '') + ' ' + p.purchasePrice) : '—';
+        const expiry = p.warrantyExpiryDate ? new Date(p.warrantyExpiryDate).toISOString().slice(0, 10) : '—';
+        const tags = (p.tags && p.tags.length) ? p.tags.map(t => '<span class="chip-status chip-warning">' + escapeHtml(t) + '</span>').join(' ') : '—';
+
+        const rowHtml = '<tr>' +
+          '<td><b>' + escapeHtml(p.productName) + '</b></td>' +
+          '<td>' + escapeHtml(brandModel) + '</td>' +
+          '<td>' + escapeHtml(price) + '</td>' +
+          '<td>' + escapeHtml(p.purchaseStore || '—') + '</td>' +
+          '<td><code>' + escapeHtml(p.serialNumber || '—') + '</code></td>' +
+          '<td>' + expiry + '</td>' +
+          '<td>' + tags + '</td>' +
+          '<td><code>' + p._id + '</code></td>' +
+          '<td><a href="/?product=' + p._id + '" class="btn btn-ghost btn-small" target="_blank">Open in App ↗</a></td>' +
+          '</tr>';
+        tbody.insertAdjacentHTML('beforeend', rowHtml);
+      });
+    }
+
+    function toggleRowExpand(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.toggle('show');
+      }
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('dark-mode');
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[m]);
+    }
+  </script>
+</body>
+</html>

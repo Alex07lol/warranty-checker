@@ -37,6 +37,8 @@ tags:
     description: Aggregated user statistics.
   - name: Places
     description: Google Places proxy (repair-centre search, geocoding, photos).
+  - name: Migration
+    description: External data ingestion, normalization, validation, deduplication, and evidence audit trail.
   - name: System
     description: Health, readiness and API documentation.
 
@@ -1280,6 +1282,206 @@ paths:
           $ref: "#/components/responses/BadRequest"
       security: []
 
+  /api/v1/migrations/preview:
+    post:
+      tags: [Migration]
+      summary: Upload external CSV/JSON to preview mapping, validation, and duplicates
+      description: Parses external records without writing to the Product collection. Returns staging counts, validation errors, and detected duplicates.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: External CSV or JSON file (up to 5 MB)
+                dateFormat:
+                  type: string
+                  example: DD/MM/YYYY
+                  description: Preferred format for resolving ambiguous numeric dates (DD/MM/YYYY or MM/DD/YYYY)
+                customMapping:
+                  type: string
+                  description: Optional JSON string of header to field mappings
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                  description: Raw CSV text or JSON string
+                fileName:
+                  type: string
+                  example: products.csv
+                dateFormat:
+                  type: string
+                  example: DD/MM/YYYY
+      responses:
+        "201":
+          description: Migration preview generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: Migration preview generated }
+                  data: { $ref: "#/components/schemas/MigrationPreview" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/migrations/{id}/import:
+    post:
+      tags: [Migration]
+      summary: Import valid non-duplicate records from a migration preview
+      description: Converts staged pending records into Product documents via product.service, handles concurrency races gracefully, and records deterministic accuracy checks.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          description: Migration ID
+      responses:
+        "200":
+          description: Migration imported successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: Migration imported successfully }
+                  data: { $ref: "#/components/schemas/MigrationDetail" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/migrations:
+    post:
+      tags: [Migration]
+      summary: One-step upload and import
+      description: Ingests, normalizes, validates, deduplicates, and creates products in a single operation.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+          application/json:
+            schema:
+              type: object
+              properties:
+                content: { type: string }
+                fileName: { type: string }
+      responses:
+        "201":
+          description: Migration completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: Migration completed successfully }
+                  data: { $ref: "#/components/schemas/MigrationDetail" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      tags: [Migration]
+      summary: List user's past migrations
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Paginated list of migrations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      migrations:
+                        type: array
+                        items: { $ref: "#/components/schemas/MigrationSummary" }
+                      total: { type: integer }
+                      page: { type: integer }
+                      limit: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/migrations/{id}:
+    get:
+      tags: [Migration]
+      summary: Get migration detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Migration detail with records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/MigrationDetail" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/migrations/{id}/evidence:
+    get:
+      tags: [Migration]
+      summary: Get before-and-after migration evidence
+      description: Returns raw record, mapped record, normalized record, validation outcome, duplicate resolution, resulting Product, and field-level accuracy comparisons.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Migration audit evidence
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/MigrationEvidence" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /health:
     get:
       tags: [System]
@@ -1849,3 +2051,139 @@ components:
         expiringSoon:
           type: array
           items: { $ref: "#/components/schemas/Product" }
+
+    MigrationSummary:
+      type: object
+      properties:
+        _id: { type: string }
+        fileName: { type: string }
+        sourceFormat: { type: string, enum: [csv, json] }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time, nullable: true }
+        status: { type: string, enum: [preview, in_progress, completed, failed] }
+        sourceRecordCount: { type: integer }
+        validRecordCount: { type: integer }
+        importedRecordCount: { type: integer }
+        rejectedRecordCount: { type: integer }
+        duplicateRecordCount: { type: integer }
+        importSuccessRate: { type: number }
+        dataAccuracy: { type: number }
+        createdAt: { type: string, format: date-time }
+
+    MigrationRecordItem:
+      type: object
+      properties:
+        sourceRowNumber: { type: integer }
+        rawRecord: { type: object }
+        mappedRecord: { type: object }
+        normalizedRecord: { type: object }
+        outcome: { type: string, enum: [pending, imported, rejected, duplicate] }
+        errors:
+          type: array
+          items: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+        duplicateOf:
+          type: object
+          nullable: true
+          properties:
+            type: { type: string, enum: [batch, existing] }
+            matchedRow: { type: integer, nullable: true }
+            matchedProductId: { type: string, nullable: true }
+            matchedProductName: { type: string, nullable: true }
+            matchReason: { type: string }
+            matchedFields:
+              type: array
+              items: { type: string }
+        importedProductId: { type: string, nullable: true }
+        accuracyChecks:
+          type: object
+          properties:
+            fieldsExpected: { type: integer }
+            fieldsImported: { type: integer }
+            fieldsCorrect: { type: integer }
+            fieldComparisons:
+              type: array
+              items:
+                type: object
+                properties:
+                  field: { type: string }
+                  expected: {}
+                  actual: {}
+                  isMatch: { type: boolean }
+
+    MigrationPreview:
+      type: object
+      properties:
+        migrationId: { type: string }
+        fileName: { type: string }
+        sourceFormat: { type: string, enum: [csv, json] }
+        status: { type: string, enum: [preview] }
+        sourceRecordCount: { type: integer }
+        validRecordCount: { type: integer }
+        rejectedRecordCount: { type: integer }
+        duplicateRecordCount: { type: integer }
+        importableRecordCount: { type: integer }
+        headers:
+          type: array
+          items: { type: string }
+        records:
+          type: array
+          items: { $ref: "#/components/schemas/MigrationRecordItem" }
+
+    MigrationDetail:
+      type: object
+      properties:
+        migrationId: { type: string }
+        fileName: { type: string }
+        sourceFormat: { type: string, enum: [csv, json] }
+        status: { type: string, enum: [preview, in_progress, completed, failed] }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time, nullable: true }
+        sourceRecordCount: { type: integer }
+        validRecordCount: { type: integer }
+        importedRecordCount: { type: integer }
+        rejectedRecordCount: { type: integer }
+        duplicateRecordCount: { type: integer }
+        importSuccessRate: { type: number }
+        dataAccuracy: { type: number }
+        totalExpectedFields: { type: integer }
+        totalCorrectFields: { type: integer }
+        records:
+          type: array
+          items: { $ref: "#/components/schemas/MigrationRecordItem" }
+
+    MigrationEvidence:
+      type: object
+      properties:
+        migrationId: { type: string }
+        fileName: { type: string }
+        sourceFormat: { type: string, enum: [csv, json] }
+        status: { type: string }
+        completedAt: { type: string, format: date-time, nullable: true }
+        summary:
+          type: object
+          properties:
+            sourceRecordCount: { type: integer }
+            validRecordCount: { type: integer }
+            importedRecordCount: { type: integer }
+            rejectedRecordCount: { type: integer }
+            duplicateRecordCount: { type: integer }
+            importSuccessRate: { type: number }
+            dataAccuracy: { type: number }
+        evidenceRecords:
+          type: array
+          items:
+            type: object
+            properties:
+              sourceRowNumber: { type: integer }
+              rawRecord: { type: object }
+              mappedRecord: { type: object }
+              normalizedRecord: { type: object }
+              outcome: { type: string }
+              errors: { type: array, items: { type: string } }
+              warnings: { type: array, items: { type: string } }
+              duplicateOf: { type: object, nullable: true }
+              resultingProduct: { $ref: "#/components/schemas/Product", nullable: true }
+              accuracyChecks: { type: object }

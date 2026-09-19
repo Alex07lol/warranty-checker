@@ -13,7 +13,8 @@
     "ocr:sim": "node scripts/ocr-simulate.cjs",
     "ocr:corpus": "node scripts/ocr-corpus.mjs",
     "ocr:eval": "node scripts/ocr-eval.mjs",
-    "check:cloudinary": "node scripts/check-cloudinary.js"
+    "check:cloudinary": "node scripts/check-cloudinary.js",
+    "migration:demo": "node scripts/migration-demo.js"
   },
   "engines": {
     "node": ">=20"

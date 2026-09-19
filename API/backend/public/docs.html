@@ -211,6 +211,16 @@ var GROUPS = [
     ]
   },
   {
+    name: 'Migration', endpoints: [
+      { m: 'POST', p: '/api/v1/migrations/preview', auth: true, d: 'Upload external CSV/JSON to preview mapping, validation, and duplicates.' },
+      { m: 'POST', p: '/api/v1/migrations/{id}/import', auth: true, d: 'Import valid non-duplicate records from a migration preview.' },
+      { m: 'POST', p: '/api/v1/migrations', auth: true, d: 'One-step upload and import.' },
+      { m: 'GET', p: '/api/v1/migrations', auth: true, d: 'List user\'s past migrations (paginated).' },
+      { m: 'GET', p: '/api/v1/migrations/{id}', auth: true, d: 'Get migration detail with records.' },
+      { m: 'GET', p: '/api/v1/migrations/{id}/evidence', auth: true, d: 'Get structured before-and-after audit evidence.' }
+    ]
+  },
+  {
     name: 'System', endpoints: [
       { m: 'GET', p: '/health', auth: false, d: 'Liveness — always 200 while running. Includes uptime + OCR job metrics.' },
       { m: 'GET', p: '/ready', auth: false, d: 'Readiness — 200 when MongoDB responds, 503 otherwise.' },
