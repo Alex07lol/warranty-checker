@@ -519,17 +519,72 @@ paths:
   /api/v1/export/products:
     get:
       tags: [Products]
-      summary: Export all owned products (JSON or CSV)
+      summary: Export all owned products (JSON, CSV or ODS)
       description: |
-        Phase 4 §16 — downloads every live product with its warranties, service
-        history and document *metadata* (never file contents). Ownership is
-        scoped to the authenticated user. CSV follows RFC 4180 (quoting/
-        escaping). Delivered as an attachment.
+        Phase 4 §16 — downloads every live product with its service history.
+        Ownership is scoped to the authenticated user. CSV follows RFC 4180
+        (quoting/escaping); ODS is an OpenDocument Spreadsheet with a bold
+        header row. Delivered as an attachment.
       parameters:
-        - { name: format, in: query, schema: { type: string, enum: [json, csv], default: json } }
+        - { name: format, in: query, schema: { type: string, enum: [json, csv, ods], default: json } }
       responses:
         "200":
-          description: File attachment (application/json or text/csv)
+          description: File attachment (application/json, text/csv or application/vnd.oasis.opendocument.spreadsheet)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/export/products/import:
+    post:
+      tags: [Products]
+      summary: Bulk-import products from a CSV or JSON file
+      description: |
+        Upload a CSV (with the same columns the export emits) or a JSON file
+        ({ products: [...] }, a bare array, or a single object). Each valid row
+        becomes a product owned by the authenticated user. Duplicate serial
+        numbers (in the file or against existing products) are skipped and
+        reported — the import is partial by design. Max 500 rows, 2 MB.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV or JSON file (max 2 MB, max 500 rows)
+      responses:
+        "200":
+          description: Per-row import report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      totalRows: { type: integer }
+                      imported: { type: integer }
+                      failed: { type: integer }
+                      duplicates: { type: integer }
+                      results:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            row: { type: integer }
+                            status: { type: string, enum: [imported, failed, duplicate] }
+                            productId: { type: string, nullable: true }
+                            productName: { type: string, nullable: true }
+                            errors: { type: array, items: { type: string } }
+                            warnings: { type: array, items: { type: string } }
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
 

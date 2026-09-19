@@ -295,9 +295,7 @@ notification. Missing → `404`, malformed id → `400`.
 
 **GET `/dashboard`** — one-shot stats for the home screen:
 
-```jsonc
-{
-  "totalProducts": 3,            // number
+```jsonc{"totalProducts": 3,            // number
   "expiringSoonCount": 1,        // number
   "totalDocuments": 2,           // number
   "unreadNotificationsCount": 0, // number
@@ -305,6 +303,40 @@ notification. Missing → `404`, malformed id → `400`.
   "expiringSoon": [ /* all products expiring within 30 days, soonest first (no cap) */ ]
 }
 ```
+
+---
+
+### 4.7 Export & import
+
+**GET `/export/products?format=json|csv|ods`** — download every live product
+owned by the authenticated user as an attachment. JSON is the default.
+CSV follows RFC 4180 (quoting/escaping, formula-injection guard).
+ODS is an OpenDocument Spreadsheet (bold header row, numeric price cells)
+that opens in Excel, LibreOffice and Google Sheets.
+
+Columns (CSV/ODS): `productName, brand, model, category, serialNumber,
+purchaseDate, purchasePrice, currency, purchaseStore, warrantyExpiryDate,
+lifecycleStatus, serviceHistory`. Notes, tags, warranty-provider fields,
+warranty-period arrays and document metadata are intentionally excluded.
+
+**POST `/export/products/import`** — bulk-import products from a CSV or JSON
+file (multipart field `file`, max 2 MB / 500 rows). CSV headers match the
+export columns; JSON accepts `{ products: [...] }`, a bare array, or a single
+product object. Rows are validated individually — invalid rows are reported,
+not fatal; duplicate serial numbers (within the file or against the user's
+existing products) are skipped. Response `data`:
+
+```jsonc
+{
+  "totalRows": 3,
+  "imported": 1,
+  "failed": 1,
+  "duplicates": 1,
+  "results": [ /* { row, status: imported|failed|duplicate, errors, warnings } */ ]
+}
+```
+
+Export → edit in any spreadsheet app → import back is a supported round trip.
 
 ---
 
