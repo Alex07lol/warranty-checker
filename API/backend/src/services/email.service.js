@@ -4,12 +4,16 @@ const nodemailer = require("nodemailer");
 const {
   SMTP_USER,
   SMTP_PASS,
-  SMTP_SERVICE,
   EMAIL_FROM,
   NODE_ENV
 } = require("../config/env");
 const logger = require("../utils/logger");
 const AppError = require("../utils/AppError");
+
+const dns = require("node:dns");
+if (typeof dns.setDefaultResultOrder === "function") {
+  dns.setDefaultResultOrder("ipv4first");
+}
 
 let mailTransporter = null;
 
@@ -22,8 +26,10 @@ function getMailTransporter() {
     !SMTP_USER.startsWith("<")
   ) {
     mailTransporter = nodemailer.createTransport({
-      service: SMTP_SERVICE || "gmail",
+      host: process.env.SMTP_HOST || "smtp.gmail.com",
+      port: Number(process.env.SMTP_PORT) || 465,
       secure: true,
+      family: 4,
       auth: {
         user: SMTP_USER,
         pass: SMTP_PASS
