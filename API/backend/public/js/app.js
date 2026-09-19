@@ -2285,6 +2285,8 @@ function dispatchUnreadDeviceNotifications(notifs) {
 function showReminderSettings(show) {
   const box = document.getElementById('reminder-settings');
   if (box) box.style.display = show ? '' : 'none';
+  const accBox = document.getElementById('account-settings');
+  if (accBox) accBox.style.display = show ? '' : 'none';
 }
 
 async function loadReminderSettings() {

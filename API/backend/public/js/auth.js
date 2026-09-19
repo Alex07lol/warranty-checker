@@ -100,27 +100,51 @@ function switchAuthTab(tab) {
   const formLogin = document.getElementById('form-login');
   const formRegister = document.getElementById('form-register');
   const formVerify = document.getElementById('form-verify');
+  const formForgot = document.getElementById('form-forgot');
+  const formReset = document.getElementById('form-reset');
 
   if (tabLogin) tabLogin.classList.toggle('active', tab === 'login');
   if (tabRegister) tabRegister.classList.toggle('active', tab === 'register');
 
-  if (tabRow) tabRow.style.display = tab === 'verify' ? 'none' : 'flex';
+  const isSubView = tab === 'verify' || tab === 'forgot' || tab === 'reset';
+  if (tabRow) tabRow.style.display = isSubView ? 'none' : 'flex';
   if (formLogin) formLogin.style.display = tab === 'login' ? '' : 'none';
   if (formRegister) formRegister.style.display = tab === 'register' ? '' : 'none';
   if (formVerify) formVerify.style.display = tab === 'verify' ? '' : 'none';
+  if (formForgot) formForgot.style.display = tab === 'forgot' ? '' : 'none';
+  if (formReset) formReset.style.display = tab === 'reset' ? '' : 'none';
 
   const loginErr = document.getElementById('login-err');
   const regErr = document.getElementById('reg-err');
   const verifyErr = document.getElementById('verify-err');
+  const forgotErr = document.getElementById('forgot-err');
+  const resetErr = document.getElementById('reset-err');
   if (loginErr) loginErr.textContent = '';
   if (regErr) regErr.textContent = '';
   if (verifyErr) verifyErr.textContent = '';
+  if (forgotErr) forgotErr.textContent = '';
+  if (resetErr) resetErr.textContent = '';
 
   if (tab === 'verify') {
     const codeInput = document.getElementById('verify-code');
     if (codeInput) {
       codeInput.value = '';
       setTimeout(() => codeInput.focus(), 50);
+    }
+  } else if (tab === 'forgot') {
+    const forgotEmail = document.getElementById('forgot-email');
+    const loginEmail = document.getElementById('login-email');
+    if (forgotEmail) {
+      if (loginEmail && loginEmail.value.trim()) {
+        forgotEmail.value = loginEmail.value.trim();
+      }
+      setTimeout(() => forgotEmail.focus(), 50);
+    }
+  } else if (tab === 'reset') {
+    const resetCode = document.getElementById('reset-code');
+    if (resetCode) {
+      resetCode.value = '';
+      setTimeout(() => resetCode.focus(), 50);
     }
   }
 }
@@ -323,4 +347,194 @@ function logout() {
   localStorage.removeItem(USER_KEY);
   toast('Signed out — now browsing as guest', 'success');
   enterApp();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Password Reset Flows
+// ─────────────────────────────────────────────────────────────────────────────
+let currentResetEmail = '';
+
+async function doRequestPasswordReset() {
+  const emailInput = document.getElementById('forgot-email');
+  const email = (emailInput ? emailInput.value : '').trim();
+  const err = document.getElementById('forgot-err');
+  if (err) err.textContent = '';
+
+  if (!email) {
+    if (err) err.textContent = 'Please enter your email address.';
+    return;
+  }
+
+  const btn = document.getElementById('forgot-submit-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+  }
+
+  try {
+    const res = await api('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+    currentResetEmail = email;
+    switchAuthTab('reset');
+    const display = document.getElementById('reset-email-display');
+    if (display) display.textContent = currentResetEmail;
+    toast(res.message || 'Password reset code sent! Check your email inbox.', 'info');
+  } catch (e) {
+    if (err) err.textContent = e.message;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Send Reset Code';
+    }
+  }
+}
+
+async function doResetPassword() {
+  const codeInput = document.getElementById('reset-code');
+  const newPassInput = document.getElementById('reset-new-password');
+  const confirmPassInput = document.getElementById('reset-confirm-password');
+  const err = document.getElementById('reset-err');
+  if (err) err.textContent = '';
+
+  const code = (codeInput ? codeInput.value : '').trim();
+  const newPassword = newPassInput ? newPassInput.value : '';
+  const confirmNewPassword = confirmPassInput ? confirmPassInput.value : '';
+
+  if (!code || code.length !== 6) {
+    if (err) err.textContent = 'Please enter the 6-digit numerical code sent to your email.';
+    return;
+  }
+  if (!newPassword || newPassword.length < 8) {
+    if (err) err.textContent = 'New password must be at least 8 characters.';
+    return;
+  }
+  if (newPassword !== confirmNewPassword) {
+    if (err) err.textContent = 'Passwords do not match.';
+    return;
+  }
+
+  const btn = document.getElementById('reset-submit-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Resetting…';
+  }
+
+  try {
+    await api('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: currentResetEmail,
+        code,
+        newPassword,
+        confirmNewPassword
+      })
+    });
+    toast('Password reset successfully! Please sign in with your new password.', 'success');
+    switchAuthTab('login');
+    const loginEmail = document.getElementById('login-email');
+    if (loginEmail && currentResetEmail) {
+      loginEmail.value = currentResetEmail;
+    }
+    const loginPassword = document.getElementById('login-password');
+    if (loginPassword) {
+      loginPassword.value = '';
+      setTimeout(() => loginPassword.focus(), 50);
+    }
+  } catch (e) {
+    if (err) err.textContent = e.message;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Set New Password';
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Account Deletion Flows (with email verification)
+// ─────────────────────────────────────────────────────────────────────────────
+function openDeleteAccountModal() {
+  const overlay = document.getElementById('delete-account-overlay');
+  const step1 = document.getElementById('delete-account-step-1');
+  const step2 = document.getElementById('delete-account-step-2');
+  const err = document.getElementById('delete-account-err');
+  const codeInput = document.getElementById('delete-account-code');
+
+  if (err) err.textContent = '';
+  if (codeInput) codeInput.value = '';
+  if (step1) step1.style.display = '';
+  if (step2) step2.style.display = 'none';
+  if (overlay) overlay.style.display = 'flex';
+}
+
+function closeDeleteAccountModal() {
+  const overlay = document.getElementById('delete-account-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+async function doRequestAccountDeletion() {
+  const btn = document.getElementById('send-delete-code-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+  }
+
+  try {
+    const res = await api('/auth/request-delete-account', { method: 'POST' });
+    toast(res.message || 'Verification code sent to your email.', 'info');
+    const step1 = document.getElementById('delete-account-step-1');
+    const step2 = document.getElementById('delete-account-step-2');
+    if (step1) step1.style.display = 'none';
+    if (step2) step2.style.display = '';
+    const codeInput = document.getElementById('delete-account-code');
+    if (codeInput) setTimeout(() => codeInput.focus(), 50);
+  } catch (e) {
+    toast(e.message || 'Failed to send deletion code.', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Send Deletion Code';
+    }
+  }
+}
+
+async function doConfirmAccountDeletion() {
+  const codeInput = document.getElementById('delete-account-code');
+  const err = document.getElementById('delete-account-err');
+  const code = (codeInput ? codeInput.value : '').trim();
+  if (err) err.textContent = '';
+
+  if (!code || code.length !== 6) {
+    if (err) err.textContent = 'Please enter the 6-digit numerical code sent to your email.';
+    return;
+  }
+
+  const btn = document.getElementById('confirm-delete-account-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+  }
+
+  try {
+    const res = await api('/auth/confirm-delete-account', {
+      method: 'POST',
+      body: JSON.stringify({ code })
+    });
+    closeDeleteAccountModal();
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    toast(res.message || 'Account deleted successfully.', 'success');
+    enterApp();
+    switchAuthTab('login');
+    showView('login');
+  } catch (e) {
+    if (err) err.textContent = e.message;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Permanently Delete';
+    }
+  }
 }
