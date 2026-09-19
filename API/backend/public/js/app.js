@@ -2703,16 +2703,27 @@ function fmtKm(km) {
   return km < 10 ? km.toFixed(1) : String(Math.round(km));
 }
 
+// Human-readable query for a centre: "Name, Full address, City". The city is
+// only appended when the address doesn't already contain it, so the search
+// stays tidy ("Name, Sector 18, Noida" doesn't become "…, Noida, Noida").
+function directionsQuery(c) {
+  const address = (c.address && c.address !== 'Address not available') ? String(c.address).trim() : '';
+  const city = String(c.city || '').trim();
+  const parts = [String(c.name || '').trim(), address];
+  if (city && !parts.some(p => p.includes(city))) parts.push(city);
+  return parts.filter(Boolean).join(', ');
+}
+
+// Directions link. Built from the centre's NAME + address so it opens a plain
+// Google Maps *search*, which is the one form that behaves on mobile: it hands
+// off to the Maps app when installed and falls back to the browser otherwise,
+// with no URI scheme (geo:/maps:/intent:) and no Google place-id lookup. The
+// old place-id link resolved to the wrong shop (or to nothing) on phones, while
+// this search URL also works from a desktop browser and inside an in-app view.
 function getLocateHref(c) {
-  if (c.placeId) {
-    return 'https://www.google.com/maps/place/?q=place_id:' + encodeURIComponent(c.placeId);
-  }
-  const hasCoords = c.lat != null && c.lng != null && Number.isFinite(c.lat) && Number.isFinite(c.lng);
-  if (hasCoords) {
-    const q = [c.name, c.city, c.address].filter(Boolean).join(', ');
-    return 'https://www.google.com/maps/search/?api=1&amp;query=' + encodeURIComponent(q);
-  }
-  return '';
+  const query = directionsQuery(c);
+  if (!query) return '';
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query);
 }
 
 function getHoursHtml(c) {
@@ -2775,7 +2786,9 @@ function repairCentreCard(c) {
     : '';
 
   const callBtn = c.phone ? '<a href="tel:' + encodeURIComponent(c.phone) + '" class="btn btn-ghost btn-small">📞 Call</a>' : '';
-  const dirBtn = locateHref ? '<a href="' + locateHref + '" target="_blank" class="btn btn-ghost btn-small">🗺️ Directions</a>' : '';
+  const dirBtn = locateHref
+    ? '<a href="' + escapeHtml(locateHref) + '" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-small">🗺️ Directions</a>'
+    : '';
   const webBtn = c.website ? '<a href="' + escapeHtml(c.website) + '" target="_blank" class="btn btn-ghost btn-small">🌐 Website</a>' : '';
   
   const actionRow = '<div class="repair-card-actions">' + callBtn + dirBtn + webBtn + '</div>';
@@ -2807,20 +2820,22 @@ function renderRepairCentres(lat, lng, withLocation, centres = null) {
   list.innerHTML = '';
 
   // Use provided centres or fallback to demo data
-  let centresList = centres || [...FALLBACK_CENTRES];
+  const centresList = centres || [...FALLBACK_CENTRES];
 
-  // Filter out centres missing coordinates
-  centresList = centresList.filter(c =>
-    c.lat != null && c.lng != null && Number.isFinite(c.lat) && Number.isFinite(c.lng)
-  );
-
-  // Validate the user's coordinates too — lat/lng can be NaN/Infinity from a
-  // flaky GPS fix, which would turn every distance into NaN and leave the list
-  // in the original (unsorted) array order instead of nearest-first.
+  // Validate the user's coordinates — lat/lng can be NaN/Infinity from a flaky
+  // GPS fix, which would turn every distance into NaN and leave the list in the
+  // original (unsorted) array order instead of nearest-first. Centres missing
+  // their own coordinates are kept: their card still works (Call/Directions are
+  // built from name + address), only the distance badge reads "unavailable".
   if (withLocation && Number.isFinite(lat) && Number.isFinite(lng)) {
-    centresList.forEach(c => { c.distKm = haversineKm(lat, lng, c.lat, c.lng); });
-    // Sort ascending by distance so the nearest centre appears first.
-    centresList.sort((a, b) => (a.distKm || 0) - (b.distKm || 0));
+    centresList.forEach(c => {
+      c.distKm = (Number.isFinite(c.lat) && Number.isFinite(c.lng))
+        ? haversineKm(lat, lng, c.lat, c.lng)
+        : null;
+    });
+    // Sort ascending by distance so the nearest centre appears first, pushing
+    // unknown-distance centres to the end instead of the front.
+    centresList.sort((a, b) => (a.distKm ?? Infinity) - (b.distKm ?? Infinity));
   } else {
     centresList.forEach(c => { c.distKm = null; });
   }
