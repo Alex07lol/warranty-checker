@@ -172,19 +172,43 @@ function buildVerificationEmailText({ name, code, expiresMinutes = 15 }) {
   ].join("\n");
 }
 
+let cachedBrevoSender = null;
+
+async function getBrevoSender(apiKey) {
+  if (cachedBrevoSender) {
+    return cachedBrevoSender;
+  }
+  try {
+    const res = await fetch("https://api.brevo.com/v3/senders", {
+      headers: { "api-key": apiKey, Accept: "application/json" }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const active = (data.senders || []).find((s) => s.active);
+      if (active && active.email) {
+        cachedBrevoSender = active.email;
+        return active.email;
+      }
+    }
+  } catch {
+    // fallback if senders endpoint fails
+  }
+  return "notifications@warrantyvault.com";
+}
+
 /**
  * Send an email via Brevo's HTTP API (port 443 - cannot be blocked by cloud firewalls).
  */
 async function sendViaBrevo({ to, name, subject, html, text }) {
   const apiKey = BREVO_API_KEY || process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
-  let senderEmail = SMTP_USER || process.env.BREVO_SENDER_EMAIL;
+  let senderEmail = process.env.BREVO_SENDER_EMAIL || SMTP_USER;
   if (!senderEmail && EMAIL_FROM && EMAIL_FROM.includes("<") && EMAIL_FROM.includes(">")) {
     const start = EMAIL_FROM.indexOf("<") + 1;
     const end = EMAIL_FROM.indexOf(">");
     senderEmail = EMAIL_FROM.slice(start, end).trim();
   }
-  if (!senderEmail) {
-    senderEmail = "notifications@warrantyvault.com";
+  if (!senderEmail || senderEmail.includes("warrantyvault.com") || senderEmail.includes("resend.dev")) {
+    senderEmail = await getBrevoSender(apiKey);
   }
 
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
