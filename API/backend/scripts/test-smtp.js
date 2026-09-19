@@ -29,13 +29,30 @@ if (!user || !pass) {
   process.exit(1);
 }
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  secure: true,
-  auth: { user, pass }
-});
+const dns = require("node:dns").promises;
 
 async function main() {
+  console.log("\nResolving IPv4 for smtp.gmail.com...");
+  let host = "smtp.gmail.com";
+  try {
+    const ips = await dns.resolve4("smtp.gmail.com");
+    if (ips && ips.length > 0) {
+      host = ips[0];
+      console.log(`Resolved IPv4: ${host}`);
+    }
+  } catch (err) {
+    console.warn(`DNS resolve4 failed, using default hostname: ${err.message}`);
+  }
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port: 465,
+    secure: true,
+    servername: "smtp.gmail.com",
+    connectionTimeout: 10000,
+    auth: { user, pass }
+  });
+
   console.log("\nConnecting to smtp.gmail.com (verifying credentials)...");
   try {
     await transporter.verify();

@@ -17,7 +17,7 @@ if (typeof dns.setDefaultResultOrder === "function") {
 
 let mailTransporter = null;
 
-function getMailTransporter() {
+async function getMailTransporter() {
   if (
     !mailTransporter &&
     SMTP_USER &&
@@ -25,11 +25,35 @@ function getMailTransporter() {
     SMTP_USER !== "test@example.com" &&
     !SMTP_USER.startsWith("<")
   ) {
+    let host = process.env.SMTP_HOST || "smtp.gmail.com";
+    let servername = host;
+
+    // Render containers have no outbound IPv6 routing. Nodemailer's built-in
+    // resolver queries both IPv4 and IPv6 and picks randomly.
+    // Explicitly resolving IPv4 and connecting to the IPv4 address with servername SNI
+    // guarantees a fast IPv4 connection and prevents ENETUNREACH.
+    if (!process.env.SMTP_HOST || process.env.SMTP_HOST === "smtp.gmail.com") {
+      try {
+        const ips = await dns.promises.resolve4("smtp.gmail.com");
+        if (ips && ips.length > 0) {
+          host = ips[0];
+          servername = "smtp.gmail.com";
+        }
+      } catch (err) {
+        logger.warn("DNS resolve4 for smtp.gmail.com failed, falling back to hostname", {
+          error: err.message
+        });
+      }
+    }
+
     mailTransporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "smtp.gmail.com",
+      host,
       port: Number(process.env.SMTP_PORT) || 465,
       secure: true,
-      family: 4,
+      servername,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
       auth: {
         user: SMTP_USER,
         pass: SMTP_PASS
@@ -146,7 +170,7 @@ function buildVerificationEmailText({ name, code, expiresMinutes = 15 }) {
  * Send an actual verification email to the user using Nodemailer / SMTP (Gmail).
  */
 async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
-  const transporter = getMailTransporter();
+  const transporter = await getMailTransporter();
   const subject = `${code} is your WarrantyVault verification code`;
   const html = buildVerificationEmailHtml({ name, code, expiresMinutes });
   const text = buildVerificationEmailText({ name, code, expiresMinutes });
