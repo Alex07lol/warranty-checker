@@ -15,7 +15,10 @@ const defaults = {
   CLOUDINARY_API_SECRET: "test",
   CLIENT_URL: "*",
   RESEND_API_KEY: "test",
-  EMAIL_FROM: "WarrantyVault <onboarding@resend.dev>"
+  SMTP_USER: "test@example.com",
+  SMTP_PASS: "test-password",
+  SMTP_SERVICE: "gmail",
+  EMAIL_FROM: "WarrantyVault <test@example.com>"
 };
 
 if (isTest) {
@@ -83,5 +86,12 @@ module.exports = {
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
   CLIENT_URL: process.env.CLIENT_URL,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
-  EMAIL_FROM: process.env.EMAIL_FROM || "WarrantyVault <onboarding@resend.dev>"
+  SMTP_USER: process.env.SMTP_USER || process.env.GMAIL_USER,
+  SMTP_PASS: process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD,
+  SMTP_SERVICE: process.env.SMTP_SERVICE || "gmail",
+  EMAIL_FROM:
+    process.env.EMAIL_FROM ||
+    (process.env.SMTP_USER
+      ? `WarrantyVault <${process.env.SMTP_USER}>`
+      : "WarrantyVault <onboarding@resend.dev>")
 };

@@ -1,17 +1,36 @@
 "use strict";
 
-const { Resend } = require("resend");
-const { RESEND_API_KEY, EMAIL_FROM, NODE_ENV } = require("../config/env");
+const nodemailer = require("nodemailer");
+const {
+  SMTP_USER,
+  SMTP_PASS,
+  SMTP_SERVICE,
+  EMAIL_FROM,
+  NODE_ENV
+} = require("../config/env");
 const logger = require("../utils/logger");
 const AppError = require("../utils/AppError");
 
-let resendClient = null;
+let mailTransporter = null;
 
-function getResendClient() {
-  if (!resendClient && RESEND_API_KEY && RESEND_API_KEY !== "test" && !RESEND_API_KEY.startsWith("<")) {
-    resendClient = new Resend(RESEND_API_KEY);
+function getMailTransporter() {
+  if (
+    !mailTransporter &&
+    SMTP_USER &&
+    SMTP_PASS &&
+    SMTP_USER !== "test@example.com" &&
+    !SMTP_USER.startsWith("<")
+  ) {
+    mailTransporter = nodemailer.createTransport({
+      service: SMTP_SERVICE || "gmail",
+      secure: true,
+      auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASS
+      }
+    });
   }
-  return resendClient;
+  return mailTransporter;
 }
 
 // In-memory test store so test suites can inspect sent emails without real network calls.
@@ -118,10 +137,10 @@ function buildVerificationEmailText({ name, code, expiresMinutes = 15 }) {
 }
 
 /**
- * Send an actual verification email to the user using the Resend API.
+ * Send an actual verification email to the user using Nodemailer / SMTP (Gmail).
  */
 async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
-  const client = getResendClient();
+  const transporter = getMailTransporter();
   const subject = `${code} is your WarrantyVault verification code`;
   const html = buildVerificationEmailHtml({ name, code, expiresMinutes });
   const text = buildVerificationEmailText({ name, code, expiresMinutes });
@@ -133,23 +152,23 @@ async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
     return { success: true, id: "test-email-id", code };
   }
 
-  // Development fallback when RESEND_API_KEY is not configured yet
-  if (!client) {
+  // Development fallback when SMTP credentials are not configured yet
+  if (!transporter) {
     if (NODE_ENV === "production") {
-      logger.error("RESEND_API_KEY is not configured in production");
+      logger.error("SMTP credentials (SMTP_USER / SMTP_PASS) are not configured in production");
       throw new AppError("Email service is temporarily unavailable", 503);
     }
 
     logger.warn(
-      `[DEV EMAIL MOCK] RESEND_API_KEY is unset. Code for ${to}: [${code}] (Expires in ${expiresMinutes}m)`
+      `[DEV EMAIL MOCK] SMTP credentials unset. Code for ${to}: [${code}] (Expires in ${expiresMinutes}m)`
     );
     testSentEmails.push({ to, name, code, subject, html, text, sentAt: new Date() });
     return { success: true, id: "dev-mock-id", code };
   }
 
   try {
-    const fromAddress = EMAIL_FROM || "WarrantyVault <onboarding@resend.dev>";
-    const result = await client.emails.send({
+    const fromAddress = EMAIL_FROM || `"WarrantyVault" <${SMTP_USER}>`;
+    const result = await transporter.sendMail({
       from: fromAddress,
       to,
       subject,
@@ -157,22 +176,14 @@ async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
       text
     });
 
-    if (result.error) {
-      logger.error("Resend API returned an error", {
-        to,
-        error: result.error.message || result.error
-      });
-      throw new AppError(
-        result.error.message || "Failed to deliver verification email via Resend API",
-        502
-      );
-    }
-
-    logger.info("Verification email sent via Resend", { to, emailId: result.data?.id });
-    return { success: true, id: result.data?.id };
+    logger.info("Verification email sent via Nodemailer/SMTP", {
+      to,
+      messageId: result.messageId
+    });
+    return { success: true, id: result.messageId };
   } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error("Error sending verification email via Resend", {
+    logger.error("Error sending verification email via Nodemailer/SMTP", {
       to,
       error: error.message
     });
