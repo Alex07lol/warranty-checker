@@ -111,6 +111,7 @@ module.exports = {
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
   CLIENT_URL: process.env.CLIENT_URL,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
+  BREVO_API_KEY: process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY,
   SMTP_USER: smtpUser,
   SMTP_PASS: rawSmtpPass.replace(/\s+/g, ""),
   SMTP_SERVICE: process.env.SMTP_SERVICE || "gmail",

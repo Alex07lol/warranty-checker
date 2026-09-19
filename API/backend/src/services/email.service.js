@@ -5,7 +5,9 @@ const {
   SMTP_USER,
   SMTP_PASS,
   EMAIL_FROM,
-  NODE_ENV
+  NODE_ENV,
+  RESEND_API_KEY,
+  BREVO_API_KEY
 } = require("../config/env");
 const logger = require("../utils/logger");
 const AppError = require("../utils/AppError");
@@ -46,14 +48,18 @@ async function getMailTransporter() {
       }
     }
 
+    const port = Number(process.env.SMTP_PORT) || 587;
+    const isPort465 = port === 465;
+
     mailTransporter = nodemailer.createTransport({
       host,
-      port: Number(process.env.SMTP_PORT) || 465,
-      secure: true,
+      port,
+      secure: isPort465,
+      requireTLS: !isPort465,
       servername,
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
       auth: {
         user: SMTP_USER,
         pass: SMTP_PASS
@@ -167,10 +173,76 @@ function buildVerificationEmailText({ name, code, expiresMinutes = 15 }) {
 }
 
 /**
- * Send an actual verification email to the user using Nodemailer / SMTP (Gmail).
+ * Send an email via Brevo's HTTP API (port 443 - cannot be blocked by cloud firewalls).
+ */
+async function sendViaBrevo({ to, name, subject, html, text }) {
+  const apiKey = BREVO_API_KEY || process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
+  let senderEmail = SMTP_USER || process.env.BREVO_SENDER_EMAIL;
+  if (!senderEmail && EMAIL_FROM && EMAIL_FROM.includes("<") && EMAIL_FROM.includes(">")) {
+    const start = EMAIL_FROM.indexOf("<") + 1;
+    const end = EMAIL_FROM.indexOf(">");
+    senderEmail = EMAIL_FROM.slice(start, end).trim();
+  }
+  if (!senderEmail) {
+    senderEmail = "notifications@warrantyvault.com";
+  }
+
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": apiKey,
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({
+      sender: { email: senderEmail, name: "WarrantyVault" },
+      to: [{ email: to, name: name || to }],
+      subject,
+      htmlContent: html,
+      textContent: text
+    })
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || `Brevo returned HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  return data.messageId || "brevo-sent";
+}
+
+/**
+ * Send an email via Resend's HTTP API (port 443).
+ */
+async function sendViaResend({ to, subject, html, text }) {
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from: EMAIL_FROM || "WarrantyVault <onboarding@resend.dev>",
+      to: [to],
+      subject,
+      html,
+      text
+    })
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || `Resend returned HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  return data.id || "resend-sent";
+}
+
+/**
+ * Send an actual verification email to the user using Nodemailer / SMTP (Gmail),
+ * or Brevo / Resend HTTPS APIs if configured.
  */
 async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
-  const transporter = await getMailTransporter();
   const subject = `${code} is your WarrantyVault verification code`;
   const html = buildVerificationEmailHtml({ name, code, expiresMinutes });
   const text = buildVerificationEmailText({ name, code, expiresMinutes });
@@ -181,6 +253,32 @@ async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
     logger.info("Verification email recorded in test mode", { to, code });
     return { success: true, id: "test-email-id", code };
   }
+
+  // 1. If Brevo HTTPS API key is set, send via pure HTTPS (immune to SMTP port blocks)
+  if (BREVO_API_KEY && BREVO_API_KEY !== "test" && !BREVO_API_KEY.startsWith("<")) {
+    try {
+      const messageId = await sendViaBrevo({ to, name, subject, html, text });
+      logger.info("Verification email sent via Brevo HTTPS API", { to, messageId });
+      return { success: true, id: messageId };
+    } catch (err) {
+      logger.error("Error sending verification email via Brevo HTTPS API", { to, error: err.message });
+      throw new AppError(err.message || "Failed to send email via Brevo", 502);
+    }
+  }
+
+  // 2. If Resend HTTPS API key is set, send via pure HTTPS
+  if (RESEND_API_KEY && RESEND_API_KEY !== "test" && !RESEND_API_KEY.startsWith("<") && process.env.ENABLE_RESEND_FALLBACK === "true") {
+    try {
+      const id = await sendViaResend({ to, subject, html, text });
+      logger.info("Verification email sent via Resend HTTPS API", { to, id });
+      return { success: true, id };
+    } catch (err) {
+      logger.error("Error sending verification email via Resend HTTPS API", { to, error: err.message });
+      throw new AppError(err.message || "Failed to send email via Resend", 502);
+    }
+  }
+
+  const transporter = await getMailTransporter();
 
   // Development fallback when SMTP credentials are not configured yet
   if (!transporter) {
