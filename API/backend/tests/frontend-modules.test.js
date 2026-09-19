@@ -151,6 +151,9 @@ describe("Frontend module split", () => {
       // auth.js
       "isGuest", "openLogin", "requireAuth", "applyGuestMode",
       "switchAuthTab", "doLogin", "doRegister", "logout",
+      // auth.js — duplicate-email popup
+      "isGmailAddress", "isDuplicateEmailError", "showDuplicateEmailDialog",
+      "closeDuplicateEmailDialog", "duplicateEmailSignIn", "duplicateEmailUseOther",
       // app.js
       "showView", "makeProductCard", "loadDashboard", "init"
     ];
@@ -354,5 +357,94 @@ describe("Frontend module split", () => {
     expect(sandbox.localStorage.getItem("wv_device_popups_disabled")).toBeNull();
     expect(badgeEl.textContent).toBe("Active");
     expect(popupToggle.checked).toBe(true);
+  });
+});
+
+// Register flow (password minimum + duplicate-email popup) and the repair-centre
+// Directions links, which must work on phones without a place_id or a URI scheme.
+describe("Register password rule, duplicate-email popup and repair directions", () => {
+  const INDEX = fs.readFileSync(path.join(PUBLIC, "index.html"), "utf8");
+  const AUTH = fs.readFileSync(path.join(PUBLIC, "js", "auth.js"), "utf8");
+  const APP = fs.readFileSync(path.join(PUBLIC, "js", "app.js"), "utf8");
+  const VALIDATOR = fs.readFileSync(
+    path.join(__dirname, "..", "src", "validators", "auth.validator.js"),
+    "utf8"
+  );
+
+  test("the register form advertises the real 8-character password minimum", () => {
+    const input = INDEX.match(/<input type="password" id="reg-password"[^>]*>/)[0];
+    expect(input).toContain('placeholder="Min. 8 characters"');
+    expect(input).toContain('minlength="8"');
+    expect(input).not.toContain("Min. 6");
+    // The browser hint, the client guard and the Joi schema must agree.
+    expect(AUTH).toMatch(/password\.length < 8/);
+    expect(VALIDATOR).toMatch(/password: Joi\.string\(\)\.min\(8\)\.required\(\)/);
+  });
+
+  test("a duplicate-email alert dialog exists and doRegister opens it", () => {
+    const overlay = INDEX.match(/id="dup-email-overlay"[^>]*>/)[0];
+    expect(overlay).toContain('role="alertdialog"');
+    expect(overlay).toContain('aria-modal="true"');
+    expect(overlay).toContain('aria-labelledby="dup-email-title"');
+    expect(INDEX).toContain('id="dup-email-title"');
+    expect(INDEX).toContain("This email already exists in the database");
+    expect(INDEX).toContain('onclick="duplicateEmailSignIn()"');
+    expect(INDEX).toContain('onclick="duplicateEmailUseOther()"');
+    // A duplicate must open the popup instead of only printing a line under the form.
+    expect(AUTH).toMatch(/if \(isDuplicateEmailError\(e\)\) \{\s*showDuplicateEmailDialog\(email\);/);
+  });
+
+  test("showDuplicateEmailDialog names the address and explains the Gmail alias rule", () => {
+    const { sandbox } = loadAppSandbox();
+    const body = sandbox.document.getElementById("dup-email-body");
+    const overlay = sandbox.document.getElementById("dup-email-overlay");
+
+    const gmail = { status: 409, message: "This email address already exists in the database" };
+    expect(sandbox.isDuplicateEmailError(gmail)).toBe(true);
+    expect(sandbox.isDuplicateEmailError({ status: 401, message: "Invalid email or password" })).toBe(false);
+
+    sandbox.showDuplicateEmailDialog("john.doe+tag@gmail.com");
+    expect(body.innerHTML).toContain("john.doe+tag@gmail.com");
+    expect(body.innerHTML).toContain("already registered");
+    expect(body.innerHTML).toContain("Gmail ignores dots");
+    expect(overlay.classList.contains("open")).toBe(true);
+
+    // A non-Gmail address still gets the popup, without the Gmail explanation.
+    sandbox.showDuplicateEmailDialog("someone@example.com");
+    expect(body.innerHTML).not.toContain("Gmail ignores dots");
+    sandbox.closeDuplicateEmailDialog();
+    expect(overlay.classList.contains("open")).toBe(false);
+  });
+
+  test("directions links search by name and address — no place ids, no URI schemes", () => {
+    const { sandbox } = loadAppSandbox();
+    const query = (centre) => decodeURIComponent(sandbox.getLocateHref(centre).split("query=")[1]);
+
+    expect(sandbox.getLocateHref({})).toBe("");
+    expect(query({ name: "FixItNow", address: "Ajmal Khan Road, Karol Bagh", city: "New Delhi" }))
+      .toBe("FixItNow, Ajmal Khan Road, Karol Bagh, New Delhi");
+    // A city already inside the address is not repeated in the query.
+    expect(query({ name: "ElectroCare", address: "Sector 18, Noida", city: "Noida" }))
+      .toBe("ElectroCare, Sector 18, Noida");
+
+    const href = sandbox.getLocateHref({ name: "Only Name", placeId: "ChIJ123", lat: 1, lng: 2 });
+    expect(href.startsWith("https://www.google.com/maps/search/?api=1&query=")).toBe(true);
+    expect(href).not.toContain("place_id");
+    expect(href).not.toContain("ChIJ123");
+    expect(APP).not.toContain("q=place_id:");
+    expect(APP).not.toMatch(/["'](geo|maps|intent):/);
+  });
+
+  test("a centre without coordinates still renders with a working Directions link", () => {
+    const { sandbox } = loadAppSandbox();
+    const card = sandbox.repairCentreCard({
+      name: "No Coord Repairs",
+      address: "Some Street 5",
+      city: "Pune",
+      rating: 4.1
+    });
+    expect(card).toContain("Distance unavailable");
+    expect(card).toContain("🗺️ Directions");
+    expect(card).toContain("https://www.google.com/maps/search/?api=1&amp;query=No%20Coord%20Repairs");
   });
 });

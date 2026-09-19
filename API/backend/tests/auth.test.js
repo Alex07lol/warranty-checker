@@ -149,6 +149,67 @@ describe("Auth API", () => {
     expect(response.body.errors.length).toBeGreaterThan(0);
   });
 
+  test("register rejects a password under 8 characters (same minimum the UI shows)", async () => {
+    const response = await request(app)
+      .post("/api/v1/auth/register")
+      .send({
+        name: "Six Char",
+        email: `six_${Date.now()}@example.com`,
+        password: "abcdef",
+        confirmPassword: "abcdef"
+      });
+    expect(response.statusCode).toBe(422);
+    expect(response.body.success).toBe(false);
+  });
+
+  test("register rejects a duplicate Gmail spelling and reports the existing account", async () => {
+    const stamp = Date.now();
+    const email = `dup.gmail_${stamp}@gmail.com`;
+    await registerUser("Gmail First", email);
+
+    // Gmail ignores dots inside the local part and everything after a "+", so
+    // this is the SAME mailbox — it must not create a second account.
+    const duplicate = await registerUser("Gmail Second", `dup.gmail_${stamp}+warranty@gmail.com`);
+    expect(duplicate.response.statusCode).toBe(409);
+    expect(duplicate.response.body.success).toBe(false);
+    expect(duplicate.response.body.message).toMatch(/already exists/i);
+  });
+
+  test("register rejects a Googlemail spelling and login still accepts the alias", async () => {
+    const stamp = Date.now();
+    const email = `aliasuser_${stamp}@gmail.com`;
+    await registerUser("Alias Owner", email);
+
+    const duplicate = await request(app)
+      .post("/api/v1/auth/register")
+      .send({
+        name: "Alias Clone",
+        email: `alias.user_${stamp}@googlemail.com`,
+        password: "password123",
+        confirmPassword: "password123"
+      });
+    expect(duplicate.statusCode).toBe(409);
+
+    // A non-Gmail address is never treated as an alias of another account.
+    const unrelated = await registerUser("Someone Else", `aliasuser_${stamp}@example.com`);
+    expect(unrelated.response.statusCode).toBe(201);
+
+    // The person who owns the mailbox can still sign in with any spelling of it.
+    const login = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: `a.lias.user_${stamp}@gmail.com`, password: "password123" });
+    expect(login.statusCode).toBe(200);
+    expect(login.body.data.email).toBe(email);
+  });
+
+  test("canonicalEmail folds Gmail spellings onto one identity and leaves others alone", () => {
+    const { canonicalEmail } = require("../src/services/auth.service");
+    expect(canonicalEmail("John.Doe+Warranty@Gmail.com")).toBe("johndoe@gmail.com");
+    expect(canonicalEmail("johndoe@googlemail.com")).toBe("johndoe@gmail.com");
+    expect(canonicalEmail("john.doe@outlook.com")).toBe("john.doe@outlook.com");
+    expect(canonicalEmail("first.last+tag@yahoo.com")).toBe("first.last+tag@yahoo.com");
+  });
+
   test("login succeeds with valid credentials", async () => {
     const email = `login_${Date.now()}@example.com`;
     await registerUser("Login User", email);

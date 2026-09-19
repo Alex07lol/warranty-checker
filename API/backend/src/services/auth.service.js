@@ -15,13 +15,62 @@ function hashCode(code) {
   return crypto.createHash("sha256").update(String(code).trim()).digest("hex");
 }
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Gmail (and Googlemail) ignore dots inside the local part and everything from a
+// "+" onwards, so john.doe+receipts@gmail.com, johndoe@googlemail.com and
+// johndoe@gmail.com all belong to one mailbox — and therefore one user. Reduce
+// an address to that canonical identity; every other domain is left untouched.
+function canonicalEmail(email) {
+  const raw = String(email || "").trim().toLowerCase();
+  const at = raw.lastIndexOf("@");
+  if (at < 1) return raw;
+  let local = raw.slice(0, at);
+  let domain = raw.slice(at + 1);
+  if (domain === "googlemail.com") domain = "gmail.com";
+  if (domain !== "gmail.com") return local + "@" + domain;
+  local = local.split("+")[0].replace(/\./g, "");
+  return local + "@gmail.com";
+}
+
+// Matches the address exactly plus every Gmail spelling of the same mailbox
+// that may already be stored (rows created before this rule existed are not
+// canonicalised, so the regex is the only way to find them).
+function emailMatchQuery(email) {
+  const normalized = String(email || "").trim().toLowerCase();
+  const canonical = canonicalEmail(normalized);
+  if (!canonical.endsWith("@gmail.com")) return { email: normalized };
+  // "jdoe" -> ^j\.?d\.?o\.?e(\+.+)?@(gmail|googlemail)\.com$
+  const local = canonical.slice(0, -"@gmail.com".length);
+  const dotted = local.split("").map(escapeRegex).join("\\.?");
+  const pattern = new RegExp("^" + dotted + "(\\+.+)?@(gmail|googlemail)\\.com$", "i");
+  return { $or: [{ email: normalized }, { email: pattern }] };
+}
+
+// Sign-in tolerates the alias spellings above. Legacy databases can already
+// hold several rows for one mailbox, so every candidate is tried and the one
+// whose password actually matches wins (instead of failing on an arbitrary row).
+async function findUserByCredentials(email, password) {
+  const candidates = await User.find(emailMatchQuery(email)).limit(10);
+  for (const candidate of candidates) {
+    if (candidate.isActive && (await candidate.comparePassword(password))) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 async function registerUser(name, email, password) {
   const normalizedEmail = email.toLowerCase().trim();
-  const existing = await User.findOne({ email: normalizedEmail });
+  const existing = await User.findOne(emailMatchQuery(normalizedEmail));
 
   if (existing) {
     if (existing.isEmailVerified) {
-      throw new AppError("Email address is already registered", 409);
+      // 409 is what the web client turns into the "this email already exists"
+      // popup, so the message must keep saying the address is already taken.
+      throw new AppError("This email address already exists in the database", 409);
     }
 
     // Account exists but is unverified — refresh credentials and send a new OTP
@@ -206,9 +255,9 @@ async function resendVerificationCode(email) {
 }
 
 async function loginUser(email, password) {
-  const user = await User.findOne({ email: email.toLowerCase().trim() });
+  const user = await findUserByCredentials(email, password);
 
-  if (!user?.isActive || !(await user.comparePassword(password))) {
+  if (!user) {
     throw new AppError("Invalid email or password", 401);
   }
 
@@ -286,5 +335,8 @@ module.exports = {
   loginUser,
   getUserById,
   changePassword,
-  updateNotificationPreferences
+  updateNotificationPreferences,
+  // Exported so the Gmail-alias duplicate rule is unit-testable on its own.
+  canonicalEmail,
+  emailMatchQuery
 };

@@ -153,6 +153,76 @@ async function doLogin() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Duplicate-email popup
+// ─────────────────────────────────────────────────────────────────────────────
+// Registration must never mint a second account for an address that is already
+// on file — and Gmail makes that easy to do by accident, because dots inside the
+// local part and everything after a "+" are ignored: john.doe+receipts@gmail.com
+// and johndoe@gmail.com are the SAME mailbox and therefore the same user. When
+// the server rejects such a registration, say so in a popup instead of a
+// one-line message the user can miss (and which invites a retry).
+let duplicateEmailAddress = '';
+
+function isGmailAddress(email) {
+  return /@(gmail|googlemail)\.com$/i.test(String(email || '').trim());
+}
+
+// 409 is the API's duplicate-account status; the message check keeps the popup
+// working against older servers that answered with a plain error payload.
+function isDuplicateEmailError(e) {
+  if (!e) return false;
+  if (e.status === 409) return true;
+  return /already (registered|exists|in use)/i.test(e.message || '');
+}
+
+function duplicateEmailHtml(email) {
+  const gmailNote = isGmailAddress(email)
+    ? ' Gmail ignores dots and anything after a “+” in an address, so a differently spelled Gmail address of yours is still the same account.'
+    : '';
+  return 'No duplicate account was created — <strong>' + escapeHtml(email) +
+    '</strong> is already registered in the database.' + gmailNote;
+}
+
+function showDuplicateEmailDialog(email) {
+  duplicateEmailAddress = String(email || '').trim();
+  const overlay = document.getElementById('dup-email-overlay');
+  if (!overlay) {
+    // Legacy markup without the dialog — never leave the user without an answer.
+    toast('This email already exists in the database: ' + duplicateEmailAddress, 'error');
+    return;
+  }
+  const body = document.getElementById('dup-email-body');
+  if (body) body.innerHTML = duplicateEmailHtml(duplicateEmailAddress);
+  openDialog(overlay, { initialFocus: '#dup-signin-btn', onClose: closeDuplicateEmailDialog });
+}
+
+function closeDuplicateEmailDialog() {
+  closeDialog(document.getElementById('dup-email-overlay'));
+}
+
+// "Sign in instead" — hand the rejected address to the sign-in tab so the user
+// lands on the account that already owns it.
+function duplicateEmailSignIn() {
+  const email = duplicateEmailAddress;
+  closeDuplicateEmailDialog();
+  switchAuthTab('login');
+  const loginEmail = document.getElementById('login-email');
+  if (loginEmail) loginEmail.value = email;
+  const loginPassword = document.getElementById('login-password');
+  if (loginPassword) loginPassword.focus();
+}
+
+// "Use a different email" — clear the register form so the next attempt can't
+// repeat the same address by accident.
+function duplicateEmailUseOther() {
+  closeDuplicateEmailDialog();
+  const regEmail = document.getElementById('reg-email');
+  if (regEmail) { regEmail.value = ''; regEmail.focus(); }
+  const regPassword = document.getElementById('reg-password');
+  if (regPassword) regPassword.value = '';
+}
+
 async function doRegister() {
   const name = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value.trim();
@@ -182,6 +252,10 @@ async function doRegister() {
     setUser(data.user);
     await enterApp();
   } catch (e) {
+    if (isDuplicateEmailError(e)) {
+      showDuplicateEmailDialog(email);
+      return;
+    }
     err.textContent = e.message;
   }
 }

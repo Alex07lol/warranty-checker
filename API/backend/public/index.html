@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/app.css?v=15" />
+  <link rel="stylesheet" href="/css/app.css?v=16" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 </head>
 <body>
@@ -63,7 +63,7 @@
             </div>
             <div class="login-field">
               <label for="reg-password">Password</label>
-              <input type="password" id="reg-password" placeholder="Min. 6 characters" />
+              <input type="password" id="reg-password" placeholder="Min. 8 characters" minlength="8" autocomplete="new-password" />
             </div>
             <button class="login-btn" onclick="doRegister()">Create Account</button>
             <div class="login-err" id="reg-err"></div>
@@ -89,6 +89,22 @@
           </div>
 
           <button class="login-back-btn" id="login-back-btn">← Continue browsing as guest</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================ DUPLICATE EMAIL DIALOG ================ -->
+    <!-- Shown when registration is rejected because the address (or a Gmail
+         spelling of it — dots/+tags are ignored by Gmail) already exists. -->
+    <div class="form-overlay" id="dup-email-overlay" role="alertdialog" aria-modal="true"
+         aria-labelledby="dup-email-title" aria-describedby="dup-email-body">
+      <div class="form-sheet dup-email-sheet">
+        <div class="dup-email-icon" aria-hidden="true">⚠️</div>
+        <div class="form-sheet-title" id="dup-email-title">This email already exists in the database</div>
+        <p class="dup-email-body" id="dup-email-body"></p>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="dup-signin-btn" onclick="duplicateEmailSignIn()">Sign in instead</button>
+          <button class="btn btn-ghost" id="dup-other-btn" onclick="duplicateEmailUseOther()">Use a different email</button>
         </div>
       </div>
     </div>
@@ -840,8 +856,8 @@
     <script src="/js/warranty.js?v=11"></script>
     <script src="/js/utils.js?v=11"></script>
     <script src="/js/api.js?v=11"></script>
-    <script src="/js/auth.js?v=11"></script>
-    <script src="/js/app.js?v=15"></script>
+    <script src="/js/auth.js?v=12"></script>
+    <script src="/js/app.js?v=16"></script>
     <script type="module" src="/js/effects.js?v=5"></script>
 </body>
 </html>
