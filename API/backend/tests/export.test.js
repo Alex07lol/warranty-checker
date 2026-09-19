@@ -5,11 +5,13 @@ describe("Warranty claim + export", () => {
   let token;
   let otherToken;
   let productId;
+  let ownerUserId;
 
   beforeAll(async () => {
     await startDb();
     const owner = await registerUser("ExpOwner", `exp_owner_${Date.now()}@example.com`);
     token = owner.token;
+    ownerUserId = owner.userId;
     const other = await registerUser("ExpOther", `exp_other_${Date.now()}@example.com`);
     otherToken = other.token;
 
@@ -104,13 +106,12 @@ describe("Warranty claim + export", () => {
   });
 
   test("exports products as CSV with escaped values", async () => {
-    // Add a product whose notes contain a comma + quotes to prove escaping.
+    // Add a product whose name contains a comma + quotes to prove escaping.
     await request(app)
       .post("/api/v1/products")
       .set("Authorization", `Bearer ${token}`)
       .send({
-        productName: "Escaped, \"quoted\" product",
-        notes: "needs, \"care\""
+        productName: "Escaped, \"quoted\" product"
       });
 
     const response = await request(app)
@@ -120,9 +121,80 @@ describe("Warranty claim + export", () => {
     expect(response.headers["content-type"]).toContain("text/csv");
     const text = response.text;
     expect(text.split("\n")[0]).toBe(
-      "productName,brand,model,category,serialNumber,purchaseDate,purchasePrice,currency,purchaseStore,warrantyProvider,warrantyExpiryDate,lifecycleStatus,tags,warranties,serviceHistory,documents,notes"
+      "productName,brand,model,category,serialNumber,purchaseDate,purchasePrice,currency,purchaseStore,warrantyExpiryDate,lifecycleStatus,serviceHistory"
     );
     expect(text).toContain('"Escaped, ""quoted"" product"');
+    // Excluded fields must never appear as columns.
+    expect(text).not.toContain("notes");
+    expect(text).not.toContain("tags");
+    expect(text).not.toContain("warranties");
+    expect(text).not.toContain("documents");
+    expect(text).not.toContain("warrantyProvider");
+  });
+
+  test("exports products as ODS (attachment headers + valid zip bytes)", async () => {
+    const response = await request(app)
+      .get("/api/v1/export/products?format=ods")
+      .set("Authorization", `Bearer ${token}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("application/vnd.oasis.opendocument.spreadsheet");
+    expect(response.headers["content-disposition"]).toContain(".ods");
+
+    // Byte-level validation goes through the service, whose returned body the
+    // controller sends verbatim (supertest's default parser discards binary
+    // bodies for this media type, so it cannot assert on the wire bytes).
+    const service = require("../src/services/export.service.js");
+    const file = await service.exportProducts(ownerUserId, "ods");
+    expect(file.extension).toBe("ods");
+    expect(file.mimeType).toBe("application/vnd.oasis.opendocument.spreadsheet");
+    const buf = file.body;
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    // ZIP local-file-header magic ("PK\x03\x04")
+    expect(buf.slice(0, 4)).toEqual(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+    // End-of-central-directory magic must be present near the tail.
+    expect(buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]))).toBeGreaterThan(0);
+    // Entries are DEFLATE-compressed; the first entry must be the mimetype,
+    // whose inflated contents state the ODS media type.
+    const zlib = require("node:zlib");
+    const nameLen = buf.readUInt16LE(26);
+    const extraLen = buf.readUInt16LE(28);
+    const compressedSize = buf.readUInt32LE(18);
+    const dataStart = 30 + nameLen + extraLen;
+    expect(buf.subarray(30, 30 + nameLen).toString("utf8")).toBe("mimetype");
+    const mimetype = zlib.inflateRawSync(buf.subarray(dataStart, dataStart + compressedSize)).toString("utf8");
+    expect(mimetype).toBe("application/vnd.oasis.opendocument.spreadsheet");
+  });
+
+  test("ODS contains bold header row and one row per product", async () => {
+    const { buildOds, ODS_HEADERS, CSV_HEADERS } = require("../src/services/export.service");
+    const buf = buildOds([
+      { productName: "A", brand: "B", purchasePrice: 10 },
+      { productName: "C", brand: "D", purchasePrice: 20 }
+    ]);
+    const zlib = require("node:zlib");
+    // Extract content.xml from the zip by scanning local headers.
+    let xml = "";
+    let off = 0;
+    while (off < buf.length - 4) {
+      if (buf.readUInt32LE(off) !== 0x04034b50) break;
+      const nameLen = buf.readUInt16LE(off + 26);
+      const extraLen = buf.readUInt16LE(off + 28);
+      const compSize = buf.readUInt32LE(off + 18);
+      const name = buf.subarray(off + 30, off + 30 + nameLen).toString("utf8");
+      const dataStart = off + 30 + nameLen + extraLen;
+      if (name === "content.xml") {
+        xml = zlib.inflateRawSync(buf.subarray(dataStart, dataStart + compSize)).toString("utf8");
+      }
+      off = dataStart + compSize;
+    }
+    expect(xml).toContain("fo:font-weight=\"bold\"");
+    expect(xml).toContain(ODS_HEADERS[0]);
+    expect(xml).toContain("table:table-row");
+    expect(xml.match(/<table:table-row>/g).length).toBe(3); // header + 2 rows
+    // Excluded fields never appear in the sheet.
+    for (const h of ["notes", "tags", "warranties", "documents", "warrantyProvider"]) {
+      expect(CSV_HEADERS).not.toContain(h);
+    }
   });
 
   test("export defaults to JSON when format is missing or unknown", async () => {
@@ -147,6 +219,89 @@ describe("Warranty claim + export", () => {
 
   test("requires authentication for export", async () => {
     const response = await request(app).get("/api/v1/export/products");
+    expect(response.statusCode).toBe(401);
+  });
+
+  // ── Import (CSV / JSON) ──
+
+  test("imports products from a JSON file", async () => {
+    const payload = {
+      products: [
+        { productName: "Imported A", brand: "BrandA", purchasePrice: 100, serialNumber: `IMP-A-${Date.now()}` },
+        { productName: "Imported B", brand: "BrandB", purchasePrice: 200, serialNumber: `IMP-B-${Date.now()}` }
+      ]
+    };
+    const response = await request(app)
+      .post("/api/v1/export/products/import")
+      .set("Authorization", `Bearer ${token}`)
+      .attach("file", Buffer.from(JSON.stringify(payload)), "import.json");
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.imported).toBe(2);
+    expect(response.body.data.failed).toBe(0);
+  });
+
+  test("imports products from a CSV file and skips duplicate serials", async () => {
+    const serial = `IMP-C-${Date.now()}`;
+    const csv = [
+      "productName,brand,serialNumber,purchasePrice,lifecycleStatus",
+      `Imported C,BrandC,${serial},50,in_use`,
+      `Imported D,BrandD,${serial},60,owned`,
+      ",BrandE,,70,owned"
+    ].join("\n");
+    const response = await request(app)
+      .post("/api/v1/export/products/import")
+      .set("Authorization", `Bearer ${token}`)
+      .attach("file", Buffer.from(csv), "import.csv");
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data.imported).toBe(1);
+    expect(response.body.data.duplicates).toBe(1);
+    expect(response.body.data.failed).toBe(1); // missing productName
+    // Invalid lifecycle falls back to owned with a warning.
+    const badLifecycle = await request(app)
+      .post("/api/v1/export/products/import")
+      .set("Authorization", `Bearer ${token}`)
+      .attach("file", Buffer.from("productName,serialNumber,lifecycleStatus\nImported E,IMP-E-1,weird"), "import2.csv");
+    expect(badLifecycle.body.data.imported).toBe(1);
+    expect(badLifecycle.body.data.results[0].warnings[0]).toContain("lifecycleStatus");
+  });
+
+  test("import never writes into another user's vault and round-trips", async () => {
+    // Import a unique product as `other`, then export as `other` and find it.
+    const serial = `IMP-OTHER-${Date.now()}`;
+    const response = await request(app)
+      .post("/api/v1/export/products/import")
+      .set("Authorization", `Bearer ${otherToken}`)
+      .attach("file", Buffer.from(JSON.stringify({ productName: "Other's import", serialNumber: serial })), "import.json");
+    expect(response.body.data.imported).toBe(1);
+
+    const csvExport = await request(app)
+      .get("/api/v1/export/products?format=csv")
+      .set("Authorization", `Bearer ${otherToken}`);
+    expect(csvExport.text).toContain("Other's import");
+    // ...and the owner must NOT see it.
+    const ownerExport = await request(app)
+      .get("/api/v1/export/products?format=json")
+      .set("Authorization", `Bearer ${token}`);
+    expect(JSON.stringify(JSON.parse(ownerExport.text).products.map((p) => p.serialNumber))).not.toContain(serial);
+  });
+
+  test("rejects import without a file or with an unsupported type", async () => {
+    const noFile = await request(app)
+      .post("/api/v1/export/products/import")
+      .set("Authorization", `Bearer ${token}`);
+    expect([400, 422]).toContain(noFile.statusCode);
+
+    const badType = await request(app)
+      .post("/api/v1/export/products/import")
+      .set("Authorization", `Bearer ${token}`)
+      .attach("file", Buffer.from("MZ fake binary"), "evil.exe");
+    expect([400, 422, 500]).toContain(badType.statusCode);
+  });
+
+  test("requires authentication for import", async () => {
+    const response = await request(app)
+      .post("/api/v1/export/products/import")
+      .attach("file", Buffer.from("productName\nX"), "x.csv");
     expect(response.statusCode).toBe(401);
   });
 

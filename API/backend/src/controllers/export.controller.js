@@ -13,7 +13,7 @@ async function getClaimSummary(req, res, next) {
   }
 }
 
-// Phase 4 §16 — download all owned products as JSON or CSV. Downloads are
+// Phase 4 §16 — download all owned products as JSON, CSV or ODS. Downloads are
 // sent as attachments so the browser never tries to render them inline.
 async function exportProducts(req, res, next) {
   try {
@@ -31,7 +31,19 @@ async function exportProducts(req, res, next) {
   }
 }
 
+// Bulk import: upload a CSV or JSON file of products; each valid row becomes a
+// product owned by the authenticated user. Returns a per-row report.
+async function importProducts(req, res, next) {
+  try {
+    const report = await exportService.importProducts(req.user.userId, req.file);
+    return sendSuccess(res, report, `Imported ${report.imported} of ${report.totalRows} products`);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getClaimSummary,
-  exportProducts
+  exportProducts,
+  importProducts
 };
