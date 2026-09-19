@@ -81,6 +81,40 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false
     },
+    resetPasswordCodeHash: {
+      type: String,
+      select: false
+    },
+    resetPasswordExpiresAt: {
+      type: Date,
+      select: false
+    },
+    resetPasswordAttempts: {
+      type: Number,
+      default: 0,
+      select: false
+    },
+    lastResetPasswordSentAt: {
+      type: Date,
+      select: false
+    },
+    deleteAccountCodeHash: {
+      type: String,
+      select: false
+    },
+    deleteAccountExpiresAt: {
+      type: Date,
+      select: false
+    },
+    deleteAccountAttempts: {
+      type: Number,
+      default: 0,
+      select: false
+    },
+    lastDeleteAccountSentAt: {
+      type: Date,
+      select: false
+    },
     profilePicture: {
       type: String,
       default: null

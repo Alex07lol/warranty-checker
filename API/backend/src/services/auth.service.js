@@ -2,9 +2,19 @@
 
 const crypto = require("node:crypto");
 const User = require("../models/User");
+const Product = require("../models/Product");
+const Document = require("../models/Document");
+const ServiceHistory = require("../models/ServiceHistory");
+const Share = require("../models/Share");
+const Notification = require("../models/Notification");
 const AppError = require("../utils/AppError");
 const { generateToken } = require("../utils/jwtHelper");
-const { sendVerificationEmail } = require("./email.service");
+const cloudinary = require("../config/cloudinary");
+const {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendAccountDeletionEmail
+} = require("./email.service");
 
 function generateVerificationCode() {
   // Generates a cryptographically random 6-digit number between 100000 and 999999
@@ -276,6 +286,7 @@ async function loginUser(email, password) {
       isEmailVerified: user.isEmailVerified,
       createdAt: user.createdAt
     },
+    email: user.email,
     token: generateToken(user._id)
   };
 }
@@ -328,6 +339,198 @@ async function updateNotificationPreferences(userId, prefs) {
   return user;
 }
 
+async function requestPasswordReset(email) {
+  const normalizedEmail = String(email || "").toLowerCase().trim();
+  const user = await User.findOne({ email: normalizedEmail }).select(
+    "+lastResetPasswordSentAt"
+  );
+
+  if (!user) {
+    // Avoid email enumeration
+    return {
+      message: "If an account exists with this email, a password reset code has been sent."
+    };
+  }
+
+  if (user.lastResetPasswordSentAt) {
+    const elapsedMs = Date.now() - new Date(user.lastResetPasswordSentAt).getTime();
+    if (elapsedMs < 60000) {
+      const waitSec = Math.ceil((60000 - elapsedMs) / 1000);
+      throw new AppError(
+        `Please wait ${waitSec} second${waitSec === 1 ? "" : "s"} before requesting another reset code.`,
+        429
+      );
+    }
+  }
+
+  const code = generateVerificationCode();
+  user.resetPasswordCodeHash = hashCode(code);
+  user.resetPasswordExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  user.resetPasswordAttempts = 0;
+  user.lastResetPasswordSentAt = new Date();
+  await user.save();
+
+  await sendPasswordResetEmail({
+    to: user.email,
+    name: user.name,
+    code,
+    expiresMinutes: 15
+  });
+
+  return {
+    email: user.email,
+    message: "A password reset code has been sent to your email."
+  };
+}
+
+async function resetPassword(email, code, newPassword) {
+  const normalizedEmail = String(email || "").toLowerCase().trim();
+  const user = await User.findOne({ email: normalizedEmail }).select(
+    "+passwordHash +resetPasswordCodeHash +resetPasswordExpiresAt +resetPasswordAttempts"
+  );
+
+  if (!user) {
+    throw new AppError("Invalid or expired password reset code.", 400);
+  }
+
+  if (user.resetPasswordAttempts >= 5) {
+    throw new AppError(
+      "Too many failed attempts. Please request a new password reset code.",
+      429
+    );
+  }
+
+  if (!user.resetPasswordExpiresAt || user.resetPasswordExpiresAt < new Date()) {
+    throw new AppError(
+      "Password reset code has expired. Please request a new one.",
+      400
+    );
+  }
+
+  const providedHash = hashCode(code);
+  if (user.resetPasswordCodeHash !== providedHash) {
+    user.resetPasswordAttempts = (user.resetPasswordAttempts || 0) + 1;
+    await user.save();
+    const remaining = Math.max(0, 5 - user.resetPasswordAttempts);
+    throw new AppError(
+      `Invalid reset code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`,
+      400
+    );
+  }
+
+  user.passwordHash = newPassword;
+  user.resetPasswordCodeHash = undefined;
+  user.resetPasswordExpiresAt = undefined;
+  user.resetPasswordAttempts = 0;
+  await user.save();
+
+  return {
+    message: "Password has been successfully reset. You can now log in with your new password."
+  };
+}
+
+async function requestAccountDeletion(userId) {
+  const user = await User.findById(userId).select("+lastDeleteAccountSentAt");
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (user.lastDeleteAccountSentAt) {
+    const elapsedMs = Date.now() - new Date(user.lastDeleteAccountSentAt).getTime();
+    if (elapsedMs < 60000) {
+      const waitSec = Math.ceil((60000 - elapsedMs) / 1000);
+      throw new AppError(
+        `Please wait ${waitSec} second${waitSec === 1 ? "" : "s"} before requesting another deletion code.`,
+        429
+      );
+    }
+  }
+
+  const code = generateVerificationCode();
+  user.deleteAccountCodeHash = hashCode(code);
+  user.deleteAccountExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  user.deleteAccountAttempts = 0;
+  user.lastDeleteAccountSentAt = new Date();
+  await user.save();
+
+  await sendAccountDeletionEmail({
+    to: user.email,
+    name: user.name,
+    code,
+    expiresMinutes: 15
+  });
+
+  return {
+    email: user.email,
+    message: "An account deletion confirmation code has been sent to your email."
+  };
+}
+
+async function confirmAccountDeletion(userId, code) {
+  const user = await User.findById(userId).select(
+    "+deleteAccountCodeHash +deleteAccountExpiresAt +deleteAccountAttempts"
+  );
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (user.deleteAccountAttempts >= 5) {
+    throw new AppError(
+      "Too many failed attempts. Please request a new deletion code.",
+      429
+    );
+  }
+
+  if (!user.deleteAccountExpiresAt || user.deleteAccountExpiresAt < new Date()) {
+    throw new AppError(
+      "Account deletion code has expired. Please request a new one.",
+      400
+    );
+  }
+
+  const providedHash = hashCode(code);
+  if (user.deleteAccountCodeHash !== providedHash) {
+    user.deleteAccountAttempts = (user.deleteAccountAttempts || 0) + 1;
+    await user.save();
+    const remaining = Math.max(0, 5 - user.deleteAccountAttempts);
+    throw new AppError(
+      `Invalid deletion code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`,
+      400
+    );
+  }
+
+  // Cloudinary asset cleanup (best effort, non-blocking)
+  if (typeof cloudinary.isConfigured === "function" && cloudinary.isConfigured()) {
+    try {
+      const userDocs = await Document.find({ userId }).select("publicId");
+      const destroyPromises = userDocs
+        .filter((doc) => Boolean(doc.publicId))
+        .map((doc) =>
+          cloudinary.uploader.destroy(doc.publicId, { resource_type: "image" })
+        );
+      await Promise.allSettled(destroyPromises);
+    } catch {
+      // Non-blocking cleanup
+    }
+  }
+
+  // Cascade deletion across MongoDB collections
+  await Promise.all([
+    Product.deleteMany({ userId }),
+    Document.deleteMany({ userId }),
+    ServiceHistory.deleteMany({ userId }),
+    Share.deleteMany({ userId }),
+    Notification.deleteMany({ userId }),
+    User.findByIdAndDelete(userId)
+  ]);
+
+  return {
+    message: "Your account and all associated data have been permanently deleted."
+  };
+}
+
 module.exports = {
   registerUser,
   verifyEmail,
@@ -338,5 +541,9 @@ module.exports = {
   updateNotificationPreferences,
   // Exported so the Gmail-alias duplicate rule is unit-testable on its own.
   canonicalEmail,
-  emailMatchQuery
+  emailMatchQuery,
+  requestPasswordReset,
+  resetPassword,
+  requestAccountDeletion,
+  confirmAccountDeletion
 };
