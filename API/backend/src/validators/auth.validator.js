@@ -40,11 +40,37 @@ const resendVerificationSchema = Joi.object({
   email: Joi.string().email().required()
 });
 
+const forgotPasswordSchema = Joi.object({
+  email: Joi.string().email().required()
+});
+
+const resetPasswordSchema = Joi.object({
+  email: Joi.string().email().required(),
+  code: Joi.string().trim().length(6).pattern(/^\d{6}$/).required().messages({
+    "string.length": "Reset code must be exactly 6 digits",
+    "string.pattern.base": "Reset code must contain digits only"
+  }),
+  newPassword: Joi.string().min(8).required(),
+  confirmNewPassword: Joi.any().valid(Joi.ref("newPassword")).required().messages({
+    "any.only": "Password confirmation does not match"
+  })
+});
+
+const confirmDeleteAccountSchema = Joi.object({
+  code: Joi.string().trim().length(6).pattern(/^\d{6}$/).required().messages({
+    "string.length": "Deletion code must be exactly 6 digits",
+    "string.pattern.base": "Deletion code must contain digits only"
+  })
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
   changePasswordSchema,
   updatePreferencesSchema,
   verifyEmailSchema,
-  resendVerificationSchema
+  resendVerificationSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  confirmDeleteAccountSchema
 };

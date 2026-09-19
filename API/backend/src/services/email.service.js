@@ -80,9 +80,14 @@ function clearTestSentEmails() {
   testSentEmails.length = 0;
 }
 
-function getLatestCodeForEmail(email) {
+function getLatestCodeForEmail(email, type) {
   const normalized = String(email || "").toLowerCase().trim();
-  const match = [...testSentEmails].reverse().find((e) => e.to.toLowerCase() === normalized);
+  const match = [...testSentEmails].reverse().find((e) => {
+    const matchesEmail = e.to.toLowerCase() === normalized;
+    if (!matchesEmail) return false;
+    if (type) return e.type === type;
+    return true;
+  });
   return match ? match.code : null;
 }
 
@@ -167,6 +172,176 @@ function buildVerificationEmailText({ name, code, expiresMinutes = 15 }) {
     `This code will expire in ${expiresMinutes} minutes.`,
     ``,
     `If you did not request this email, please ignore it.`,
+    ``,
+    `-- The WarrantyVault Team`
+  ].join("\n");
+}
+
+/**
+ * Generate a responsive HTML template for password reset emails.
+ */
+function buildPasswordResetEmailHtml({ name, code, expiresMinutes = 15 }) {
+  const safeName = name ? String(name).replace(/[<>&"]/g, "") : "there";
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset your WarrantyVault password</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f1f5f9;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0b0f19; padding: 40px 15px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 520px; background: #151d30; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.4);">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 36px 36px 20px 36px; text-align: center;">
+              <div style="display: inline-block; width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #f59e0b, #ef4444); line-height: 48px; text-align: center; margin-bottom: 16px;">
+                <span style="font-size: 24px; color: #ffffff;">🔑</span>
+              </div>
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">WarrantyVault</h1>
+              <p style="margin: 6px 0 0 0; font-size: 14px; color: #94a3b8;">Password Reset Request</p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 10px 36px 30px 36px;">
+              <h2 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #f8fafc;">Reset your password</h2>
+              <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 24px; color: #cbd5e1;">
+                Hi ${safeName},<br>
+                We received a request to reset the password for your WarrantyVault account. Enter the 6-digit verification code below to set a new password.
+              </p>
+
+              <!-- Code Box -->
+              <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+                <div style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: #94a3b8; margin-bottom: 8px;">Password Reset Code</div>
+                <div style="font-family: 'SF Mono', Consolas, Monaco, monospace; font-size: 36px; font-weight: 700; letter-spacing: 10px; color: #f59e0b; margin-left: 10px;">${code}</div>
+                <div style="margin-top: 10px; font-size: 13px; color: #94a3b8;">Expires in ${expiresMinutes} minutes</div>
+              </div>
+
+              <p style="margin: 0 0 16px 0; font-size: 13px; line-height: 20px; color: #94a3b8;">
+                If you did not request a password reset, please ignore this email. Your current password will remain secure and unchanged.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 36px; background: #0c1222; border-top: 1px solid #1e293b; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #64748b;">
+                &copy; ${new Date().getFullYear()} WarrantyVault. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function buildPasswordResetEmailText({ name, code, expiresMinutes = 15 }) {
+  const safeName = name || "there";
+  return [
+    `WarrantyVault Password Reset`,
+    `----------------------------`,
+    `Hello ${safeName},`,
+    ``,
+    `We received a request to reset your password.`,
+    `Your 6-digit password reset code is: ${code}`,
+    ``,
+    `This code will expire in ${expiresMinutes} minutes.`,
+    ``,
+    `If you did not request this change, please ignore this email.`,
+    ``,
+    `-- The WarrantyVault Team`
+  ].join("\n");
+}
+
+/**
+ * Generate a responsive HTML template for account deletion confirmation emails.
+ */
+function buildAccountDeletionEmailHtml({ name, code, expiresMinutes = 15 }) {
+  const safeName = name ? String(name).replace(/[<>&"]/g, "") : "there";
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm WarrantyVault Account Deletion</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f1f5f9;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0b0f19; padding: 40px 15px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 520px; background: #151d30; border: 1px solid #ef4444; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(239, 68, 68, 0.2);">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 36px 36px 20px 36px; text-align: center;">
+              <div style="display: inline-block; width: 48px; height: 48px; border-radius: 12px; background: #ef4444; line-height: 48px; text-align: center; margin-bottom: 16px;">
+                <span style="font-size: 24px; color: #ffffff;">⚠️</span>
+              </div>
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">WarrantyVault</h1>
+              <p style="margin: 6px 0 0 0; font-size: 14px; color: #ef4444; font-weight: 600;">Account Deletion Request</p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 10px 36px 30px 36px;">
+              <h2 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #f8fafc;">Confirm permanent deletion</h2>
+              <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 24px; color: #cbd5e1;">
+                Hi ${safeName},<br>
+                We received a request to permanently delete your WarrantyVault account. This will erase all your products, receipts, warranty documents, service logs, and notifications.
+              </p>
+
+              <!-- Code Box -->
+              <div style="background: #0f172a; border: 1px solid #ef4444; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+                <div style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: #fca5a5; margin-bottom: 8px;">Deletion Confirmation Code</div>
+                <div style="font-family: 'SF Mono', Consolas, Monaco, monospace; font-size: 36px; font-weight: 700; letter-spacing: 10px; color: #ef4444; margin-left: 10px;">${code}</div>
+                <div style="margin-top: 10px; font-size: 13px; color: #f87171;">Expires in ${expiresMinutes} minutes</div>
+              </div>
+
+              <p style="margin: 0 0 16px 0; font-size: 13px; line-height: 20px; color: #94a3b8;">
+                <strong style="color: #ef4444;">Warning:</strong> This action cannot be undone. If you did not initiate this request, change your password immediately and do NOT share this code.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 36px; background: #0c1222; border-top: 1px solid #1e293b; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #64748b;">
+                &copy; ${new Date().getFullYear()} WarrantyVault. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function buildAccountDeletionEmailText({ name, code, expiresMinutes = 15 }) {
+  const safeName = name || "there";
+  return [
+    `WarrantyVault Account Deletion Confirmation`,
+    `--------------------------------------------`,
+    `Hello ${safeName},`,
+    ``,
+    `We received a request to permanently delete your WarrantyVault account.`,
+    `Your 6-digit account deletion code is: ${code}`,
+    ``,
+    `This code will expire in ${expiresMinutes} minutes.`,
+    ``,
+    `WARNING: This action is permanent and cannot be undone. All warranty records, documents, and notifications will be deleted.`,
+    ``,
+    `If you did not request this, please secure your account immediately.`,
     ``,
     `-- The WarrantyVault Team`
   ].join("\n");
@@ -262,19 +437,20 @@ async function sendViaResend({ to, subject, html, text }) {
   return data.id || "resend-sent";
 }
 
-/**
- * Send an actual verification email to the user using Nodemailer / SMTP (Gmail),
- * or Brevo / Resend HTTPS APIs if configured.
- */
-async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
-  const subject = `${code} is your WarrantyVault verification code`;
-  const html = buildVerificationEmailHtml({ name, code, expiresMinutes });
-  const text = buildVerificationEmailText({ name, code, expiresMinutes });
-
+async function dispatchEmail({
+  to,
+  name,
+  subject,
+  html,
+  text,
+  code,
+  type = "verification",
+  logLabel = "Verification email"
+}) {
   // Record for test environments
   if (NODE_ENV === "test") {
-    testSentEmails.push({ to, name, code, subject, html, text, sentAt: new Date() });
-    logger.info("Verification email recorded in test mode", { to, code });
+    testSentEmails.push({ to, name, code, type, subject, html, text, sentAt: new Date() });
+    logger.info(`${logLabel} recorded in test mode`, { to, code, type });
     return { success: true, id: "test-email-id", code };
   }
 
@@ -282,10 +458,10 @@ async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
   if (BREVO_API_KEY && BREVO_API_KEY !== "test" && !BREVO_API_KEY.startsWith("<")) {
     try {
       const messageId = await sendViaBrevo({ to, name, subject, html, text });
-      logger.info("Verification email sent via Brevo HTTPS API", { to, messageId });
+      logger.info(`${logLabel} sent via Brevo HTTPS API`, { to, messageId, type });
       return { success: true, id: messageId };
     } catch (err) {
-      logger.error("Error sending verification email via Brevo HTTPS API", { to, error: err.message });
+      logger.error(`Error sending ${logLabel} via Brevo HTTPS API`, { to, error: err.message, type });
       throw new AppError(err.message || "Failed to send email via Brevo", 502);
     }
   }
@@ -294,10 +470,10 @@ async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
   if (RESEND_API_KEY && RESEND_API_KEY !== "test" && !RESEND_API_KEY.startsWith("<") && process.env.ENABLE_RESEND_FALLBACK === "true") {
     try {
       const id = await sendViaResend({ to, subject, html, text });
-      logger.info("Verification email sent via Resend HTTPS API", { to, id });
+      logger.info(`${logLabel} sent via Resend HTTPS API`, { to, id, type });
       return { success: true, id };
     } catch (err) {
-      logger.error("Error sending verification email via Resend HTTPS API", { to, error: err.message });
+      logger.error(`Error sending ${logLabel} via Resend HTTPS API`, { to, error: err.message, type });
       throw new AppError(err.message || "Failed to send email via Resend", 502);
     }
   }
@@ -312,9 +488,9 @@ async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
     }
 
     logger.warn(
-      `[DEV EMAIL MOCK] SMTP credentials unset. Code for ${to}: [${code}] (Expires in ${expiresMinutes}m)`
+      `[DEV EMAIL MOCK] SMTP credentials unset. ${logLabel} for ${to}: [${code}] (Type: ${type})`
     );
-    testSentEmails.push({ to, name, code, subject, html, text, sentAt: new Date() });
+    testSentEmails.push({ to, name, code, type, subject, html, text, sentAt: new Date() });
     return { success: true, id: "dev-mock-id", code };
   }
 
@@ -328,20 +504,22 @@ async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
       text
     });
 
-    logger.info("Verification email sent via Nodemailer/SMTP", {
+    logger.info(`${logLabel} sent via Nodemailer/SMTP`, {
       to,
-      messageId: result.messageId
+      messageId: result.messageId,
+      type
     });
     return { success: true, id: result.messageId };
   } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.error("Error sending verification email via Nodemailer/SMTP", {
+    logger.error(`Error sending ${logLabel} via Nodemailer/SMTP`, {
       to,
       error: error.message,
       code: error.code,
-      response: error.response
+      response: error.response,
+      type
     });
-    let message = "Failed to send verification email. Please try again later.";
+    let message = `Failed to send ${logLabel.toLowerCase()}. Please try again later.`;
     if (error.code === "EAUTH") {
       message = "Email authentication failed (EAUTH). Please check your Gmail address and 16-character App Password.";
     } else if (NODE_ENV !== "production") {
@@ -351,11 +529,74 @@ async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
   }
 }
 
+/**
+ * Send an email verification code.
+ */
+async function sendVerificationEmail({ to, name, code, expiresMinutes = 15 }) {
+  const subject = `${code} is your WarrantyVault verification code`;
+  const html = buildVerificationEmailHtml({ name, code, expiresMinutes });
+  const text = buildVerificationEmailText({ name, code, expiresMinutes });
+  return dispatchEmail({
+    to,
+    name,
+    subject,
+    html,
+    text,
+    code,
+    type: "verification",
+    logLabel: "Verification email"
+  });
+}
+
+/**
+ * Send a password reset code.
+ */
+async function sendPasswordResetEmail({ to, name, code, expiresMinutes = 15 }) {
+  const subject = `${code} is your WarrantyVault password reset code`;
+  const html = buildPasswordResetEmailHtml({ name, code, expiresMinutes });
+  const text = buildPasswordResetEmailText({ name, code, expiresMinutes });
+  return dispatchEmail({
+    to,
+    name,
+    subject,
+    html,
+    text,
+    code,
+    type: "password_reset",
+    logLabel: "Password reset email"
+  });
+}
+
+/**
+ * Send an account deletion confirmation code.
+ */
+async function sendAccountDeletionEmail({ to, name, code, expiresMinutes = 15 }) {
+  const subject = `${code} is your WarrantyVault account deletion code`;
+  const html = buildAccountDeletionEmailHtml({ name, code, expiresMinutes });
+  const text = buildAccountDeletionEmailText({ name, code, expiresMinutes });
+  return dispatchEmail({
+    to,
+    name,
+    subject,
+    html,
+    text,
+    code,
+    type: "account_deletion",
+    logLabel: "Account deletion email"
+  });
+}
+
 module.exports = {
   sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendAccountDeletionEmail,
   getTestSentEmails,
   clearTestSentEmails,
   getLatestCodeForEmail,
   buildVerificationEmailHtml,
-  buildVerificationEmailText
+  buildVerificationEmailText,
+  buildPasswordResetEmailHtml,
+  buildPasswordResetEmailText,
+  buildAccountDeletionEmailHtml,
+  buildAccountDeletionEmailText
 };

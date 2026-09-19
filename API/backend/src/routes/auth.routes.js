@@ -11,7 +11,10 @@ const {
   changePasswordSchema,
   updatePreferencesSchema,
   verifyEmailSchema,
-  resendVerificationSchema
+  resendVerificationSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  confirmDeleteAccountSchema
 } = require("../validators/auth.validator");
 
 const router = express.Router();
@@ -26,6 +29,8 @@ const authLimiter = rateLimit({
 router.post("/register", authLimiter, validate(registerSchema), controller.register);
 router.post("/verify-email", authLimiter, validate(verifyEmailSchema), controller.verifyEmail);
 router.post("/resend-verification", authLimiter, validate(resendVerificationSchema), controller.resendVerification);
+router.post("/forgot-password", authLimiter, validate(forgotPasswordSchema), controller.forgotPassword);
+router.post("/reset-password", authLimiter, validate(resetPasswordSchema), controller.resetPassword);
 router.post("/login", authLimiter, validate(loginSchema), controller.login);
 router.post("/logout", auth, controller.logout);
 router.get("/me", auth, controller.getMe);
@@ -39,6 +44,16 @@ router.put(
   authLimiter,
   validate(changePasswordSchema),
   controller.changePassword
+);
+
+// Account deletion with email verification and MongoDB cascading cleanup
+router.post("/request-delete-account", auth, authLimiter, controller.requestDeleteAccount);
+router.post(
+  "/confirm-delete-account",
+  auth,
+  authLimiter,
+  validate(confirmDeleteAccountSchema),
+  controller.confirmDeleteAccount
 );
 
 module.exports = router;

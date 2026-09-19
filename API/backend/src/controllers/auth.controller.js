@@ -87,6 +87,49 @@ async function updatePreferences(req, res, next) {
   }
 }
 
+async function forgotPassword(req, res, next) {
+  try {
+    const data = await authService.requestPasswordReset(req.body.email);
+    return sendSuccess(res, data, data.message || "Password reset code sent");
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function resetPassword(req, res, next) {
+  try {
+    const data = await authService.resetPassword(
+      req.body.email,
+      req.body.code,
+      req.body.newPassword
+    );
+    return sendSuccess(res, data, data.message || "Password reset successfully");
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function requestDeleteAccount(req, res, next) {
+  try {
+    const data = await authService.requestAccountDeletion(req.user.userId);
+    return sendSuccess(res, data, data.message || "Deletion code sent");
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function confirmDeleteAccount(req, res, next) {
+  try {
+    const data = await authService.confirmAccountDeletion(
+      req.user.userId,
+      req.body.code
+    );
+    return sendSuccess(res, data, data.message || "Account deleted successfully");
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   register,
   verifyEmail,
@@ -95,5 +138,9 @@ module.exports = {
   logout,
   getMe,
   changePassword,
-  updatePreferences
+  updatePreferences,
+  forgotPassword,
+  resetPassword,
+  requestDeleteAccount,
+  confirmDeleteAccount
 };
